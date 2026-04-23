@@ -1,0 +1,62 @@
+{
+  "name": "@starlove/orbit",
+  "version": "0.1.0",
+  "description": "Starscape Orbit — SQLite-backed, agent-first task board (Starscape suite).",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.20.0",
+  "bin": {
+    "orbit": "./src/cli/orbit.js"
+  },
+  "files": [
+    ".dockerignore",
+    "Dockerfile",
+    "SKILL-ORBIT.md",
+    "build.mjs",
+    "docs",
+    "dist/full",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "public",
+    "src",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepublishOnly": "node build.mjs --edition=full",
+    "dev": "node src/server.js",
+    "dev:site": "pnpm run build:preview && pnpm run build:site && node serve-site.mjs",
+    "orbit": "node src/cli/orbit.js",
+    "build": "pnpm run build:full && pnpm run build:preview && pnpm run build:site",
+    "build:vercel": "pnpm run build:preview && pnpm run build:site",
+    "build:full": "node build.mjs --edition=full",
+    "build:preview": "node build.mjs --edition=preview",
+    "build:site": "node build.mjs --edition=site",
+    "serve:site": "node serve-site.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brucestarlove/ss-orbit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brucestarlove/ss-orbit/issues"
+  },
+  "homepage": "https://orbit.starscape.app",
+  "keywords": [
+    "kanban",
+    "agents",
+    "mcp",
+    "sqlite",
+    "task-board",
+    "claude-code"
+  ]
+}

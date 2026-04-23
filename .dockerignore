@@ -1,0 +1,13 @@
+.git
+.claude
+.orbit
+data
+dist
+node_modules
+npm-debug.log*
+pnpm-debug.log*
+*.db
+*.db-shm
+*.db-wal
+.env
+.DS_Store

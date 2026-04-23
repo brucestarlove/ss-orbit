@@ -1,0 +1,4892 @@
+html, body {
+  cursor: url('cursors/live_arrow.cur'), default;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable=""] {
+  cursor: url('cursors/live_select.cur'), text;
+}
+
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+input[type="color"],
+input[type="file"] {
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+:root {
+  --paper: #f6f0e5;
+  --paper-deep: #eadfcf;
+  --ink: #1d2528;
+  --muted: #7f8b87;
+  --line: rgba(29, 37, 40, 0.14);
+  --card: rgba(var(--paper-rgb),0.86);
+  --accent: #0f766e;
+  --accent-2: #bf6b21;
+  --blue: #245c7c;
+  --danger: #a63d2f;
+  --shadow: 0 18px 60px rgba(var(--warmth-rgb),0.14);
+  --radius: 18px;
+  /* Surfaces */
+  --surface: rgba(var(--paper-rgb),0.86);
+  --surface-raised: rgba(var(--paper-rgb),0.98);
+  --surface-dim: rgba(var(--paper-rgb),0.58);
+  --surface-input: rgba(var(--paper-rgb),0.76);
+  --topbar-bg: rgba(246, 240, 229, 0.88);
+  --drawer-bg: rgba(var(--paper-rgb),0.97);
+  --drawer-head-bg: rgba(246, 240, 229, 0.92);
+  /* Buttons */
+  --btn-gradient: linear-gradient(135deg, rgba(var(--accent-rgb),0.92), rgba(var(--blue-rgb),0.88));
+  --btn-border: rgba(var(--accent-rgb),0.4);
+  --btn-hover-shadow: 0 10px 24px rgba(29, 37, 40, 0.18);
+  --mark-gradient: linear-gradient(135deg, rgba(var(--accent-rgb),0.95), rgba(var(--blue-rgb),0.95));
+  --mark-shadow: 0 6px 16px rgba(var(--accent-rgb),0.22);
+  /* Accent interactions */
+  --accent-hover: rgba(var(--accent-rgb),0.08);
+  --accent-active: rgba(var(--accent-rgb),0.12);
+  --accent-border: rgba(var(--accent-rgb),0.35);
+  --accent-ring: 0 0 0 4px rgba(var(--accent-rgb),0.12);
+  --accent-focus-border: rgba(var(--accent-rgb),0.65);
+  /* Subtle backgrounds */
+  --subtle-bg: rgba(29, 37, 40, 0.06);
+  --subtle-bg-2: rgba(29, 37, 40, 0.02);
+  /* Overlay */
+  --backdrop-bg: rgba(12, 18, 26, 0.38);
+  --flyout-shadow: 0 12px 36px rgba(12, 18, 26, 0.14), 0 4px 12px rgba(12, 18, 26, 0.06);
+  /* Orbit board surface */
+  --orbit-surface: rgba(29, 37, 40, 0.05);
+  --orbit-surface-2: rgba(29, 37, 40, 0.07);
+  --orbit-grid: rgba(29, 37, 40, 0.05);
+  --orbit-line: rgba(29, 37, 40, 0.1);
+  --orbit-column: rgba(255, 255, 255, 0.5);
+  --orbit-column-border: rgba(29, 37, 40, 0.08);
+  --orbit-text: var(--ink);
+  --orbit-text-muted: var(--muted);
+  --orbit-accent: rgba(var(--accent-rgb),0.12);
+  --orbit-accent-2: rgba(var(--blue-rgb),0.1);
+  --orbit-column-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --orbit-count-bg: rgba(29, 37, 40, 0.08);
+  --orbit-add-bg: rgba(29, 37, 40, 0.06);
+  --orbit-add-border: rgba(29, 37, 40, 0.12);
+  --orbit-phantom-border: rgba(29, 37, 40, 0.14);
+  --orbit-phantom-bg: rgba(29, 37, 40, 0.03);
+  --scrollbar-thumb: rgba(var(--accent-rgb),0.45);
+  --scrollbar-thumb-hover: rgba(var(--accent-rgb),0.65);
+  --scrollbar-track: transparent;
+  /* RGB channels — use as rgba(var(--name), alpha) for arbitrary-opacity tints */
+  --paper-rgb: 255, 252, 246;        /* warm cream paper — light-mode surface/inset base */
+  --warmth-rgb: 53, 43, 28;          /* warm parchment brown — light-mode shadow tint */
+  --accent-rgb: 15, 118, 110;        /* orbit teal — same hue as --accent */
+  --amber-rgb: 191, 107, 33;         /* amber ember — same hue as --accent-2 */
+  --teal-deep: #0a4d47;              /* deep teal — text on teal-palette surfaces */
+  --purple-rgb: 192, 132, 252;        /* light-mode epic card bezel */
+  --red-rgb: 166, 61, 47;            /* light-mode bug card bezel */
+  --blue-rgb: 36, 92, 124;           /* light-mode task card / --blue channel */
+  --starlight-rgb: 168, 192, 255;    /* starlight periwinkle — dark-mode accent/glow base */
+  --cosmos-rgb: 22, 33, 62;          /* cosmos navy — dark-mode surface base */
+  --void-rgb: 15, 52, 96;            /* void — dark-mode drop-shadow tint */
+  --violet-rgb: 168, 128, 255;       /* dark-mode epic inner ring */
+  --cyan-rgb: 6, 182, 212;           /* dark-mode epic gradient tint */
+  --indigo-rgb: 139, 92, 246;        /* dark-mode epic gradient tint 2 / orbit-accent-2 */
+  --coral-rgb: 248, 113, 113;        /* dark-mode bug card bezel (brighter than --red-rgb) */
+  /* Native <select> chevron: same horizontal inset for value text (left) and glyph (right). */
+  --select-chevron-pad-x: 0.55rem;
+  --select-chevron-size: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: "Aptos Display", "Bahnschrift", "Segoe UI Variable", sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(var(--amber-rgb),0.22), transparent 30rem),
+    radial-gradient(circle at 90% 4%, rgba(var(--blue-rgb),0.18), transparent 34rem),
+    linear-gradient(135deg, #fbf6ec 0%, var(--paper) 54%, #efe2cf 100%);
+}
+
+/* Keep chrome from accidental drag-highlighting, but preserve selection where
+   users intentionally edit, copy code, or use rich text surfaces. */
+input,
+textarea,
+pre,
+code,
+[contenteditable="true"],
+.comment-body,
+.description {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.28;
+  background-image:
+    linear-gradient(rgba(29, 37, 40, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29, 37, 40, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px;
+  mask-image: linear-gradient(to bottom, #000, transparent 90%);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 90%);
+}
+
+[data-theme="dark"] body {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+[data-theme="dark"] .grain {
+  opacity: 1;
+  background-image: none;
+  mask-image: none;
+  -webkit-mask-image: none;
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.72rem 1rem;
+  color: #fff;
+  background: var(--ink);
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+button:hover {
+  filter: brightness(1.04);
+}
+
+button.ghost {
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+/* Dark-mode submit buttons would render near-white-on-white without this
+   override, since var(--ink) remaps to near-white in dark mode. Scoped to
+   button[type="submit"] so topbar chips, icon buttons, and .btn-sun are
+   left alone. */
+[data-theme="dark"] button[type="submit"] {
+  color: #e8efff;
+  border: 1px solid rgba(var(--starlight-rgb),0.32);
+  background:
+    linear-gradient(135deg, rgba(30, 58, 100, 0.95), rgba(var(--void-rgb),0.98) 55%, rgba(26, 43, 84, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(210, 225, 255, 0.18),
+    0 2px 10px rgba(5, 12, 30, 0.45);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+[data-theme="dark"] button[type="submit"]:hover {
+  filter: brightness(1.08);
+  border-color: rgba(var(--starlight-rgb),0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(210, 225, 255, 0.28),
+    0 4px 18px rgba(var(--starlight-rgb),0.3);
+}
+
+[data-theme="dark"] .drawer button.ghost,
+[data-theme="dark"] .deployment-actions button.ghost {
+  color: rgba(232, 239, 255, 0.95);
+  background: rgba(var(--starlight-rgb),0.07);
+  border-color: rgba(var(--starlight-rgb),0.24);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .drawer button.ghost:hover,
+[data-theme="dark"] .deployment-actions button.ghost:hover {
+  color: #fff;
+  background: rgba(var(--starlight-rgb),0.14);
+  border-color: rgba(var(--starlight-rgb),0.5);
+  box-shadow: 0 0 14px rgba(var(--starlight-rgb),0.2);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--surface-input);
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent-focus-border);
+  box-shadow: var(--accent-ring);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-height: 3.05rem;
+  padding: 0.55rem clamp(0.65rem, 2vw, 1.1rem);
+  background: var(--topbar-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-theme="dark"] .topbar {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition:
+    background 260ms ease,
+    box-shadow 260ms ease,
+    backdrop-filter 260ms ease;
+}
+
+[data-theme="dark"] body.is-scrolled .topbar {
+  background: linear-gradient(
+    to bottom,
+    rgba(26, 26, 46, 0.82) 0%,
+    rgba(var(--cosmos-rgb),0.55) 100%
+  );
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="dark"] .topbar {
+    transition: none;
+  }
+}
+
+.brand {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.mark {
+  display: block;
+  width: 2.55rem;
+  height: 2.55rem;
+  object-fit: contain;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  letter-spacing: -0.03em;
+}
+
+/* One row: [flex gap after brand] → fixed-width search → New Card → Board → Settings */
+.controls {
+  display: flex;
+  flex: 1;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+/* Pulls the search + actions away from the Orbit brand without stretching the search full-width. */
+.topbar-controls-gap {
+  flex: 1 1 auto;
+  min-width: 1.25rem;
+  max-width: none;
+}
+
+.topbar-ctl-shrink {
+  flex-shrink: 0;
+}
+
+/* Bottom "frame" signature: in document flow below the board, inside the viewport shell. */
+.frame-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.45rem clamp(0.75rem, 2vw, 1.25rem) 0.55rem;
+}
+
+.frame-footer-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.frame-footer-subtitle {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.15;
+}
+
+.frame-footer-subtitle em {
+  font-style: italic;
+}
+
+.topbar-icon {
+  display: block;
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Topbar chips: anchored flyouts */
+.topbar-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* ---- Teal-chip chrome — shared by .topbar-chip and .menu-flyout-item ----
+   One rule set governs the bezel, tint wash, and inner-glow pattern so the
+   two surfaces are visually consistent. Structural properties (padding, radius,
+   font, display, transition) stay on each component class. */
+.topbar-chip,
+.menu-flyout-item {
+  border: 1.5px solid rgba(var(--accent-rgb),0.32);
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.06), rgba(var(--paper-rgb),0) 65%),
+    rgba(var(--paper-rgb),0.95);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb),0.9),
+    inset 0 0 0 2px rgba(var(--accent-rgb),0.12),
+    0 4px 10px rgba(var(--accent-rgb),0.07),
+    0 1px 4px rgba(var(--warmth-rgb),0.05);
+}
+
+.topbar-chip:hover,
+.menu-flyout-item:hover {
+  border-color: rgba(var(--accent-rgb),0.5);
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.12), rgba(var(--paper-rgb),0) 65%),
+    rgba(var(--paper-rgb),0.98);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb),0.9),
+    inset 0 0 0 2px rgba(var(--accent-rgb),0.2),
+    0 6px 14px rgba(var(--accent-rgb),0.14),
+    0 1px 4px rgba(var(--warmth-rgb),0.07);
+}
+
+[data-theme="dark"] .topbar-chip,
+[data-theme="dark"] .menu-flyout-item {
+  color: #e8efff;
+  border: 1.5px solid rgba(var(--starlight-rgb),0.28);
+  background:
+    linear-gradient(135deg, rgba(var(--starlight-rgb),0.05), rgba(var(--cosmos-rgb),0) 65%),
+    rgba(var(--cosmos-rgb),0.88);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2px rgba(var(--starlight-rgb),0.13),
+    0 4px 10px rgba(var(--void-rgb),0.22),
+    0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .topbar-chip:hover,
+[data-theme="dark"] .menu-flyout-item:hover {
+  border-color: rgba(var(--starlight-rgb),0.45);
+  background:
+    linear-gradient(135deg, rgba(var(--starlight-rgb),0.1), rgba(var(--cosmos-rgb),0) 65%),
+    rgba(var(--cosmos-rgb),0.93);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2px rgba(var(--starlight-rgb),0.22),
+    0 6px 14px rgba(var(--void-rgb),0.3),
+    0 1px 4px rgba(0, 0, 0, 0.24);
+}
+
+/* Topbar chips */
+.topbar-chip {
+  display: inline-flex;
+  max-width: 11.5rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.75rem;
+  overflow: hidden;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Theme toggle — Starscape "Default (Cosmic)" deepspace gradient.
+   Dark mode wears the original low-chroma navy→indigo→steel-blue wash;
+   light mode wears a high-lightness translation of the same hues so the
+   sleek lowkey character carries across themes. */
+#themeToggle {
+  border: 1px solid rgba(60, 80, 160, 0.18);
+  background: linear-gradient(in oklch 135deg, oklch(0.96 0.02 282.9) 0%, oklch(0.94 0.03 266.7) 50%, oklch(0.92 0.05 255.1) 100%);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 0.25rem 0.75rem rgba(60, 80, 160, 0.12);
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+#themeToggle:hover {
+  border-color: rgba(60, 80, 160, 0.32);
+  background: linear-gradient(in oklch 135deg, oklch(0.97 0.025 276.2) 0%, oklch(0.95 0.04 261.5) 50%, oklch(0.93 0.06 254.3) 100%);
+  box-shadow: 0 0.5rem 1.5625rem rgba(60, 80, 160, 0.22);
+  transform: translateY(-1px);
+}
+
+#themeToggle .topbar-icon {
+  color: var(--ink);
+}
+
+[data-theme="dark"] #themeToggle {
+  border-color: rgba(var(--starlight-rgb),0.15);
+  color: #fff;
+  background: linear-gradient(in oklch 135deg, oklch(0.228 0.0384 282.9) 0%, oklch(0.254 0.0571 266.7) 50%, oklch(0.325 0.0884 255.1) 100%);
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] #themeToggle:hover {
+  border-color: rgba(var(--starlight-rgb),0.3);
+  background: linear-gradient(in oklch 135deg, oklch(0.257 0.0323 276.2) 0%, oklch(0.287 0.0577 261.5) 50%, oklch(0.356 0.0989 254.3) 100%);
+  box-shadow: 0 0.5rem 1.5625rem rgba(var(--void-rgb),0.3);
+}
+
+[data-theme="dark"] #themeToggle .topbar-icon {
+  color: #fff;
+}
+
+.menu-flyout {
+  position: absolute;
+  top: calc(100% + 0.28rem);
+  left: 0;
+  z-index: 35;
+  display: flex;
+  min-width: 13.5rem;
+  max-width: min(20rem, calc(100vw - 1.5rem));
+  max-height: min(24rem, calc(100vh - 4rem));
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow: var(--flyout-shadow);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.menu-flyout--align-end {
+  right: 0;
+  left: auto;
+}
+
+/* UA `[hidden]` uses `display: none`, but author `display: flex` on these panels wins in
+   the cascade, so closed flyouts stayed in the box tree and showed only their border
+   as a hairline under the top bar. */
+.menu-flyout[hidden],
+.create-flyout[hidden],
+.drawer[hidden] {
+  display: none;
+}
+
+.menu-flyout-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--topbar-bg);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.menu-flyout-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem 0.55rem 0.65rem;
+}
+
+/* Flyout menu items — chrome comes from the shared .topbar-chip/.menu-flyout-item rule above */
+.menu-flyout-item {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.menu-flyout-item.is-current {
+  border-color: rgba(var(--accent-rgb),0.65);
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.18), rgba(var(--accent-rgb),0.04) 70%),
+    rgba(var(--paper-rgb),0.98);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb),0.9),
+    inset 0 0 0 2px rgba(var(--accent-rgb),0.3),
+    0 6px 14px rgba(var(--accent-rgb),0.18),
+    0 1px 4px rgba(var(--warmth-rgb),0.07);
+}
+
+.menu-flyout-item-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.menu-flyout-item-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+[data-theme="dark"] .menu-flyout-item.is-current {
+  border-color: rgba(var(--starlight-rgb),0.6);
+  background:
+    linear-gradient(135deg, rgba(var(--starlight-rgb),0.16), rgba(var(--starlight-rgb),0.04) 70%),
+    rgba(var(--cosmos-rgb),0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2px rgba(var(--starlight-rgb),0.32),
+    0 6px 14px rgba(var(--void-rgb),0.34),
+    0 1px 4px rgba(0, 0, 0, 0.24);
+}
+
+.menu-flyout-section {
+  padding: 0.55rem 0.75rem 0.75rem;
+  border-top: 1px solid var(--line);
+  background: var(--subtle-bg-2);
+}
+
+.menu-flyout-heading {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.menu-flyout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.menu-flyout-form input {
+  width: 100%;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.folder-picker-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+}
+
+.folder-picker-field input[readonly] {
+  cursor: default;
+  background: var(--surface-input);
+}
+
+.folder-picker-field button[type="button"] {
+  padding: 0.42rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--btn-border);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: inherit;
+  cursor: url('cursors/live_link.cur'), pointer;
+  background: var(--surface-raised);
+  white-space: nowrap;
+}
+
+.folder-picker-field button[type="button"]:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.menu-flyout-form button[type="submit"] {
+  padding: 0.42rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--btn-border);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: url('cursors/live_link.cur'), pointer;
+  background: var(--btn-gradient);
+}
+
+.menu-flyout-hint {
+  margin: 0;
+  padding: 0.5rem 0.75rem 0.65rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.menu-flyout-hint--empty {
+  border: 0;
+  padding: 0.65rem 0.75rem;
+}
+
+.menu-flyout-hint--intro {
+  margin: 0 0 0.35rem;
+  opacity: 0.85;
+}
+
+/* Primary / secondary actions in the thin top bar */
+.topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.44rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--btn-border);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: url('cursors/live_link.cur'), pointer;
+  color: #fff;
+  background: var(--btn-gradient);
+  box-shadow: 0 2px 8px var(--accent-hover);
+}
+
+.topbar-btn.ghost {
+  color: var(--ink);
+  background: var(--surface-dim);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.topbar-btn:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: var(--btn-hover-shadow);
+}
+
+.topbar-btn.ghost:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-border);
+}
+
+/* ---- Epic-CTA chrome — shared by .btn-sun, .column-add-btn, .add-card-phantom ----
+   Teal border + amber inner ring + teal-to-amber gradient wash. In dark mode
+   the palette shifts to cyan + violet (the starscape dual-color signature).
+   Structural properties (size, padding, border-radius, font, display) stay on
+   each component class. */
+.btn-sun,
+.column-add-btn,
+.add-card-phantom {
+  color: var(--teal-deep);
+  border: 1.5px solid rgba(var(--accent-rgb),0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb),0.92),
+    inset 0 0 0 2px rgba(var(--amber-rgb),0.45),
+    0 8px 20px rgba(var(--accent-rgb),0.16),
+    0 0 14px rgba(var(--accent-rgb),0.10);
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.16), rgba(var(--amber-rgb),0.1) 55%, rgba(var(--paper-rgb),0) 100%),
+    rgba(var(--paper-rgb),0.96);
+}
+
+.btn-sun:hover,
+.column-add-btn:hover,
+.add-card-phantom:hover {
+  color: var(--teal-deep);
+  border-color: rgba(var(--accent-rgb),0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb),0.95),
+    inset 0 0 0 2.5px rgba(var(--amber-rgb),0.55),
+    0 10px 24px rgba(var(--accent-rgb),0.26),
+    0 0 20px rgba(var(--accent-rgb),0.18);
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.22), rgba(var(--amber-rgb),0.14) 55%, rgba(var(--paper-rgb),0) 100%),
+    rgba(var(--paper-rgb),0.98);
+}
+
+[data-theme="dark"] .btn-sun,
+[data-theme="dark"] .column-add-btn,
+[data-theme="dark"] .add-card-phantom {
+  color: #e8efff;
+  border: 1.5px solid rgba(var(--starlight-rgb),0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2.5px rgba(var(--violet-rgb),0.42),
+    0 10px 24px rgba(var(--void-rgb),0.4),
+    0 0 16px rgba(var(--starlight-rgb),0.18);
+  background:
+    linear-gradient(135deg, rgba(var(--cyan-rgb),0.12), rgba(var(--indigo-rgb),0.1) 55%, rgba(var(--cosmos-rgb),0) 100%),
+    rgba(var(--cosmos-rgb),0.92);
+}
+
+[data-theme="dark"] .btn-sun:hover,
+[data-theme="dark"] .column-add-btn:hover,
+[data-theme="dark"] .add-card-phantom:hover {
+  color: #e8efff;
+  border-color: rgba(var(--starlight-rgb),0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2.5px rgba(var(--violet-rgb),0.55),
+    0 12px 28px rgba(var(--void-rgb),0.55),
+    0 0 24px rgba(var(--starlight-rgb),0.26);
+  background:
+    linear-gradient(135deg, rgba(var(--cyan-rgb),0.18), rgba(var(--indigo-rgb),0.14) 55%, rgba(var(--cosmos-rgb),0) 100%),
+    rgba(var(--cosmos-rgb),0.95);
+}
+
+/* "Create" CTA */
+.btn-sun {
+  position: relative;
+  font-weight: 800;
+}
+
+.btn-sun .topbar-icon {
+  color: var(--teal-deep);
+}
+
+/* Shared "+" glyph used by the topbar New Card button and the lane add buttons.
+   inline-grid + place-items locks the cap-height-asymmetric "+" into a centered box. */
+.btn-plus {
+  display: inline-grid;
+  place-items: center;
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--teal-deep);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.btn-sun .btn-sun-label {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+[data-theme="dark"] .btn-plus {
+  color: #d2deff;
+}
+
+[data-theme="dark"] .btn-sun .topbar-icon {
+  color: #e8efff;
+}
+
+/* Top-right sheet for “New” — anchored under the thin top bar, separate from the main ticket drawer. */
+.create-flyout-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 41;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(12, 18, 26, 0.2);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.create-flyout-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-theme="dark"] .create-flyout-backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.create-flyout {
+  position: fixed;
+  top: 2.85rem;
+  right: clamp(0.5rem, 2vw, 1rem);
+  z-index: 42;
+  width: min(22rem, calc(100vw - 1rem));
+  max-height: min(32rem, calc(100vh - 3.5rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  box-shadow: var(--flyout-shadow);
+  opacity: 0;
+  transform: translateY(-0.5rem) scale(0.98);
+  transform-origin: top right;
+  transition:
+    opacity 200ms ease,
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+.create-flyout.is-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.create-flyout-inner {
+  overflow-y: auto;
+  padding: 0.75rem 0.9rem 0.95rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.create-flyout-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.create-flyout-head h2 {
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
+
+.create-flyout-close {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.create-flyout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.create-flyout-form input[type="text"],
+.create-flyout-form textarea {
+  width: 100%;
+  padding: 0.62rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.88rem;
+  background: var(--surface-input);
+}
+
+.create-flyout-form select.select-chevron-field {
+  width: 100%;
+  padding: 0.62rem var(--select-chevron-pad-x);
+  padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.88rem;
+  /* background-color keeps background-image (chevron) intact; see select-chevron-field. */
+  background-color: var(--surface-input);
+}
+
+.create-flyout-form textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+.create-flyout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.create-flyout-grid label,
+.create-flyout-form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.create-flyout-form button[type="submit"] {
+  margin-top: 0.25rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--btn-border);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #fff;
+  cursor: url('cursors/live_link.cur'), pointer;
+  background: var(--btn-gradient);
+}
+
+@media (max-width: 520px) {
+  .create-flyout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-flyout,
+  .create-flyout-backdrop {
+    transition: none;
+  }
+}
+
+/* Primary board surface: kanban fills space between topbar and footer (Trello-style). */
+.board-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 clamp(0.75rem, 2vw, 1.25rem);
+}
+
+/* Search: modest fixed width — flex gap before it leaves breathing room after the brand. */
+.topbar-search {
+  position: relative;
+  flex: 0 0 auto;
+  width: min(16.5rem, 36vw);
+  max-width: 16.5rem;
+  min-width: 9rem;
+}
+
+.topbar-search input {
+  width: 100%;
+  padding: 0.42rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-input);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+/* Create-ticket form when shown inside the right drawer. */
+.drawer-composer,
+.composer {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.8rem 0;
+}
+
+.drawer-composer input,
+.drawer-composer textarea,
+.composer input,
+.composer textarea {
+  padding: 0.82rem 0.95rem;
+}
+
+.drawer-composer textarea,
+.composer textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.composer-row {
+  display: grid;
+  grid-template-columns: 8rem minmax(10rem, 14rem) 9rem 9rem minmax(8rem, 1fr) auto;
+  gap: 0.55rem;
+}
+
+.composer-row select,
+.composer-row input {
+  padding: 0.7rem 0.8rem;
+}
+
+.composer-row select.select-chevron-field {
+  padding: 0.7rem var(--select-chevron-pad-x);
+  padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
+}
+
+.search-results {
+  position: absolute;
+  right: 0;
+  left: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 20;
+  max-height: 22rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.search-hit {
+  padding: 0.85rem;
+  border-bottom: 1px solid var(--line);
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.search-hit:hover {
+  background: var(--accent-hover);
+}
+
+[data-theme="dark"] .menu-flyout,
+[data-theme="dark"] .create-flyout,
+[data-theme="dark"] .search-results {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Horizontal scroll: styled thumb/track (Firefox + WebKit). */
+.kanban {
+  display: grid;
+  grid-auto-columns: minmax(17rem, 1fr);
+  grid-auto-flow: column;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 auto;
+  gap: 0.85rem;
+  min-width: 0;
+  min-height: 0;
+  margin-top: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 1rem 1rem 0.65rem;
+  /* Grab cursor hints the empty area is panable. Cards override this below. */
+  cursor: url('cursors/live_move.cur'), grab;
+  /* Prevent text selection while panning across lane headers / empty space. */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+  border: 1px solid var(--orbit-line);
+  border-radius: calc(var(--radius) + 4px);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, var(--orbit-accent), transparent 55%),
+    radial-gradient(circle at 100% 100%, var(--orbit-accent-2), transparent 45%),
+    linear-gradient(165deg, var(--orbit-surface) 0%, var(--orbit-surface-2) 100%),
+    repeating-linear-gradient(0deg, transparent, transparent 11px, var(--orbit-grid) 11px, var(--orbit-grid) 12px),
+    repeating-linear-gradient(90deg, transparent, transparent 11px, var(--orbit-grid) 11px, var(--orbit-grid) 12px);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.kanban::-webkit-scrollbar {
+  height: 10px;
+}
+
+.kanban::-webkit-scrollbar-track {
+  margin: 0 0.5rem;
+  background: var(--subtle-bg-2);
+  border-radius: 999px;
+}
+
+.kanban::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--scrollbar-thumb), rgba(var(--blue-rgb),0.5));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.kanban::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, var(--scrollbar-thumb-hover), rgba(var(--blue-rgb),0.65));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.kanban.is-grabbing {
+  cursor: url('cursors/live_move.cur'), grabbing;
+  scroll-behavior: auto;
+}
+
+.kanban.is-grabbing .card {
+  pointer-events: none;
+}
+
+[data-theme="dark"] .kanban {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.column {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.75rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--orbit-column-border);
+  border-radius: var(--radius);
+  background: var(--orbit-column);
+  box-shadow: var(--orbit-column-shadow);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.column.drag-over {
+  outline: 2px solid var(--accent-focus-border);
+  outline-offset: 2px;
+  background: var(--accent-active);
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+
+.column-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.2rem 0.4rem;
+}
+
+.column-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Trello-style: compact add control in the column header next to the count.
+   Wears the Epic-card palette to match the topbar "New Card" CTA — primary
+   create actions all share the same teal+amber identity in light mode and
+   starlight+violet in dark mode. */
+.column-add-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Phantom "+ Add a card" tile at the bottom of each lane — same Epic palette
+   as the column-add-btn and topbar New Card CTA. */
+.add-card-phantom {
+  display: block;
+  width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    opacity 180ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+/* Desktop / fine pointer: only show lane-add affordances when the column is under
+   the cursor or holds keyboard focus. Applies equally to the header "+" and the
+   bottom phantom — they're the same action, so they appear and disappear together. */
+@media (hover: hover) and (pointer: fine) {
+  .add-card-phantom,
+  .column-add-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .column:hover .add-card-phantom,
+  .column:focus-within .add-card-phantom,
+  .column:hover .column-add-btn,
+  .column:focus-within .column-add-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .add-card-phantom {
+    transition:
+      color 160ms ease,
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+}
+
+.column h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--orbit-text);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* AI Ready lane — agent-facing staging queue. Signaled with a glowing violet
+   dot (distinct from the amber sun motif used for "new cards") and a small
+   AGENTS caption pill so humans instantly see which lane feeds claim-next.
+   Column body picks up a subtle violet top wash; header stays transparent. */
+.column--ai-ready {
+  border-color: rgba(168, 85, 247, 0.28);
+  background:
+    linear-gradient(180deg, rgba(168, 85, 247, 0.06), transparent 28%),
+    var(--orbit-column);
+}
+
+.agent-dot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 38%, #f4e4ff 0%, #c084fc 50%, #7c3aed 100%);
+  box-shadow:
+    0 0 5px rgba(168, 85, 247, 0.85),
+    0 0 12px rgba(168, 85, 247, 0.5);
+  animation: agent-dot-pulse 3.6s ease-in-out infinite;
+}
+
+@keyframes agent-dot-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 5px rgba(168, 85, 247, 0.85),
+      0 0 12px rgba(168, 85, 247, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 7px rgba(var(--purple-rgb),0.95),
+      0 0 18px rgba(168, 85, 247, 0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-dot {
+    animation: none;
+  }
+}
+
+/* Unread-update flag rendered top-right inside .card. Same purple visual as
+   .agent-dot so "agent activity" reads as one consistent signal across the
+   column header and the cards. Single dot for one unread change; expands
+   into a numeric pill for two or more. */
+.card-unread-dot {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  z-index: 2;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 38%, #f4e4ff 0%, #c084fc 50%, #7c3aed 100%);
+  box-shadow:
+    0 0 5px rgba(168, 85, 247, 0.85),
+    0 0 12px rgba(168, 85, 247, 0.5);
+  animation: agent-dot-pulse 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.card-unread-dot.has-count {
+  width: auto;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.32rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-unread-dot {
+    animation: none;
+  }
+}
+
+.agents-pill {
+  display: inline-block;
+  margin-left: 0.15rem;
+  padding: 0.08rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.14);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #7c3aed;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+[data-theme="dark"] .column--ai-ready {
+  border-color: rgba(var(--purple-rgb),0.32);
+  background:
+    linear-gradient(180deg, rgba(168, 85, 247, 0.09), transparent 28%),
+    var(--orbit-column);
+}
+
+[data-theme="dark"] .agents-pill {
+  background: rgba(var(--purple-rgb),0.14);
+  border-color: rgba(var(--purple-rgb),0.4);
+  color: #e9d5ff;
+}
+
+/* Empty State Flair */
+.column-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 3.25rem 1rem 1.25rem;
+  text-align: center;
+  opacity: 0.85;
+  pointer-events: none;
+  user-select: none;
+}
+
+.empty-state-visual {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.empty-state-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140%;
+  height: 140%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, var(--glow-color, rgba(var(--starlight-rgb),0.15)) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.empty-state-icon {
+  position: relative;
+  z-index: 1;
+  width: 64px;
+  height: 64px;
+  stroke: var(--icon-color, currentColor);
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.empty-state-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--orbit-text);
+  margin-bottom: 0.25rem;
+}
+
+.empty-state-subtitle {
+  font-size: 0.75rem;
+  color: var(--orbit-text-muted);
+  max-width: 180px;
+  line-height: 1.4;
+}
+
+/* Animations & Variants */
+.empty-state-icon.orbit .satellite {
+  transform-origin: 50px 50px;
+  animation: orbit-rotate 10s linear infinite;
+}
+
+.empty-state-icon.orbit .ring {
+  opacity: 0.4;
+}
+
+.empty-state-icon.star {
+  animation: star-pulse 4s ease-in-out infinite;
+}
+
+.empty-state-icon.ai-sparkle {
+  animation: ai-float 6s ease-in-out infinite;
+}
+
+@keyframes orbit-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes star-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px var(--glow-color)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 8px var(--glow-color)); }
+}
+
+@keyframes ai-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.02); }
+}
+
+/* Theme/State colors */
+.column[data-state-name*="Todo" i], .column[data-state-name*="Backlog" i] { --glow-color: rgba(var(--starlight-rgb),0.15); --icon-color: #a8c0ff; }
+.column[data-state-name*="Progress" i] { --glow-color: rgba(var(--indigo-rgb), 0.2); --icon-color: #a78bfa; }
+.column[data-state-name*="Review" i] { --glow-color: rgba(56, 189, 248, 0.2); --icon-color: #7dd3fc; }
+.column[data-state-name*="Done" i], .column[data-state-name*="Finished" i] { --glow-color: rgba(34, 197, 94, 0.15); --icon-color: #4ade80; }
+.column[data-state-name*="Cancel" i], .column[data-state-name*="Backlog" i] { --glow-color: rgba(148, 163, 184, 0.1); --icon-color: #94a3b8; }
+
+.count {
+  display: inline-grid;
+  min-width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--orbit-text-muted);
+  background: var(--orbit-count-bg);
+}
+
+.card {
+  padding: 0.85rem;
+  border: 1px solid rgba(29, 37, 40, 0.1);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 10px 24px rgba(var(--warmth-rgb),0.1);
+  cursor: url('cursors/live_link.cur'), pointer;
+  animation: cardSettle 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 200ms ease;
+}
+
+/* --------- Card type system ---------
+ * All types share the same bezel-and-frame structure: a thin colored border,
+ * a paper-light inset highlight (the "bevel" that creates the 3D-ish lift),
+ * a colored inset ring (the "inner frame"), a soft tinted drop shadow, and a
+ * faint diagonal wash. Distinctions come from intensity, hue, ring thickness,
+ * and Epic's unique dual-color treatment.
+ *
+ * Hierarchy:
+ *   epic     — biggest visual weight: thicker inner ring, dual teal+amber wash.
+ *   feature  — confident teal, the default "second-in-command".
+ *   task     — quietest slate, the smallest unit of work.
+ *   bug      — red + slightly punchier shadow so defects feel urgent.
+ */
+
+/* Structural rule — all card types share position + padding + the bezel shape formula.
+   Each type scopes --type-rgb (and optionally alpha/size overrides) on its own selector.
+   Task overrides box-shadow + background because its drop-shadow y/blur values are
+   shallower than the epic/feature/bug baseline. */
+.card[class*="type-"] {
+  position: relative;
+  padding: 0.78rem 0.8rem 0.7rem;
+  border: 1.5px solid rgba(var(--type-rgb), var(--type-border-a, 0.4));
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb), 0.92),
+    inset 0 0 0 var(--type-ring-w, 2px) rgba(var(--type-rgb), var(--type-ring-a, 0.18)),
+    0 8px 20px rgba(var(--type-rgb), var(--type-glow-a, 0.1)),
+    0 3px 8px rgba(var(--warmth-rgb), 0.08);
+  background:
+    linear-gradient(135deg, rgba(var(--type-rgb), var(--type-bg-a, 0.07)), rgba(var(--paper-rgb), 0) var(--type-bg-stop, 65%)),
+    rgba(var(--paper-rgb), 0.96);
+}
+
+/* Epic: purple bezel, dual-color gradient wash. */
+.card.type-epic    { --type-rgb: var(--purple-rgb); }
+
+.card.type-epic h3 {
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Feature: teal bezel — confident, second-in-command. */
+.card.type-feature { --type-rgb: var(--accent-rgb); }
+
+/* Task: slate bezel, thinnest ring, shallowest shadow. */
+.card.type-task {
+  --type-rgb: var(--blue-rgb);
+  --type-border-a: 0.28;
+  --type-ring-w: 1.5px;
+  --type-ring-a: 0.12;
+  --type-bg-a: 0.04;
+  --type-bg-stop: 70%;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb), 0.92),
+    inset 0 0 0 1.5px rgba(var(--blue-rgb), 0.12),
+    0 6px 16px rgba(var(--blue-rgb), 0.06),
+    0 2px 6px rgba(var(--warmth-rgb), 0.07);
+  background:
+    linear-gradient(135deg, rgba(var(--blue-rgb), 0.04), rgba(var(--paper-rgb), 0) 70%),
+    rgba(var(--paper-rgb), 0.95);
+}
+
+/* Bug: red bezel, punchier ring — defects feel urgent. */
+.card.type-bug {
+  --type-rgb: var(--red-rgb);
+  --type-border-a: 0.45;
+  --type-ring-a: 0.22;
+  --type-bg-a: 0.06;
+}
+
+/* Hover: lift via translate + filter only, so the per-type bezel insets stay
+   intact. Drop-shadow filter floats above whatever box-shadow the type has. */
+.card:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.02) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.06));
+}
+
+@keyframes cardSettle {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}
+
+/* Selected uses outline (which doesn't conflict with box-shadow), so the
+   per-type bezel underneath stays intact while a soft accent ring marks
+   the active card. */
+.card.selected {
+  outline: 4px solid rgba(var(--accent-rgb),0.18);
+  outline-offset: -1px;
+}
+
+/* Dark card glass — starscape palette. Hover uses filter+drop-shadow only
+   so per-type bezels survive. Selected uses outline so bezel box-shadow stays intact. */
+[data-theme="dark"] .card {
+  border-color: rgba(var(--starlight-rgb),0.12);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="dark"] .card.type-epic {
+  border: 1.5px solid rgba(var(--starlight-rgb),0.4);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2.5px rgba(var(--violet-rgb),0.32),
+    0 12px 26px rgba(var(--void-rgb),0.35),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+  background:
+    linear-gradient(135deg, rgba(var(--cyan-rgb),0.1), rgba(var(--indigo-rgb),0.09) 55%, rgba(var(--cosmos-rgb),0) 100%),
+    rgba(var(--cosmos-rgb),0.92);
+}
+
+[data-theme="dark"] .card.type-feature {
+  border: 1.5px solid rgba(var(--starlight-rgb),0.32);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2px rgba(var(--starlight-rgb),0.18),
+    0 8px 20px rgba(var(--void-rgb),0.3),
+    0 3px 8px rgba(0, 0, 0, 0.25);
+  background:
+    linear-gradient(135deg, rgba(var(--starlight-rgb),0.06), rgba(var(--cosmos-rgb),0) 65%),
+    rgba(var(--cosmos-rgb),0.92);
+}
+
+[data-theme="dark"] .card.type-task {
+  border: 1.5px solid rgba(var(--starlight-rgb),0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 1.5px rgba(var(--starlight-rgb),0.1),
+    0 6px 16px rgba(0, 0, 0, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  background:
+    linear-gradient(135deg, rgba(var(--starlight-rgb),0.035), rgba(var(--cosmos-rgb),0) 70%),
+    rgba(var(--cosmos-rgb),0.9);
+}
+
+[data-theme="dark"] .card.type-bug {
+  border: 1.5px solid rgba(var(--coral-rgb),0.4);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
+    inset 0 0 0 2px rgba(var(--coral-rgb),0.22),
+    0 8px 20px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(var(--coral-rgb),0.1);
+  background:
+    linear-gradient(135deg, rgba(var(--coral-rgb),0.07), rgba(var(--cosmos-rgb),0) 65%),
+    rgba(var(--cosmos-rgb),0.92);
+}
+
+[data-theme="dark"] .card:hover {
+  filter: brightness(1.06) drop-shadow(0 6px 14px rgba(var(--starlight-rgb),0.08));
+}
+
+[data-theme="dark"] .card.selected {
+  outline-color: rgba(var(--starlight-rgb),0.3);
+}
+
+/* Epic-aware grouping inside a column.
+   `.epic-children` is a flex item nested in `.column` (which is itself flex-column,
+   gap 0.7rem). Right-aligning + narrowing it makes its cards read as indented
+   children of the epic card or `.epic-mini-header` directly above. The negative
+   margin-top tightens the visual link by halving the column gap. */
+.epic-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  width: 92%;
+  align-self: flex-end;
+  margin-top: -0.35rem;
+}
+
+.card.is-epic-child {
+  border-left-width: 3px;
+  border-left-color: rgba(var(--purple-rgb), 0.55);
+  background:
+    linear-gradient(90deg, rgba(var(--purple-rgb), 0.11), rgba(var(--purple-rgb), 0.02) 45%, rgba(var(--purple-rgb), 0) 75%),
+    linear-gradient(135deg, rgba(var(--type-rgb), var(--type-bg-a, 0.07)), rgba(var(--paper-rgb), 0) var(--type-bg-stop, 65%)),
+    rgba(var(--paper-rgb), 0.96);
+  box-shadow:
+    inset 2px 0 0 rgba(var(--purple-rgb), 0.35),
+    inset 0 0 0 1px rgba(var(--paper-rgb), 0.92),
+    inset 0 0 0 var(--type-ring-w, 2px) rgba(var(--type-rgb), var(--type-ring-a, 0.18)),
+    0 8px 20px rgba(var(--type-rgb), var(--type-glow-a, 0.1)),
+    0 3px 8px rgba(var(--warmth-rgb), 0.08);
+}
+
+.card.is-epic-child h3 {
+  font-size: 0.95em;
+}
+
+[data-theme="dark"] .card.is-epic-child {
+  border-left-color: rgba(var(--violet-rgb), 0.6);
+  background:
+    linear-gradient(90deg, rgba(var(--violet-rgb), 0.16), rgba(var(--violet-rgb), 0.04) 45%, rgba(var(--violet-rgb), 0) 75%),
+    rgba(var(--cosmos-rgb), 0.92);
+  box-shadow:
+    inset 2px 0 0 rgba(var(--violet-rgb), 0.45),
+    0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* Thin "header" that stands in for the epic when its children sit in a different
+   column. Visually pairs with the `.epic-children` block right below it: same
+   width and right-alignment, slim purple bar shape. */
+.epic-mini-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 92%;
+  align-self: flex-end;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px 10px 4px 4px;
+  background: rgba(var(--purple-rgb), 0.10);
+  border: 1px solid rgba(var(--purple-rgb), 0.28);
+  border-bottom-color: rgba(var(--purple-rgb), 0.18);
+  cursor: url('cursors/live_link.cur'), pointer;
+  font-size: 0.76rem;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.epic-mini-header:hover {
+  background: rgba(var(--purple-rgb), 0.16);
+  border-color: rgba(var(--purple-rgb), 0.4);
+}
+
+.epic-mini-header .card-type-icon {
+  flex: none;
+}
+
+.epic-mini-header .ticket-number {
+  color: #c084fc;
+  font-size: 0.68rem;
+}
+
+.epic-mini-header .epic-mini-title {
+  color: var(--muted);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Header sits flush on top of its children block — kill the column gap between them. */
+.epic-mini-header + .epic-children {
+  margin-top: 0;
+}
+
+[data-theme="dark"] .epic-mini-header {
+  background: rgba(var(--violet-rgb), 0.16);
+  border-color: rgba(var(--violet-rgb), 0.32);
+}
+
+[data-theme="dark"] .epic-mini-header:hover {
+  background: rgba(var(--violet-rgb), 0.24);
+  border-color: rgba(var(--violet-rgb), 0.45);
+}
+
+.card-expand-trigger--static {
+  cursor: url('cursors/live_arrow.cur'), default;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.ticket-number {
+  color: var(--orbit-text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="dark"] .ticket-number {
+  color: var(--blue);
+}
+
+.card-type-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(var(--starlight-rgb),0.08);
+  border: 1px solid rgba(var(--starlight-rgb),0.12);
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--orbit-text-muted);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.card-type-id.type-pill-epic {
+  background: rgba(var(--purple-rgb),0.12);
+  border-color: rgba(var(--purple-rgb),0.25);
+  color: #c084fc;
+}
+
+.card-type-id.type-pill-feature {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.card-type-id.type-pill-bug {
+  background: rgba(var(--coral-rgb),0.12);
+  border-color: rgba(var(--coral-rgb),0.25);
+  color: #f87171;
+}
+
+.card-type-id.type-pill-task {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.2);
+  color: #60a5fa;
+}
+
+.card-type-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Priority pill — same shape/scale as the Type pill so they read as a paired
+   set in the kanban card meta line and the detail-pane header subtitle. The
+   priority-pill-* classes (already defined for color) provide the fill, while
+   this rule pins the box geometry. */
+.card-priority-id {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card-priority-label {
+  line-height: 1;
+}
+
+.card-type-icon {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.priority {
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  background: rgba(var(--amber-rgb),0.12);
+  color: var(--accent-2);
+  font-weight: 800;
+}
+
+/* --------- Priority pill colors (MAYBE → URGENT) ---------
+   Muted greys for MAYBE / LOW so they sit back, rising through amber to red for URGENT. */
+.priority-pill {
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+}
+
+.priority-pill-maybe {
+  color: #6b7280;
+  background: rgba(100, 116, 139, 0.14);
+}
+
+.priority-pill-low {
+  color: #1e6f5c;
+  background: rgba(var(--accent-rgb),0.14);
+}
+
+.priority-pill-med {
+  color: #a4550f;
+  background: rgba(var(--amber-rgb),0.16);
+}
+
+.priority-pill-high {
+  color: #b53a1a;
+  background: rgba(214, 86, 46, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(214, 86, 46, 0.35);
+}
+
+.priority-pill-urgent {
+  color: #fff;
+  background: linear-gradient(135deg, #c72e1a, #a0281a);
+  box-shadow: 0 0 0 1px rgba(var(--red-rgb),0.35), 0 4px 10px rgba(var(--red-rgb),0.3);
+  animation: urgentPulse 2.6s ease-in-out infinite;
+}
+
+@keyframes urgentPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(var(--red-rgb),0.35), 0 4px 10px rgba(var(--red-rgb),0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 0 1px rgba(var(--red-rgb),0.55), 0 4px 14px rgba(199, 46, 26, 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .priority-pill-urgent {
+    animation: none;
+  }
+}
+
+[data-theme="dark"] .priority-pill-maybe {
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .priority-pill-low {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+}
+
+[data-theme="dark"] .priority-pill-med {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.18);
+}
+
+[data-theme="dark"] .priority-pill-high {
+  color: #f87171;
+  background: rgba(var(--coral-rgb),0.2);
+  box-shadow: inset 0 0 0 1px rgba(var(--coral-rgb),0.35);
+}
+
+[data-theme="dark"] .priority-pill-urgent {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme="dark"] .priority-pill-urgent {
+    box-shadow: 0 0 0 1px rgba(var(--coral-rgb),0.35), 0 4px 10px rgba(var(--coral-rgb),0.3);
+  }
+}
+
+.card-expand-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  margin: 0 -0.4rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition: background 160ms ease;
+}
+
+.card-expand-trigger:not(.card-expand-trigger--static):hover {
+  background: rgba(var(--starlight-rgb),0.08);
+}
+
+[data-theme="dark"] .card-meta,
+[data-theme="dark"] .card-expand-trigger {
+  color: var(--orbit-text-muted);
+}
+
+[data-theme="dark"] .card-expand-trigger:not(.card-expand-trigger--static):hover {
+  background: rgba(var(--starlight-rgb),0.1);
+  color: var(--orbit-text);
+}
+
+.card-expandable {
+  display: none;
+  margin-top: 0.4rem;
+}
+
+.card.is-expanded .card-expandable {
+  display: block;
+}
+
+.card-expand-chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 180ms ease;
+  opacity: 0.6;
+}
+
+.card.is-expanded .card-expand-chevron {
+  transform: rotate(180deg);
+}
+
+.card h3 {
+  margin: 0 0 0.5rem;
+  color: var(--orbit-text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
+  letter-spacing: -0.01em;
+}
+
+.card p {
+  display: -webkit-box;
+  margin-top: 0.4rem;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.parent-line,
+.child-count {
+  margin-top: 0.4rem;
+  color: var(--blue);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.labels {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  background: var(--label-color, var(--subtle-bg));
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.label::before {
+  content: none;
+}
+
+[data-theme="dark"] .label {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* --------- Right overlay drawer (ticket detail, project manual, create ticket) --------- */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: var(--backdrop-bg);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 280ms ease;
+  pointer-events: none;
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.drawer-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: fixed;
+  top: clamp(0.75rem, 2vh, 1.5rem);
+  right: clamp(0.5rem, 1.5vw, 1rem);
+  bottom: clamp(0.75rem, 2vh, 1.5rem);
+  z-index: 50;
+  display: flex;
+  width: min(34rem, calc(100vw - 1rem));
+  max-width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--drawer-bg);
+  box-shadow: 0 24px 60px rgba(12, 18, 26, 0.28);
+  transform: translateX(calc(100% + 1.5rem));
+  transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer.is-open {
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawer-backdrop {
+    transition: none;
+  }
+}
+
+[data-theme="dark"] .drawer {
+  background: rgba(16, 24, 48, 0.96);
+  box-shadow: -10px 0 48px rgba(0, 0, 0, 0.4);
+}
+
+.drawer-header {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    "title archive close"
+    "tabs tabs tabs";
+  column-gap: 0.5rem;
+  row-gap: 0.55rem;
+  align-items: start;
+  padding: 0.75rem 0.85rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--drawer-head-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.drawer-title-block {
+  grid-area: title;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding-top: 0.1rem;
+}
+
+.drawer-eyebrow {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.drawer-eyebrow[hidden] {
+  display: none;
+}
+
+/* Below-title kanban-style sub-line: ticket #N + colored type pill, mirroring
+   the second line of cards in the lanes for visual consistency. */
+.drawer-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.drawer-subtitle[hidden] {
+  display: none;
+}
+
+.drawer-subtitle .ticket-number {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer-title-text {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawer-title-text.editable-field {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.drawer-title-text.inline-title-editor {
+  display: block;
+}
+
+.drawer-tabs {
+  grid-area: tabs;
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.drawer-tabs[hidden] {
+  display: none;
+}
+
+.drawer-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.drawer-tab {
+  flex-shrink: 0;
+  padding: 0.38rem 0.78rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease;
+}
+
+.drawer-tab:hover {
+  color: var(--ink);
+  background: var(--accent-hover);
+}
+
+.drawer-tab.is-active {
+  color: var(--ink);
+  background: var(--accent-active);
+  border-color: var(--accent-border);
+}
+
+.drawer-close {
+  grid-area: close;
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 400;
+  line-height: 1;
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.drawer-close:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-border);
+}
+
+.drawer-archive {
+  grid-area: archive;
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.drawer-archive:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-border);
+  color: var(--danger, #d44);
+}
+
+.drawer-archive[hidden] {
+  display: none;
+}
+
+.drawer.is-settings {
+  user-select: none;
+}
+
+.drawer.is-settings input,
+.drawer.is-settings textarea,
+.drawer.is-settings select {
+  user-select: text;
+}
+
+.drawer-inner {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1rem 1.5rem;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.drawer-inner::-webkit-scrollbar {
+  width: 10px;
+}
+
+.drawer-inner::-webkit-scrollbar-track {
+  background: var(--subtle-bg-2);
+  border-radius: 999px;
+}
+
+.drawer-inner::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--scrollbar-thumb), rgba(var(--blue-rgb),0.45));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.drawer-inner::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--scrollbar-thumb-hover), rgba(var(--blue-rgb),0.55));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.empty-state {
+  display: grid;
+  min-height: 20rem;
+  place-content: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.detail-head {
+  display: grid;
+  gap: 0.55rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-head h2 {
+  font-size: 1.35rem;
+  letter-spacing: -0.04em;
+}
+
+/* Click-to-edit affordance for the title + description in the detail pane. */
+.editable-field {
+  position: relative;
+  border-radius: 10px;
+  margin-inline: -0.35rem;
+  padding: 0.1rem 0.4rem;
+  cursor: url('cursors/live_select.cur'), text;
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.editable-field:hover,
+.editable-field:focus-visible {
+  background: var(--accent-hover);
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+  outline: none;
+}
+
+.editable-field.is-placeholder {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.detail-title {
+  display: inline-block;
+  max-width: 100%;
+  line-height: 1.15;
+}
+
+.inline-title-editor,
+.inline-desc-editor {
+  width: 100%;
+  border: 1px solid var(--accent-focus-border);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--surface-input);
+  box-shadow: var(--accent-ring);
+  font-family: inherit;
+  outline: none;
+}
+
+.inline-title-editor {
+  margin-inline: -0.35rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 1.35rem;
+  font-weight: inherit;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+}
+
+.inline-desc-editor {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  min-height: 5rem;
+  font-size: 1rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.description {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+/* The detail pane's lede description is body copy, not a card excerpt — give
+   it more presence than the universal muted .description rule. */
+.detail-head > .description {
+  margin: 0.25rem 0 0.4rem;
+  color: var(--ink);
+  opacity: 0.88;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+/* Project Repository tab metadata grid for read-only repository details. */
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.meta {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.58rem;
+  background: var(--surface-dim);
+}
+
+.meta span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
+.meta strong {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+/* --------- Ticket detail meta list ---------
+ * Single-column "definition list" — each meta field on its own row with a
+ * left-aligned eyebrow label and an inline-editable value. No outer rounded
+ * box per field; rows separate via a hairline divider. Selects/inputs style
+ * as text-first (clicking reveals the editing affordance, like Linear/Notion)
+ * so the pane reads more like a document than a form.
+ */
+.ticket-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 1.2rem 0 0;
+  padding: 0;
+}
+
+.ticket-meta-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(29, 37, 40, 0.07);
+}
+
+.ticket-meta-row:last-child {
+  border-bottom: none;
+}
+
+.ticket-meta-row--stack {
+  align-items: center;
+}
+
+/* Lay pills-row + input + Add button on a single wrapping line, so Labels
+   match the visual rhythm of the single-line rows above (Type / State /
+   Priority) instead of stacking pills + form on two rows. */
+.ticket-meta-row--stack > dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  min-width: 0;
+  padding-top: 0;
+}
+
+.ticket-meta-row--stack .label-pills-row,
+.ticket-meta-row--stack .label-add-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ticket-meta-row--stack .label-add-row {
+  flex: 1 1 12rem;
+}
+
+.ticket-meta dt {
+  margin: 0;
+  padding-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ticket-meta dd {
+  margin: 0;
+  min-width: 0;
+}
+
+/* Inline meta controls — borderless and transparent until you reach for them.
+   Hover/focus reveals a soft accent backdrop so the affordance is unambiguous
+   without imposing a permanent box. */
+.meta-inline {
+  width: 100%;
+  margin: 0;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  /* Use background-color only — `background` shorthand resets background-image
+     and removes the custom select chevron; transitioning `background` also
+     animates image/position in odd ways. */
+  background-color: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+/* Custom chevron for native <select> — symmetric horizontal inset (tokens: --select-chevron-pad-x, --select-chevron-size).
+   Add `select-chevron-field` on any styled dropdown; ticket detail selects use `meta-inline` and pick these rules up too. */
+select.select-chevron-field,
+select.meta-inline {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right var(--select-chevron-pad-x) center;
+  background-size: var(--select-chevron-size) var(--select-chevron-size);
+}
+
+select.select-chevron-field::-ms-expand,
+select.meta-inline::-ms-expand {
+  display: none;
+}
+
+/* Dark selects: starscape navy fill so the closed pill and native option popup
+   both read clearly. color-scheme: dark (on the root) also asks the browser to
+   use its dark widget variant as a baseline. */
+[data-theme="dark"] select,
+[data-theme="dark"] .create-flyout-form select,
+[data-theme="dark"] .lane-row select,
+[data-theme="dark"] .lane-create-form select,
+[data-theme="dark"] .project-entry-form select {
+  color: #e8efff;
+  background: linear-gradient(180deg, rgba(26, 43, 80, 0.85), rgba(15, 25, 50, 0.9));
+  border-color: rgba(var(--starlight-rgb),0.25);
+}
+
+/* Must stay AFTER the dark `.lane-row select` / `.project-entry-form select`
+   shorthand above — equal specificity, source order decides. */
+[data-theme="dark"] select.select-chevron-field,
+[data-theme="dark"] select.meta-inline {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a8c0ff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right var(--select-chevron-pad-x) center;
+  background-size: var(--select-chevron-size) var(--select-chevron-size);
+}
+
+[data-theme="dark"] select:hover {
+  border-color: rgba(var(--starlight-rgb),0.45);
+}
+
+[data-theme="dark"] select:focus {
+  border-color: rgba(var(--starlight-rgb),0.6);
+  box-shadow: 0 0 0 3px rgba(var(--starlight-rgb),0.15);
+}
+
+[data-theme="dark"] option {
+  background: #16213e;
+  color: #e8efff;
+}
+
+[data-theme="dark"] option:checked,
+[data-theme="dark"] option:hover {
+  background: #1f3a6b;
+  color: #fff;
+}
+
+.meta-inline:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-border);
+}
+
+.meta-inline:focus {
+  background-color: var(--surface-input);
+  border-color: var(--accent-focus-border);
+  box-shadow: var(--accent-ring);
+  outline: none;
+}
+
+.meta-inline:disabled {
+  opacity: 0.6;
+  cursor: url('cursors/live_unavail.cur'), not-allowed;
+}
+
+input.meta-inline {
+  cursor: url('cursors/live_select.cur'), text;
+}
+
+/* Labels add-row inputs — same inline-text aesthetic so the pane stays
+   uniform. Fully reveal once focused. */
+.meta-inline-input {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.meta-inline-input:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-border);
+}
+
+.meta-inline-input:focus {
+  background: var(--surface-input);
+  border-color: var(--accent-focus-border);
+  box-shadow: var(--accent-ring);
+}
+
+[data-theme="dark"] .ticket-meta-row {
+  border-bottom-color: rgba(var(--starlight-rgb),0.08);
+}
+
+[data-theme="dark"] .meta-inline {
+  color: rgba(232, 239, 255, 0.95);
+}
+
+[data-theme="dark"] .meta-inline:hover:not(:disabled) {
+  background-color: rgba(var(--starlight-rgb),0.06);
+  border-color: rgba(var(--starlight-rgb),0.22);
+}
+
+[data-theme="dark"] .meta-inline:focus,
+[data-theme="dark"] .meta-inline-input:focus {
+  background-color: rgba(15, 25, 50, 0.7);
+  border-color: rgba(var(--starlight-rgb),0.5);
+  box-shadow: 0 0 0 3px rgba(var(--starlight-rgb),0.12);
+}
+
+[data-theme="dark"] .meta-inline-input:hover {
+  background-color: rgba(var(--starlight-rgb),0.06);
+  border-color: rgba(var(--starlight-rgb),0.22);
+}
+
+.label-pill-remove {
+  display: inline-grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  background: var(--subtle-bg);
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition: background 120ms ease;
+}
+
+.label-pill-remove:hover {
+  background: rgba(var(--red-rgb),0.18);
+}
+
+.label-pill-removable .label-pill-remove {
+  color: var(--ink);
+  background: var(--surface-dim);
+}
+
+.label-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.label-add-input {
+  flex: 1;
+  min-width: 8rem;
+  padding: 0.62rem 0.8rem;
+  font-size: 0.86rem;
+}
+
+.meta-add-btn {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.82rem;
+}
+
+.detail-updated {
+  margin: 0 0 0.1rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.detail-label-block {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.detail-label-heading {
+  margin: 0 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.detail-label-help {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.detail-label-help code {
+  padding: 0.08rem 0.28rem;
+  border-radius: 6px;
+  background: var(--subtle-bg);
+  font-size: 0.76rem;
+}
+
+.label-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.label-pills-row:empty {
+  display: none;
+}
+
+.label-pill-removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.35rem 0.15rem 0.55rem;
+  background: var(--subtle-bg);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.label-pill-removable::before {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--label-color, var(--muted));
+  content: "";
+}
+
+.section {
+  margin-top: 1.6rem;
+}
+
+.section h3 {
+  margin-bottom: 0.7rem;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.25;
+  opacity: 0.9;
+  text-transform: uppercase;
+}
+
+details.section > summary {
+  list-style: none;
+  cursor: url('cursors/live_link.cur'), pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+details.section > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* ── Accordion chevron (global) ──────────────────────────────────────── */
+details.section > summary::before {
+  content: "›";
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform 150ms ease;
+}
+
+details.section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+details.section > summary h3 {
+  display: inline;
+  margin: 0;
+}
+
+/* Match the .section h3 { margin-bottom: 0.7rem } rhythm — the inner h3 is
+   contained inside <summary>, so the gap has to live on the first child
+   that follows the summary instead. */
+details.section[open] > summary + * {
+  margin-top: 0.7rem;
+}
+
+/* The MCP setup section is itself display:grid with gap — the generic
+   margin-top above would double-space after summary. Reset it and let the
+   grid gap own the rhythm. Also neutralise the title-row's own bottom margin
+   when it sits inside a <summary> flex container. */
+details.section.mcp-setup[open] > summary + * {
+  margin-top: 0;
+}
+
+details.section > summary .mcp-title-row {
+  margin-bottom: 0;
+}
+
+.comment {
+  border-left: 3px solid var(--accent-border);
+  margin-top: 0.55rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0 12px 12px 0;
+  background: var(--surface-dim);
+}
+
+.comment.checkpoint {
+  border-left-color: var(--danger);
+}
+
+.comment.status-change {
+  border-left-color: var(--muted);
+}
+
+.status-route {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.comment-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.comment-body {
+  margin-top: 0.35rem;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.comment-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.comment-form textarea {
+  min-height: 5rem;
+  padding: 0.8rem;
+  resize: vertical;
+}
+
+.field-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.field-form label {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.field-form span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.field-form textarea {
+  min-height: 6rem;
+  padding: 0.62rem 0.8rem;
+  resize: vertical;
+}
+
+/* Settings → Notes tab — form gaps, hint alignment, larger textareas. */
+.field-form.settings-notes-form {
+  gap: 1.45rem;
+}
+
+.field-form.settings-notes-form > .settings-notes-field-group {
+  gap: 0.42rem;
+}
+
+.field-form.settings-notes-form textarea.settings-notes-textarea {
+  min-height: 12rem;
+  margin-top: 0.12rem;
+}
+
+.field-form.settings-notes-form .settings-notes-save {
+  margin-top: 0.65rem;
+}
+
+.field-form textarea[name="implementation_updates"] {
+  min-height: 8rem;
+}
+
+.ai-context-setup textarea[name="agent_instructions"] {
+  min-height: 9rem;
+}
+
+.ai-context-setup > .description {
+  margin-bottom: 0.7rem;
+}
+
+/* Repository tab head — borderless, transparent meta tiles. The eyebrow is
+   muted/uppercase, the value sits beneath in the project ink color. No fill,
+   no per-tile border; the parent .detail-head hairline is the only divider. */
+.project-manual-head {
+  background: transparent;
+  padding-bottom: 0.4rem;
+}
+
+.project-manual-head .meta-grid {
+  margin-top: 0.2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.95rem;
+}
+
+.project-manual-head .meta {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.project-manual-head .meta span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.project-manual-head .meta strong {
+  margin-top: 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.project-manual-head .meta--repo-path {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.28rem;
+  width: 100%;
+}
+
+.project-manual-head .meta--repo-path strong + span {
+  margin-top: 0.4rem;
+}
+
+.repository-danger-zone {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(var(--red-rgb),0.22);
+}
+
+.repository-danger-zone h3 {
+  color: var(--danger);
+}
+
+.repository-delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+}
+
+.repository-danger-zone > button {
+  margin-top: 0.8rem;
+}
+
+.repository-danger-zone button.danger-button {
+  color: #fff;
+  border: 1px solid rgba(var(--red-rgb),0.42);
+  background: var(--danger);
+}
+
+.repository-danger-zone button.ghost.danger-button {
+  color: var(--danger);
+  background: rgba(var(--red-rgb),0.06);
+}
+
+.repository-danger-zone button.danger-button:hover:not(:disabled) {
+  box-shadow: 0 10px 24px rgba(var(--red-rgb),0.18);
+}
+
+.repository-confirm-field {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+}
+
+.repository-confirm-field span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.repository-confirm-field strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.repository-confirm-field input {
+  width: 100%;
+  padding: 0.62rem 0.8rem;
+}
+
+[data-theme="dark"] .repository-danger-zone {
+  border-top-color: rgba(var(--coral-rgb),0.28);
+}
+
+[data-theme="dark"] .repository-danger-zone h3,
+[data-theme="dark"] .repository-danger-zone button.ghost.danger-button {
+  color: #ffb4b4;
+}
+
+[data-theme="dark"] .repository-danger-zone button.danger-button {
+  border-color: rgba(var(--coral-rgb),0.55);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.92), rgba(153, 27, 27, 0.88));
+}
+
+[data-theme="dark"] .repository-danger-zone button.ghost.danger-button {
+  background: rgba(var(--coral-rgb),0.1);
+}
+
+.project-entry-form {
+  margin-top: 0.9rem;
+}
+
+.project-entry-form input {
+  padding: 0.62rem 0.8rem;
+}
+
+.project-entry-form select.select-chevron-field {
+  padding: 0.62rem var(--select-chevron-pad-x);
+  padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
+}
+
+.project-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.project-entry-strike {
+  padding: 0.38rem 0.65rem;
+  font-size: 0.7rem;
+}
+
+.project-entry-status {
+  display: block;
+  margin-top: 0.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.project-entry.is-struck {
+  opacity: 0.7;
+}
+
+.project-entry.is-struck .comment-meta strong,
+.project-entry.is-struck .comment-body {
+  text-decoration: line-through;
+  text-decoration-thickness: 0.1em;
+}
+
+.project-entry.decision {
+  border-left-color: var(--accent);
+}
+
+.project-entry.lesson {
+  border-left-color: var(--accent-2);
+}
+
+.backup-list,
+.deployment-actions,
+.lane-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lanes-description {
+  margin-bottom: 0.85rem;
+}
+
+/* Lanes tab opens directly with the checkbox — drop the default .section
+   top margin so it sits flush under the drawer tabs. */
+.section:has(> .orbit-check:first-child) {
+  margin-top: 0.4rem;
+}
+
+/* AI Settings stacks two checkbox-driven sections in sequence. Give these
+   groups clearer vertical rhythm so each toggle + explainer reads as one unit. */
+.section.ai-subsection:has(> .orbit-check:first-child) {
+  margin-top: 1rem;
+}
+
+.section:has(> .orbit-check:first-child) > .description {
+  margin-bottom: 0.6rem;
+}
+
+.ai-section-divider {
+  height: 1px;
+  margin: 0.8rem 0;
+  background: linear-gradient(90deg, transparent, var(--line) 14%, var(--line) 86%, transparent);
+}
+
+/* ---- Orbit checkbox ----
+   Hides the native input and renders a custom box that follows the starscape
+   palette in dark mode and the paper/teal palette in light mode. The label is
+   the click target; the SVG tick fades in via opacity + scale. */
+.orbit-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.32rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-dim);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: url('cursors/live_link.cur'), pointer;
+  user-select: none;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.orbit-check:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-hover);
+}
+
+.orbit-check input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.orbit-check-box {
+  display: grid;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1.25px solid var(--accent-border);
+  border-radius: 5px;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.06), rgba(var(--paper-rgb),0) 65%),
+    var(--surface-input);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.orbit-check-tick {
+  width: 0.85rem;
+  height: 0.85rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.orbit-check input[type="checkbox"]:checked ~ .orbit-check-box {
+  border-color: var(--accent);
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.95), rgba(var(--blue-rgb),0.95));
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb),0.35),
+    0 4px 10px rgba(var(--accent-rgb),0.25);
+}
+
+.orbit-check input[type="checkbox"]:checked ~ .orbit-check-box .orbit-check-tick {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.orbit-check input[type="checkbox"]:focus-visible ~ .orbit-check-box {
+  box-shadow: var(--accent-ring);
+}
+
+[data-theme="dark"] .orbit-check {
+  background: rgba(15, 25, 50, 0.55);
+  border-color: rgba(var(--starlight-rgb),0.16);
+}
+
+[data-theme="dark"] .orbit-check:hover {
+  border-color: rgba(var(--starlight-rgb),0.4);
+  background: rgba(var(--starlight-rgb),0.08);
+}
+
+[data-theme="dark"] .orbit-check-box {
+  border-color: rgba(var(--starlight-rgb),0.35);
+  background:
+    linear-gradient(135deg, rgba(var(--starlight-rgb),0.06), rgba(var(--cosmos-rgb),0) 65%),
+    rgba(15, 25, 50, 0.7);
+}
+
+[data-theme="dark"] .orbit-check input[type="checkbox"]:checked ~ .orbit-check-box {
+  border-color: rgba(var(--starlight-rgb),0.7);
+  color: #0a1024;
+  background: linear-gradient(135deg, #d6e6ff, #a8c0ff);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 4px 14px rgba(var(--starlight-rgb),0.3);
+}
+
+.backup-item {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.7rem 0.8rem;
+  background: var(--surface-dim);
+}
+
+.backup-item strong,
+.deployment-meta strong {
+  color: var(--muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deployment-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0.8rem;
+}
+
+.mcp-setup {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.mcp-setup h3 {
+  margin: 0;
+}
+
+/* Keep the MCP badge inline with the section title, as a compact cue instead
+   of a full hero card. */
+.mcp-title-row,
+.ai-context-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.mcp-title-row h3,
+.ai-context-title-row h3 {
+  margin: 0;
+}
+
+.mcp-inline-mark,
+.ai-context-inline-mark {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.2rem;
+  height: 1.3rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.95), rgba(var(--blue-rgb),0.9));
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 14px rgba(var(--accent-rgb),0.22);
+}
+
+.mcp-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: center;
+  border: 1px solid rgba(var(--accent-rgb),0.2);
+  border-radius: 18px;
+  padding: 0.85rem;
+  background:
+    radial-gradient(circle at 0 0, rgba(var(--accent-rgb),0.16), transparent 42%),
+    linear-gradient(135deg, rgba(var(--blue-rgb),0.08), rgba(var(--paper-rgb),0));
+}
+
+.mcp-hero-mark {
+  display: grid;
+  width: 3.2rem;
+  height: 3.2rem;
+  place-items: center;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.95), rgba(var(--blue-rgb),0.9));
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  box-shadow: 0 12px 28px rgba(var(--accent-rgb),0.25);
+}
+
+.mcp-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mcp-flow,
+.mcp-path-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.mcp-flow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mcp-path-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* MCP intro copy/controls spacing: keep the header text readable while making
+   the control rows feel intentionally grouped below it. */
+.mcp-setup > div > .description + .description {
+  margin-top: 0.42rem;
+}
+
+.mcp-setup > div > .mcp-flow {
+  margin-top: 0.85rem;
+}
+
+.mcp-flow label,
+.mcp-path-grid label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.mcp-flow label > span,
+.mcp-path-grid label > span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mcp-flow small {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.mcp-path-note {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.mcp-flow select.select-chevron-field {
+  padding: 0.62rem var(--select-chevron-pad-x);
+  padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
+  font-size: 0.88rem;
+}
+
+.mcp-step-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.mcp-step {
+  display: grid;
+  gap: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0.75rem;
+  background: var(--surface-dim);
+}
+
+.mcp-step b {
+  display: grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb),0.12);
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.mcp-step strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.mcp-step span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.mcp-path-details {
+  border: 1px dashed rgba(var(--accent-rgb),0.28);
+  border-radius: 16px;
+  padding: 0.75rem 0.85rem;
+  background: rgba(var(--accent-rgb),0.04);
+}
+
+.mcp-path-details summary {
+  color: var(--ink);
+  cursor: url('cursors/live_link.cur'), pointer;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.mcp-picker-note {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.mcp-path-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.mcp-path-actions button {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.mcp-path-grid {
+  margin-top: 0.95rem;
+}
+
+.mcp-path-grid input {
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.82rem;
+}
+
+.system-impact {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgba(var(--blue-rgb),0.22);
+  border-radius: 14px;
+  padding: 0.75rem 0.85rem;
+  background: rgba(var(--blue-rgb),0.06);
+}
+
+.system-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.system-impact strong,
+.mcp-output-card strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.system-impact p,
+.mcp-output-card p {
+  margin: 0;
+}
+
+.mcp-options-stack {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.mcp-option-card {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface-dim);
+}
+
+.mcp-option-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.mcp-output-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface-dim);
+}
+
+.mcp-snippet {
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 12px 12px;
+  padding: 0.9rem 1rem;
+  background: rgba(10, 14, 28, 0.95);
+  color: #d6e6ff;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.mcp-option-card .mcp-snippet {
+  margin-top: 0.05rem;
+}
+
+.mcp-snippet--compact {
+  max-height: 8rem;
+}
+
+.mcp-terminal {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+
+.mcp-terminal-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.62rem 0.72rem;
+  background: rgba(10, 14, 28, 0.95);
+}
+
+.mcp-terminal-chrome span {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: #a63d2f;
+}
+
+.mcp-terminal-chrome span:nth-child(2) {
+  background: #bf8f21;
+}
+
+.mcp-terminal-chrome span:nth-child(3) {
+  background: #3d7c46;
+}
+
+.mcp-or-divider {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 0.05rem 0;
+}
+
+.mcp-or-divider::before {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  border-top: 1px solid var(--line);
+}
+
+.mcp-or-divider span {
+  position: relative;
+  z-index: 1;
+  padding: 0.12rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+[data-theme="dark"] .system-impact {
+  border-color: rgba(var(--starlight-rgb),0.2);
+  background: rgba(var(--starlight-rgb),0.07);
+}
+
+[data-theme="dark"] .mcp-hero {
+  border-color: rgba(var(--starlight-rgb),0.16);
+  background:
+    radial-gradient(circle at 0 0, rgba(var(--starlight-rgb),0.16), transparent 42%),
+    linear-gradient(135deg, rgba(15, 25, 50, 0.82), rgba(var(--cosmos-rgb),0.15));
+}
+
+[data-theme="dark"] .mcp-hero-mark {
+  background: linear-gradient(135deg, #d6e6ff, #9fbaff);
+  color: #08111f;
+  box-shadow: 0 12px 30px rgba(var(--starlight-rgb),0.28);
+}
+
+[data-theme="dark"] .mcp-step,
+[data-theme="dark"] .mcp-option-card,
+[data-theme="dark"] .mcp-output-card {
+  background: rgba(15, 25, 50, 0.55);
+  border-color: rgba(var(--starlight-rgb),0.14);
+}
+
+[data-theme="dark"] .mcp-terminal {
+  border-color: rgba(var(--starlight-rgb),0.2);
+}
+
+[data-theme="dark"] .mcp-path-details {
+  border-color: rgba(var(--starlight-rgb),0.22);
+  background: rgba(var(--starlight-rgb),0.055);
+}
+
+@media (max-width: 800px) {
+  .mcp-flow,
+  .mcp-path-grid,
+  .mcp-step-grid,
+  .system-impact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-output-card {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-option-card-head {
+    grid-template-columns: 1fr;
+  }
+}
+
+.deployment-meta {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.import-button {
+  display: flex;
+}
+
+.import-button input {
+  display: none;
+}
+
+.import-button span {
+  display: inline-grid;
+  width: 100%;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.72rem 1rem;
+  color: var(--ink);
+  background: var(--surface);
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+.import-button span:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--btn-hover-shadow);
+}
+
+[data-theme="dark"] .import-button span:hover {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.lane-row {
+  display: grid;
+  grid-template-columns: 2rem 2rem minmax(6rem, 1fr) minmax(5.5rem, 7rem) 2rem 2rem;
+  gap: 0.4rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.5rem;
+  background: var(--surface-dim);
+}
+
+[data-theme="dark"] .lane-row {
+  background: rgba(15, 25, 50, 0.55);
+  border-color: rgba(var(--starlight-rgb),0.14);
+}
+
+.lane-row input,
+.lane-row select,
+.lane-create-form input,
+.lane-create-form select {
+  padding: 0.5rem 0.65rem;
+  font-size: 0.86rem;
+}
+
+.lane-row select.select-chevron-field,
+.lane-create-form select.select-chevron-field {
+  padding: 0.5rem var(--select-chevron-pad-x);
+  padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
+}
+
+/* Shared 2rem square chrome for every in-row lane control (up, down, toggle,
+   delete) — keeps the row rhythm tight and matches the drawer's X close. */
+.lane-icon-btn,
+.lane-delete-btn,
+.lane-new-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: inherit;
+  line-height: 1;
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 200ms ease;
+}
+
+.lane-icon-btn {
+  font-size: 1rem;
+}
+
+.lane-icon-btn:hover:not(:disabled),
+.lane-new-toggle:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--accent-border);
+  background: var(--accent-hover);
+}
+
+.lane-delete-btn {
+  font-size: 1.2rem;
+}
+
+.lane-delete-btn:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: rgba(var(--red-rgb),0.38);
+  background: rgba(var(--red-rgb),0.08);
+}
+
+.lane-icon-btn:disabled,
+.lane-delete-btn:disabled {
+  opacity: 0.38;
+  cursor: url('cursors/live_unavail.cur'), not-allowed;
+}
+
+[data-theme="dark"] .lane-icon-btn,
+[data-theme="dark"] .lane-delete-btn,
+[data-theme="dark"] .lane-new-toggle {
+  background: rgba(var(--starlight-rgb),0.07);
+  border-color: rgba(var(--starlight-rgb),0.24);
+  color: rgba(226, 236, 255, 0.92);
+}
+
+[data-theme="dark"] .lane-icon-btn:hover:not(:disabled),
+[data-theme="dark"] .lane-new-toggle:hover:not(:disabled) {
+  background: rgba(var(--starlight-rgb),0.16);
+  border-color: rgba(var(--starlight-rgb),0.6);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(var(--starlight-rgb),0.3);
+}
+
+[data-theme="dark"] .lane-delete-btn:hover:not(:disabled) {
+  background: rgba(var(--coral-rgb),0.14);
+  border-color: rgba(var(--coral-rgb),0.6);
+  color: #ffb4b4;
+  box-shadow: 0 0 14px rgba(var(--coral-rgb),0.3);
+}
+
+[data-theme="dark"] .lane-icon-btn:disabled,
+[data-theme="dark"] .lane-delete-btn:disabled {
+  color: rgba(226, 236, 255, 0.35);
+  background: rgba(var(--starlight-rgb),0.035);
+  border-color: rgba(var(--starlight-rgb),0.12);
+  box-shadow: none;
+}
+
+/* New-cards-default toggle — sun metaphor: a hollow ring when off (like an
+   unselected radio button), a glowing warm disc with an amber halo when on.
+   Tiny "NEW" caption underneath so the purpose is always readable. */
+.lane-new-toggle {
+  grid-template-rows: auto auto;
+  gap: 0.08rem;
+  padding: 0.22rem 0;
+}
+
+.lane-new-sun {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  background: transparent;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    box-shadow 240ms ease;
+}
+
+.lane-new-label {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1;
+  transition: color 200ms ease;
+}
+
+/* "New cards land here" toggle — Epic-card palette to match the .btn-sun CTA.
+   Light: teal border + amber inner ring + teal halo, with a teal glowing
+   center dot. Dark: starlight-blue + violet inner ring, with a starlight dot. */
+.lane-new-toggle.is-on {
+  border-color: rgba(var(--accent-rgb),0.55);
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb),0.16), rgba(var(--amber-rgb),0.1) 55%, rgba(var(--paper-rgb),0) 100%),
+    var(--surface);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--paper-rgb),0.85),
+    0 0 0 1px rgba(var(--amber-rgb),0.32),
+    0 4px 12px rgba(var(--accent-rgb),0.2);
+}
+
+.lane-new-toggle.is-on .lane-new-sun {
+  border-color: transparent;
+  background: radial-gradient(circle at 38% 38%, #d6efe9 0%, #14a094 50%, var(--teal-deep) 100%);
+  box-shadow:
+    0 0 3px rgba(var(--accent-rgb),0.85),
+    0 0 8px rgba(var(--accent-rgb),0.55);
+}
+
+.lane-new-toggle.is-on .lane-new-label {
+  color: var(--teal-deep);
+  font-weight: 900;
+}
+
+[data-theme="dark"] .lane-new-toggle.is-on {
+  border-color: rgba(var(--starlight-rgb),0.5);
+  background:
+    linear-gradient(135deg, rgba(var(--cyan-rgb),0.14), rgba(var(--indigo-rgb),0.1) 55%, rgba(var(--cosmos-rgb),0) 100%),
+    var(--surface);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.7),
+    0 0 0 1px rgba(var(--violet-rgb),0.36),
+    0 4px 16px rgba(var(--void-rgb),0.42);
+}
+
+[data-theme="dark"] .lane-new-toggle.is-on .lane-new-sun {
+  background: radial-gradient(circle at 38% 38%, #d8e3ff 0%, #a8c0ff 50%, #5d77b8 100%);
+  box-shadow:
+    0 0 3px rgba(var(--starlight-rgb),0.95),
+    0 0 9px rgba(var(--starlight-rgb),0.6);
+}
+
+[data-theme="dark"] .lane-new-toggle.is-on .lane-new-label {
+  color: #d2deff;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.danger-button {
+  color: var(--danger);
+}
+
+button:disabled,
+.import-button input:disabled + span {
+  cursor: url('cursors/live_unavail.cur'), not-allowed;
+  opacity: 0.45;
+}
+
+.lane-create-form {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(7rem, 9rem) auto;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+/* Cards inside the detail pane (epic children / parent epic). Reuses the
+   kanban .card type-* bezel system; this just lays them out in a grid and
+   trims a few kanban-only behaviors (drag cursor, full-size minimums). */
+.detail-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.detail-card-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.card--detail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 5.5rem;
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+/* Title is the first row; type-pill row is anchored to the bottom of the card
+   so a 2-card grid lines up its bottom rows even if titles wrap differently. */
+.card--detail .card-meta {
+  margin-top: auto;
+}
+
+.card-eyebrow {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card-detach-btn {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--subtle-bg);
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: url('cursors/live_link.cur'), pointer;
+  opacity: 0.6;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+  z-index: 2;
+}
+
+.card-detach-btn:hover {
+  opacity: 1;
+  background: rgba(var(--red-rgb),0.18);
+  color: var(--ink);
+}
+
+.card-archive-actions {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: flex;
+  gap: 0.3rem;
+  z-index: 2;
+}
+
+.card-archive-btn {
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--subtle-bg);
+  color: var(--muted);
+  cursor: url('cursors/live_link.cur'), pointer;
+  opacity: 0.7;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.card-archive-btn:hover {
+  opacity: 1;
+}
+
+.card-archive-btn--restore:hover {
+  background: rgba(var(--green-rgb, 34, 197, 94), 0.2);
+  color: var(--ink);
+}
+
+.card-archive-btn--delete:hover {
+  background: rgba(var(--red-rgb), 0.22);
+  color: var(--ink);
+}
+
+.archive-list {
+  min-height: 4rem;
+}
+
+.related-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.55rem;
+}
+
+.related-add-input-wrap {
+  position: relative;
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  display: flex;
+}
+
+.related-add-input {
+  flex: 1;
+  width: 100%;
+  padding: 0.62rem 2rem 0.62rem 0.8rem;
+  font-size: 0.86rem;
+}
+
+.related-add-input::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
+.related-add-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  transform: translateY(-50%);
+  display: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--subtle-bg);
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  text-align: center;
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.related-add-clear:hover {
+  background: rgba(var(--red-rgb),0.18);
+  color: var(--ink);
+  transform: translateY(-50%);
+}
+
+.related-add-row.has-value .related-add-clear {
+  display: inline-grid;
+  place-items: center;
+}
+
+.related-add-type {
+  flex: 0 0 auto;
+}
+
+.related {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.related button {
+  width: 100%;
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--subtle-bg);
+  text-align: left;
+}
+
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+  max-width: min(28rem, calc(100vw - 2rem));
+  width: 28rem;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-100%) scale(0.96);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.toast-enter {
+  animation: toast-in 350ms cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+}
+
+.toast-exit {
+  animation: toast-out 280ms cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-100%) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-40%) scale(0.94); }
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  display: flex;
+}
+
+.toast-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.toast-msg {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  opacity: 0.45;
+  cursor: url('cursors/live_link.cur'), pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: opacity 150ms;
+}
+
+.toast-close:hover {
+  opacity: 0.85;
+}
+
+/* Type variants — light mode */
+.toast-info {
+  background: #f0f4ff;
+  border: 1px solid #c3d4ff;
+  color: #1e40af;
+}
+
+.toast-info .toast-icon { color: #3b82f6; }
+
+.toast-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.toast-success .toast-icon { color: #22c55e; }
+
+.toast-warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.toast-warning .toast-icon { color: #f59e0b; }
+
+.toast-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.toast-error .toast-icon { color: #ef4444; }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter { animation: none; opacity: 1; transform: none; }
+  .toast-exit  { animation: none; }
+}
+
+[data-theme="dark"] .toast {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .toast-info {
+  background: rgba(22, 33, 72, 0.92);
+  border-color: rgba(96, 140, 255, 0.25);
+  color: #93b4ff;
+}
+
+[data-theme="dark"] .toast-info .toast-icon { color: #60a5fa; }
+
+[data-theme="dark"] .toast-success {
+  background: rgba(12, 40, 28, 0.92);
+  border-color: rgba(74, 222, 128, 0.25);
+  color: #86efac;
+}
+
+[data-theme="dark"] .toast-success .toast-icon { color: #4ade80; }
+
+[data-theme="dark"] .toast-warning {
+  background: rgba(50, 40, 12, 0.92);
+  border-color: rgba(250, 204, 21, 0.25);
+  color: #fde68a;
+}
+
+[data-theme="dark"] .toast-warning .toast-icon { color: #facc15; }
+
+[data-theme="dark"] .toast-error {
+  background: rgba(55, 18, 18, 0.92);
+  border-color: rgba(var(--coral-rgb),0.25);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .toast-error .toast-icon { color: #f87171; }
+
+/* Delay topbar wrap until small tablet/large phone widths. */
+@media (max-width: 800px) {
+  .topbar {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .topbar-controls-gap {
+    display: none;
+  }
+
+  .topbar-search {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* On the wrapped action row, keep utility controls anchored to the right. */
+  #themeToggle {
+    margin-left: auto;
+  }
+
+  .composer-row,
+  .lane-row,
+  .lane-create-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .drawer {
+    width: min(100vw, 28rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .controls {
+    flex-wrap: wrap;
+  }
+
+  .composer-row,
+  .deployment-actions,
+  .lane-row,
+  .lane-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kanban {
+    grid-auto-columns: minmax(85vw, 1fr);
+  }
+
+  /* On narrow screens the floating card wastes space; go edge-to-edge. */
+  .drawer {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(100vw, 28rem);
+    border: none;
+    border-left: 1px solid var(--line);
+    border-radius: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* =====================================================================
+   MODAL DIALOG  (.orbit-dialog)
+   A generic <dialog>-based overlay. Open with JS .showModal(); close via
+   the [data-modal-close] button, backdrop click, or the Escape key (native).
+   ===================================================================== */
+
+.orbit-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 4rem);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface-raised);
+  box-shadow:
+    0 24px 60px rgba(12, 18, 26, 0.22),
+    0 4px 16px rgba(12, 18, 26, 0.1);
+  overflow: hidden auto;
+  animation: dialog-rise 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.orbit-dialog::backdrop {
+  background: var(--backdrop-bg);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: backdrop-in 280ms ease both;
+}
+
+@keyframes dialog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-dialog,
+  .orbit-dialog::backdrop {
+    animation: none;
+  }
+}
+
+[data-theme="dark"] .orbit-dialog {
+  background: rgba(16, 24, 48, 0.97);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- Welcome / preview-edition dialog content ---- */
+
+.welcome-dialog-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  padding: 1.75rem 1.75rem 1.5rem;
+}
+
+.welcome-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.welcome-dialog-logo {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.welcome-dialog-edition-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .welcome-dialog-edition-pill {
+  background: rgba(var(--starlight-rgb), 0.12);
+  border-color: rgba(var(--starlight-rgb), 0.28);
+}
+
+.welcome-dialog-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.welcome-dialog-lede {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.welcome-dialog-notices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.welcome-dialog-notices li {
+  padding: 0.65rem 0.95rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.welcome-dialog-notices li:last-child {
+  border-bottom: none;
+}
+
+.welcome-dialog-notice-label {
+  display: block;
+  margin-bottom: 0.1rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.welcome-dialog-link {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.welcome-dialog-link:hover {
+  text-decoration: underline;
+}
+
+.welcome-dialog-footer {
+  display: flex;
+  justify-content: center;
+}
+
+.welcome-dialog-cta {
+  padding: 0.65rem 2.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--btn-border);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--btn-gradient);
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    filter 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.welcome-dialog-cta:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: var(--btn-hover-shadow);
+}
+
+/* =====================================================================
+   DARK THEME — Starscape
+   ===================================================================== */
+
+/* Background starfield is a 2D canvas (app.js). Each star has its own
+   twinkle period, phase, and warmth; layers parallax to the cursor.
+   The canvas is created lazily by JS and inserted inside .grain. */
+.milky-way {
+  display: none;
+}
+
+.starfield-canvas {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .starfield-canvas {
+  display: block;
+}
+
+/* Faint galactic band — two overlapping diagonals, heavily blurred.
+   Breathes on a slow cycle so the sky never feels static. */
+[data-theme="dark"] .milky-way {
+  position: absolute;
+  inset: -25%;
+  display: block;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 24%,
+      rgba(var(--starlight-rgb),0.09) 41%,
+      rgba(224, 200, 255, 0.13) 50%,
+      rgba(var(--starlight-rgb),0.09) 59%,
+      transparent 76%
+    ),
+    linear-gradient(
+      98deg,
+      transparent 38%,
+      rgba(255, 222, 186, 0.055) 50%,
+      transparent 62%
+    );
+  filter: blur(18px);
+  opacity: 0.85;
+  animation: milky-breathe 42s ease-in-out infinite;
+}
+
+@keyframes milky-breathe {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+/* Nebula ghosts — two blurred color blobs that drift on minute-scale cycles.
+   Add warmth (violet + teal) that pure starlight can't. */
+[data-theme="dark"] .grain::before,
+[data-theme="dark"] .grain::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(60px);
+}
+
+[data-theme="dark"] .grain::before {
+  top: -10vmax;
+  right: -12vmax;
+  width: 45vmax;
+  height: 45vmax;
+  background: radial-gradient(circle, rgba(var(--violet-rgb), 0.14), transparent 68%);
+  animation: nebula-drift-1 320s ease-in-out infinite alternate;
+}
+
+[data-theme="dark"] .grain::after {
+  bottom: -18vmax;
+  left: -8vmax;
+  width: 50vmax;
+  height: 50vmax;
+  background: radial-gradient(circle, rgba(var(--cyan-rgb), 0.11), transparent 70%);
+  animation: nebula-drift-2 400s ease-in-out infinite alternate;
+}
+
+@keyframes nebula-drift-1 {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(70px, -50px) scale(1.15); }
+}
+
+@keyframes nebula-drift-2 {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-90px, 60px) scale(1.1); }
+}
+
+/* Signature stars — the half-dozen brightest points. Real <div>s (not
+   box-shadows) so they can wear diffraction spikes as pseudo-elements.
+   JS places them at random positions and staggers their twinkle delays. */
+[data-theme="dark"] .signature-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(210, 225, 255, 0.85) 40%,
+    transparent 75%
+  );
+  box-shadow:
+    0 0 6px rgba(255, 255, 255, 0.85),
+    0 0 14px rgba(var(--starlight-rgb),0.45);
+  animation: sig-twinkle 4.8s ease-in-out infinite;
+}
+
+[data-theme="dark"] .signature-star::before,
+[data-theme="dark"] .signature-star::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+[data-theme="dark"] .signature-star::before {
+  width: 32px;
+  height: 1px;
+  margin: -0.5px 0 0 -16px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.9) 50%,
+    transparent
+  );
+}
+
+[data-theme="dark"] .signature-star::after {
+  width: 1px;
+  height: 32px;
+  margin: -16px 0 0 -0.5px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.9) 50%,
+    transparent
+  );
+}
+
+@keyframes sig-twinkle {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+/* Shooting stars — sparse streaks spawned by app.js every 15-45 seconds. */
+[data-theme="dark"] .meteor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  animation: meteor 1.5s ease-out forwards;
+}
+
+[data-theme="dark"] .meteor::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: -0.75px;
+  width: 160px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    transparent 10%,
+    rgba(210, 225, 255, 0.55) 60%,
+    rgba(255, 255, 255, 0.95)
+  );
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.6))
+    drop-shadow(0 0 10px rgba(var(--starlight-rgb),0.4));
+  transform: rotate(var(--angle, 30deg));
+  transform-origin: right center;
+}
+
+@keyframes meteor {
+  0% {
+    opacity: 0;
+    transform: translate(var(--from-x, 0), var(--from-y, 0));
+  }
+  8% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate(var(--to-x, 0), var(--to-y, 0));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="dark"] .starfield,
+  [data-theme="dark"] .milky-way,
+  [data-theme="dark"] .grain::before,
+  [data-theme="dark"] .grain::after,
+  [data-theme="dark"] .signature-star {
+    animation: none;
+  }
+  [data-theme="dark"] .meteor {
+    display: none;
+  }
+}
+
+[data-theme="dark"] {
+  /* Tells the browser to render native widgets (dropdowns, scrollbars,
+     date pickers, etc.) in their dark variant so option popups match. */
+  color-scheme: dark;
+  --paper: #1a1a2e;
+  --paper-deep: #16213e;
+  --ink: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.68);
+  --line: rgba(255, 255, 255, 0.1);
+  --card: rgba(var(--cosmos-rgb),0.85);
+  --accent: #a8c0ff;
+  --accent-2: #a855f7;
+  --blue: #60a5fa;
+  --danger: #f87171;
+  --shadow: 0 8px 25px rgba(var(--void-rgb),0.3);
+  --radius: 12px;
+  /* Surfaces */
+  --surface: rgba(var(--cosmos-rgb),0.7);
+  --surface-raised: rgba(var(--cosmos-rgb),0.95);
+  --surface-dim: rgba(0, 0, 0, 0.2);
+  --surface-input: rgba(0, 0, 0, 0.2);
+  --topbar-bg: rgba(var(--cosmos-rgb),0.88);
+  --drawer-bg: rgba(var(--cosmos-rgb),0.97);
+  --drawer-head-bg: rgba(var(--cosmos-rgb),0.95);
+  /* Buttons */
+  --btn-gradient: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+  --btn-border: rgba(var(--starlight-rgb),0.25);
+  --btn-hover-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  --mark-gradient: linear-gradient(135deg, #0f3460, #a8c0ff);
+  --mark-shadow: 0 6px 16px rgba(var(--void-rgb),0.4);
+  /* Accent interactions */
+  --accent-hover: rgba(var(--starlight-rgb),0.08);
+  --accent-active: rgba(var(--starlight-rgb),0.12);
+  --accent-border: rgba(var(--starlight-rgb),0.25);
+  --accent-ring: 0 0 0 3px rgba(var(--starlight-rgb),0.12);
+  --accent-focus-border: rgba(var(--starlight-rgb),0.5);
+  /* Subtle backgrounds */
+  --subtle-bg: rgba(255, 255, 255, 0.06);
+  --subtle-bg-2: rgba(255, 255, 255, 0.03);
+  /* Overlay */
+  --backdrop-bg: rgba(0, 0, 0, 0.5);
+  --flyout-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  /* Orbit board */
+  --orbit-surface: rgba(15, 20, 35, 0.95);
+  --orbit-surface-2: rgba(10, 14, 28, 0.98);
+  --orbit-grid: rgba(var(--starlight-rgb),0.04);
+  --orbit-line: rgba(var(--starlight-rgb),0.08);
+  --orbit-column: rgba(var(--starlight-rgb),0.05);
+  --orbit-column-border: rgba(var(--starlight-rgb),0.08);
+  --orbit-text: rgba(255, 255, 255, 0.92);
+  --orbit-text-muted: rgba(255, 255, 255, 0.55);
+  --orbit-accent: rgba(var(--starlight-rgb),0.08);
+  --orbit-accent-2: rgba(var(--indigo-rgb),0.06);
+  --orbit-column-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --orbit-count-bg: rgba(0, 0, 0, 0.2);
+  --orbit-add-bg: rgba(0, 0, 0, 0.22);
+  --orbit-add-border: rgba(255, 255, 255, 0.12);
+  --orbit-phantom-border: rgba(255, 255, 255, 0.22);
+  --orbit-phantom-bg: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb: rgba(var(--starlight-rgb),0.3);
+  --scrollbar-thumb-hover: rgba(var(--starlight-rgb),0.5);
+}

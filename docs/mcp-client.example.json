@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "minimal-agent-board": {
+      "command": "node",
+      "args": [
+        "C:/path/to/minimal-agent-board/src/cli/orbit.js",
+        "mcp",
+        "--cwd",
+        "C:/path/to/your/project"
+      ]
+    }
+  }
+}
