@@ -7,3 +7,5 @@ node_modules/
 .pnpm-store/
 dist/
 .orbit/
+package-lock.json
+

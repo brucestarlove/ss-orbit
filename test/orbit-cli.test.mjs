@@ -34,6 +34,11 @@ function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function commandArgRegex(value) {
+  const escaped = escapeRegex(value);
+  return `(?:'${escaped}'|${escaped})`;
+}
+
 function openBoard(projectRoot) {
   const db = new DatabaseSync(join(projectRoot, ".orbit", "board.db"));
   return db;
@@ -147,12 +152,29 @@ test("orbit docker --dry-run prints build and isolated container run commands", 
   assert.match(stdout, /Docker build:/);
   assert.match(stdout, /docker build -t orbit-test:local/);
   assert.match(stdout, /Docker run:/);
-  assert.match(stdout, /docker run --rm/);
+  assert.match(stdout, /docker run --rm --detach/);
   assert.match(stdout, /-p 4567:4567/);
   assert.match(stdout, new RegExp(`-e DATA_DIR=${escapeRegex(containerDataDir)}`));
-  assert.match(stdout, new RegExp(`-v ${escapeRegex(h.projectRoot)}:${escapeRegex(containerProjectRoot)}`));
-  assert.match(stdout, new RegExp(`-v ${escapeRegex(dockerDataDir)}:${escapeRegex(containerDataDir)}`));
+  assert.match(stdout, new RegExp(`-v ${commandArgRegex(`${h.projectRoot}:${containerProjectRoot}`)}`));
+  assert.match(stdout, new RegExp(`-v ${commandArgRegex(`${dockerDataDir}:${containerDataDir}`)}`));
   assert.match(stdout, /serve --cwd .* --port 4567/);
+});
+
+test("orbit docker -d maps to Docker detach mode", () => {
+  const h = makeHarness();
+  const stdout = runOrbit(["docker", "--dry-run", "-d", "--cwd", h.projectRoot], h);
+
+  assert.match(stdout, /Docker run:/);
+  assert.match(stdout, /docker run --rm --detach/);
+  assert.doesNotMatch(stdout, / -it /);
+});
+
+test("orbit docker --foreground runs attached", () => {
+  const h = makeHarness();
+  const stdout = runOrbit(["docker", "--dry-run", "--foreground", "--cwd", h.projectRoot], h);
+
+  assert.match(stdout, /Docker run:/);
+  assert.doesNotMatch(stdout, /--detach/);
 });
 
 test("orbit init --ai --example enables AI collaboration, creates AI Ready lane, and stages ticket 12", () => {
@@ -198,7 +220,7 @@ test("orbit mcp --cwd selects the requested project root instead of process cwd"
   });
   child.kill("SIGTERM");
 
-  assert.match(stderr, new RegExp(h.projectRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(stderr, new RegExp(escapeRegex(h.projectRoot), "i"));
   assert.match(stderr, /\.orbit\/board\.db|\.orbit\\board\.db/);
 });
 
@@ -245,7 +267,7 @@ test("orbit mcp honors PROJECT_ROOT env when --cwd is omitted", async () => {
   });
   child.kill("SIGTERM");
 
-  assert.match(stderr, new RegExp(h.projectRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(stderr, new RegExp(escapeRegex(h.projectRoot), "i"));
 });
 
 test("orbit mcp speaks newline-delimited JSON-RPC for Hermes native MCP", async () => {

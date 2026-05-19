@@ -34,7 +34,8 @@ Options (docker only):
   --image <name>        Docker image tag (default: starscape-orbit:local)
   --data-dir <dir>      Docker registry/export data dir (default: <cwd>/.orbit/docker-data)
   --name <name>         Optional Docker container name
-  --detach              Run the container in the background
+  -d, --detach          Run the container in the background (default)
+  --foreground          Run attached in the foreground
   --no-build            Skip docker build and run an existing image
   --dry-run             Print docker commands without running them`);
 }
@@ -156,7 +157,7 @@ function parseArgs(argv) {
     dataDir: null,
     containerName: null,
     buildImage: true,
-    detach: false,
+    detach: true,
     dryRun: false
   };
   const rest = argv.slice(2);
@@ -194,8 +195,10 @@ function parseArgs(argv) {
       args.containerName = a.slice("--name=".length);
     } else if (a === "--no-build") {
       args.buildImage = false;
-    } else if (a === "--detach") {
+    } else if (a === "-d" || a === "--detach") {
       args.detach = true;
+    } else if (a === "--foreground") {
+      args.detach = false;
     } else if (a === "--dry-run") {
       args.dryRun = true;
     } else {

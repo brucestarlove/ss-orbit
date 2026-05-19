@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { folderPickerCommands, pickFolder } from "../src/core/system-picker.js";
+import { normalizePath } from "../src/core/util.js";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const orbitCli = join(repoRoot, "src", "cli", "orbit.js");
@@ -480,7 +481,7 @@ test("system folder picker normalizes selected paths and reports unsupported pla
     platform: "darwin",
     execFileImpl: async () => ({ stdout: "/tmp/example/\n" })
   });
-  assert.deepEqual(picked, { path: "/tmp/example" });
+  assert.deepEqual(picked, { path: normalizePath("/tmp/example") });
 
   const unsupported = await pickFolder({
     platform: "linux",
