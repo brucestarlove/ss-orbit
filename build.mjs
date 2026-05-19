@@ -51,6 +51,8 @@ function assembleSite() {
   const marketingHtml = readFileSync(join(ROOT, "index.html"), "utf8")
     .replace(/href="public\/index\.html"/g, 'href="/app/"');
   writeFileSync(join(siteDir, "index.html"), marketingHtml);
+  writeFileSync(join(siteDir, "install.html"), marketingHtml);
+  writeFileSync(join(siteDir, "support.html"), marketingHtml);
 
   for (const file of ["apple-touch-icon.png", "favicon-32x32.png", "orbits-favicon.png"]) {
     const src = join(ROOT, file);

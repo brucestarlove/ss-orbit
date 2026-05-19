@@ -1606,8 +1606,8 @@
         </div>
         <nav class="nav" aria-label="Landing navigation">
           <a href="public/index.html">Open app</a>
-          <a class="cta" href="README.md" data-overlay-mode="install">Install</a>
-          <a class="cta" href="#" data-overlay-mode="support">$upport</a>
+          <a class="cta" href="/install" data-overlay-mode="install">Install</a>
+          <a class="cta" href="/support" data-overlay-mode="support">$upport</a>
           <button type="button" data-prev aria-label="Previous panel">&lt;</button>
           <button type="button" data-next aria-label="Next panel">&gt;</button>
         </nav>
@@ -2096,6 +2096,34 @@ Starscape Orbit listening on http://localhost:3337</pre>
       let overlayMode = null;
       let overlayPanelIndex = null;
 
+      function overlayModeFromPath(pathname) {
+        const cleaned = pathname.replace(/\/+$/, "") || "/";
+        if (cleaned === "/install") return "install";
+        if (cleaned === "/support") return "support";
+        return null;
+      }
+
+      function setOverlayPath(mode, { replace = false } = {}) {
+        if (!history.pushState) return;
+        const nextPath = mode ? `/${mode}` : "/";
+        if (location.pathname === nextPath) return;
+        const method = replace ? "replaceState" : "pushState";
+        try {
+          history[method](null, "", nextPath);
+        } catch {
+          // File previews and unusual hosts can reject absolute history paths.
+        }
+      }
+
+      function applyOverlayPath() {
+        const mode = overlayModeFromPath(location.pathname);
+        if (mode) {
+          applyOverlay(mode);
+          return;
+        }
+        restoreOverlay();
+      }
+
       function applyOverlay(mode) {
         if (overlayMode === mode && overlayPanelIndex === index) return;
         const tpl = document.getElementById(`${mode}-template`);
@@ -2136,10 +2164,16 @@ Starscape Orbit listening on http://localhost:3337</pre>
 
       overlayBtns.forEach((btn) => {
         btn.addEventListener("click", (e) => {
+          if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
           e.preventDefault();
-          applyOverlay(btn.dataset.overlayMode);
+          const mode = btn.dataset.overlayMode;
+          applyOverlay(mode);
+          setOverlayPath(mode);
         });
       });
+
+      window.addEventListener("popstate", applyOverlayPath);
+      applyOverlayPath();
 
       // ---- Per-board light/dark toggle ----
       // Each .board-frame holds its own [data-board-theme] attribute, so the

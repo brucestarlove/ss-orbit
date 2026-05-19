@@ -29,6 +29,7 @@ if (!existsSync(ROOT)) {
 
 createServer((req, res) => {
   let pathname = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  if (pathname === "/install" || pathname === "/install/" || pathname === "/support" || pathname === "/support/") pathname = "/index.html";
   if (pathname === "/app" || pathname === "/app/") pathname = "/app/index.html";
   if (pathname.endsWith("/")) pathname += "index.html";
   const filePath = join(ROOT, pathname);

@@ -7,7 +7,9 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/favicon.ico", "destination": "/favicon-32x32.png" }
+    { "source": "/favicon.ico", "destination": "/favicon-32x32.png" },
+    { "source": "/install", "destination": "/index.html" },
+    { "source": "/support", "destination": "/index.html" }
   ],
   "headers": [
     {
