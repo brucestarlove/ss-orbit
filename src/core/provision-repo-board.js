@@ -45,7 +45,10 @@ export function provisionRepoBoard(repoPathRaw, options = {}) {
 
   const db = openConnection(dbPath);
   createBoardSchema(db);
-  const seeded = seedIfEmpty(db, repoRoot, { includeExamples: options.includeExamples });
+  const seeded = seedIfEmpty(db, repoRoot, {
+    enableAi: options.enableAi,
+    includeExamples: options.includeExamples
+  });
   if (!seeded) {
     const boardMeta = readBoardMetaFromSqlite(db);
     if (!boardMeta) {
@@ -60,7 +63,10 @@ export function provisionRepoBoard(repoPathRaw, options = {}) {
 function provisionExistingDbFile(repoRoot, dbPath, options = {}) {
   const db = openConnection(dbPath);
   createBoardSchema(db);
-  const seeded = seedIfEmpty(db, repoRoot, { includeExamples: options.includeExamples });
+  const seeded = seedIfEmpty(db, repoRoot, {
+    enableAi: options.enableAi,
+    includeExamples: options.includeExamples
+  });
   if (seeded) {
     return insertAfterSeed(repoRoot, dbPath, db, seeded, "repaired");
   }

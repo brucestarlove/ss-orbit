@@ -23,7 +23,7 @@ Options (init / reset / serve / docker / mcp):
   --cwd <dir>           Project root (default: process.cwd())
 
 Options (init only):
-  --ai                  Enable AI collaboration lanes
+  --no-ai               Create the board with AI collaboration disabled
   --example             Create example onboarding tickets
   --refresh-agents-md   Overwrite SKILL-ORBIT.md and refresh Orbit section in AGENTS.md
 
@@ -135,13 +135,21 @@ function syncAgentsMd(projectRoot, options) {
   console.log(`Appended Orbit instructions to ${agentsPath}`);
 }
 
-function enableAiIfRequested(options, registryRow, core) {
+function enableAiIfEnabled(options, registryRow, core) {
   if (!options.ai || !registryRow) return;
   const { enableAiCollaboration, openConnection } = core;
   const db = openConnection(registryRow.db_path);
-  enableAiCollaboration(db, registryRow.id, { stageOnboardingTicket: options.example, actor: "orbit init --ai" });
+  enableAiCollaboration(db, registryRow.id, { stageOnboardingTicket: options.example, actor: "orbit init" });
   const suffix = options.example ? "; example ticket #12 is staged in AI Ready." : ".";
   console.log(`AI collaboration enabled — AI Ready, In Progress, and Review lanes are present${suffix}`);
+}
+
+function disableAiIfRequested(options, registryRow, core) {
+  if (options.ai || !registryRow) return;
+  const { openConnection } = core;
+  const db = openConnection(registryRow.db_path);
+  db.prepare("UPDATE boards SET ai_enabled = 0, updated_at = ? WHERE id = ?").run(new Date().toISOString(), registryRow.id);
+  console.log("AI collaboration disabled for this board.");
 }
 
 function parseArgs(argv) {
@@ -150,7 +158,7 @@ function parseArgs(argv) {
     cwd: process.env.PROJECT_ROOT ? resolve(process.env.PROJECT_ROOT) : process.cwd(),
     cwdProvided: false,
     refreshAgentsMd: false,
-    ai: false,
+    ai: true,
     example: false,
     port: null,
     image: "starscape-orbit:local",
@@ -169,7 +177,7 @@ function parseArgs(argv) {
   for (let i = 1; i < rest.length; i++) {
     const a = rest[i];
     if (a === "--refresh-agents-md") args.refreshAgentsMd = true;
-    else if (a === "--ai") args.ai = true;
+    else if (a === "--no-ai") args.ai = false;
     else if (a === "--example") args.example = true;
     else if (a === "--cwd" && rest[i + 1]) {
       args.cwdProvided = true;
@@ -217,7 +225,7 @@ async function runInit(options) {
   mkdirSync(DATA_DIR, { recursive: true });
   createRegistrySchema();
 
-  const result = provisionRepoBoard(projectRoot, { includeExamples: options.example });
+  const result = provisionRepoBoard(projectRoot, { enableAi: options.ai, includeExamples: options.example });
   const skillSrc = resolve(ROOT_DIR, "SKILL-ORBIT.md");
   const skillDest = resolve(projectRoot, "SKILL-ORBIT.md");
 
@@ -235,7 +243,8 @@ async function runInit(options) {
     syncAgentsMd(projectRoot, options);
   }
 
-  enableAiIfRequested(options, result.registryRow, core);
+  enableAiIfEnabled(options, result.registryRow, core);
+  disableAiIfRequested(options, result.registryRow, core);
 
   if (result.message && result.status === "skipped") {
     console.log(result.message);
@@ -254,7 +263,7 @@ ${mcpLine}
 --- Next: agent prompt (from this repo) ---
 Read AGENTS.md in this repository, then use the Orbit MCP tools. Use board_list, board_set_active, and ticket context tools per docs/AGENT_PROTOCOL.md before claiming or updating work.
 
-${options.example ? (options.ai ? "Example ticket #12 is \"Try Orbit MCP on this ticket\" in AI Ready — good first exercise after MCP is connected." : "Example tickets were created. Add `--ai` to also create AI collaboration lanes and stage ticket #12 in AI Ready.") : "No example tickets were created. Rerun on a fresh board with `orbit init --example` if you want the onboarding examples."}
+${options.example ? (options.ai ? "Example ticket #12 is \"Try Orbit MCP on this ticket\" in AI Ready — good first exercise after MCP is connected." : "Example tickets were created. AI collaboration was disabled with `--no-ai`, so ticket #12 remains in Backlog.") : "No example tickets were created. Rerun on a fresh board with `orbit init --example` if you want the onboarding examples."}
 `);
 
   if (result.registryRow) {

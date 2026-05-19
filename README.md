@@ -37,6 +37,7 @@ From the repo you want a board for:
 cd path/to/your-app
 orbit init            # creates .orbit/board.db + SKILL-ORBIT.md + AGENTS.md
 orbit init --example  # optional: add onboarding example tickets
+orbit init --no-ai    # optional: create or update the board with AI disabled
 ```
 
 Start one runtime and keep using it:
@@ -67,9 +68,9 @@ Wipe a single board and start over with `orbit reset` (deletes `.orbit/`, `SKILL
 
 ## Use with AI
 
-Orbit ships with everything an agent needs to claim work, read tickets, and write back implementation notes — but it stays out of your way until you turn it on.
+Orbit ships with everything an agent needs to claim work, read tickets, and write back implementation notes. New boards have AI collaboration enabled by default; pass `orbit init --no-ai` or turn off **Enable AI** in Settings → AI if you want a human-only board.
 
-1. **Enable AI on the board.** Open Settings (gear icon) → **AI** tab → toggle **Enable AI**. Orbit provisions the `AI Ready`, `In Progress`, and `Review` lanes if they're missing, surfaces the agent-context fields, and reveals the MCP setup snippet.
+1. **Confirm AI is enabled.** Open Settings (gear icon) → **AI** tab → toggle **Enable AI** if needed. Orbit provisions the `AI Ready`, `In Progress`, and `Review` lanes if they're missing, surfaces the agent-context fields, and reveals the MCP setup snippet.
 2. **Fill in agent context.** Settings → AI → *Agent Instructions* is the project-level briefing every agent reads before touching a ticket. Describe what the project is, who it serves, the stack, and any rules of the road.
 3. **Register the MCP server with your agent.** The AI tab generates copy-pasteable snippets for Claude Code, Cursor, Codex, OpenCode, OpenClaw, and other MCP-capable clients — pick your OS + client and paste the command into your agent's MCP config.
 4. **Restart the agent.** On its next boot it discovers the Orbit MCP tools (`board_claim_next`, `board_get_ticket_context`, `board_update_ticket`, etc.).
@@ -80,7 +81,7 @@ If you initialized with `--example`, ticket #12 (`Try Orbit MCP on this ticket`)
 ## Vocabulary
 
 - **Board** — one repo's planning surface. Each board carries its own `agent_instructions`, lanes, tickets, and memory entries.
-- **Lane** — a column. Lanes are user-defined and freely named/reordered. The seed gives you `Backlog`, `Todo`, `In Progress`, `Review`, `Done`, `Cancelled`; turning on AI also pins `AI Ready`, `In Progress`, and `Review` as anchor lanes the agent flow keys off.
+- **Lane** — a column. Lanes are user-defined and freely named/reordered. The default seed gives you `Backlog`, `Todo`, `AI Ready`, `In Progress`, `Review`, `Done`, `Cancelled`; `AI Ready`, `In Progress`, and `Review` are anchor lanes the agent flow keys off. `AI Ready` is inserted between `Todo` and `In Progress` when AI is enabled.
 - **Ticket types**:
   - `epic` — index card for a multi-feature initiative. Owns child tickets via `parent_ticket_id`.
   - `feature` — a standalone capability or new behavior.
@@ -101,7 +102,7 @@ Bun is not used as the Orbit runtime because Orbit depends on Node's built-in `n
 
 Each repo gets its own board database. Orbit keeps a small central registry that maps repo paths to their board files; the CLI, web app, and MCP server use explicit project roots when provided, then fall back to walking upward to find `.orbit/board.db`.
 
-- **Per-repo board** — `.orbit/board.db` lives in the repo it tracks. `orbit init` creates it, drops `SKILL-ORBIT.md` at the repo root, and creates/updates `AGENTS.md` with a terse pointer so agents load the full Orbit protocol only when relevant. Add `--example` to create onboarding cards.
+- **Per-repo board** — `.orbit/board.db` lives in the repo it tracks. `orbit init` creates it, drops `SKILL-ORBIT.md` at the repo root, and creates/updates `AGENTS.md` with a terse pointer so agents load the full Orbit protocol only when relevant. Add `--example` to create onboarding cards, or `--no-ai` to disable AI collaboration for the board.
 - **Central registry** — `registry.db` records each board's path, slug, and last-active timestamp. Host `orbit serve` uses `~/.orbit`; `orbit docker` uses `<repo>/.orbit/docker-data`. Keep one mode unless you intentionally share `DATA_DIR`, re-register boards, or import snapshots.
 - **Project-root discovery** — `orbit serve`, `orbit mcp`, and MCP-attached agents resolve a board from an explicit `--cwd` / `PROJECT_ROOT` first, then fall back to walking up from process cwd to find `.orbit/board.db`. Persistent MCP configs should use an explicit root so the right board attaches even when the agent launches elsewhere.
 - **Two channels for AI** — `AGENTS.md` is the auto-loaded briefing, with an Orbit-managed pointer to `SKILL-ORBIT.md`; the *MCP config* tells the agent runtime how to launch Orbit's MCP server for the right project. The briefing travels with the repo; the MCP registration is per-agent-install.
@@ -167,7 +168,7 @@ A copy-editable client config lives at [docs/mcp-client.example.json](docs/mcp-c
 - **Board**: name from `BOARD_NAME` env var, otherwise inferred from `package.json` `name` or the repo folder name. Slug from `BOARD_SLUG` or derived from the name.
 - **Repo metadata**: `REPO_URL` env var or `git config --get remote.origin.url`; `SYSTEM_PATH` env var or the repo path passed to `orbit init`.
 - **Default branch**: `DEFAULT_BRANCH` env var, otherwise the current git branch.
-- **Lanes (6)**: `Backlog`, `Todo` (default), `In Progress`, `Review`, `Done`, `Cancelled`.
+- **Lanes (7)**: `Backlog`, `Todo` (default), `AI Ready`, `In Progress`, `Review`, `Done`, `Cancelled`. Pass `--no-ai` to seed without `AI Ready` and leave AI collaboration disabled.
 - **Labels (7)**: `human-only`, `needs-human-input`, `needs-decomposition`, `needs-followup`, `tech-debt`, `security`, `onboarding`.
 - **Onboarding cards (optional)**: pass `--example` to create an epic `#1` plus children `#2`, `#3`, and `#12 — Try Orbit MCP on this ticket`.
 - **Free-form fields**: `project_notes` (Notes tab) and `agent_instructions` (AI tab) get placeholder text you should replace.

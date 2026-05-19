@@ -23,8 +23,8 @@ export function seedIfEmpty(db, repoPath, options = {}) {
     db.prepare(
       `INSERT INTO boards
        (id, slug, name, repo_url, system_path, default_branch,
-        project_notes, agent_instructions, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        project_notes, agent_instructions, ai_enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       boardId,
       seed.boardSlug,
@@ -34,13 +34,22 @@ export function seedIfEmpty(db, repoPath, options = {}) {
       seed.defaultBranch,
       seed.projectNotes,
       seed.agentInstructions,
+      options.enableAi === false ? 0 : 1,
       time,
       time
     );
 
-    const states = [
+    const states = options.enableAi === false ? [
       ["Backlog", null],
       ["Todo", null],
+      ["In Progress", "in_progress"],
+      ["Review", "review"],
+      ["Done", "done"],
+      ["Cancelled", null]
+    ] : [
+      ["Backlog", null],
+      ["Todo", null],
+      ["AI Ready", "ai_ready"],
       ["In Progress", "in_progress"],
       ["Review", "review"],
       ["Done", "done"],

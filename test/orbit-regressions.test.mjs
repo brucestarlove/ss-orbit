@@ -153,7 +153,7 @@ test("orbit serve honors --port before loading server paths", async () => {
 
 test("board context exposes metadata needed by settings tabs", async () => {
   const h = makeHarness();
-  runOrbit(["init", "--ai", "--cwd", h.projectRoot], h);
+  runOrbit(["init", "--cwd", h.projectRoot], h);
 
   const db = new DatabaseSync(join(h.projectRoot, ".orbit", "board.db"));
   const board = db.prepare("SELECT id, slug, name, repo_url, system_path, default_branch, project_notes, ai_enabled FROM boards LIMIT 1").get();

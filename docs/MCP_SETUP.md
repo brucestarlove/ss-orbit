@@ -13,7 +13,7 @@ Orbit generates neutral template paths for Windows, macOS, and Linux. Replace th
 
 Board data lives under each tracked repo at `.orbit/board.db` (flat file or `.orbit/boards/<slug>/` for extra boards)—not beside the MCP script.
 
-After installing Orbit as a package, run **`orbit init`** in (or with `--cwd` pointing at) the repo where you want `.orbit/`, **`AGENTS.md`**, and a copy of **`SKILL-ORBIT.md`** so agents and MCP line up with that tree. Add `--ai` to enable the AI Ready / In Progress / Review agent lanes immediately, and add `--example` if you want the onboarding example tickets.
+After installing Orbit as a package, run **`orbit init`** in (or with `--cwd` pointing at) the repo where you want `.orbit/`, **`AGENTS.md`**, and a copy of **`SKILL-ORBIT.md`** so agents and MCP line up with that tree. Orbit enables the AI Ready / In Progress / Review agent lanes by default. Add `--no-ai` if you want AI collaboration disabled, and add `--example` if you want the onboarding example tickets.
 
 The generated format changes by app:
 

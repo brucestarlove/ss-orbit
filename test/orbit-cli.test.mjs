@@ -84,21 +84,29 @@ test("orbit init creates an empty board by default", () => {
   runOrbit(["init", "--cwd", h.projectRoot], h);
   const db = openBoard(h.projectRoot);
   const ticketCount = db.prepare("SELECT COUNT(*) AS count FROM tickets").get().count;
-  const laneCount = db.prepare("SELECT COUNT(*) AS count FROM states").get().count;
+  const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
+  const lanes = db.prepare("SELECT name, role FROM states ORDER BY position").all();
 
   assert.equal(ticketCount, 0);
-  assert.equal(laneCount, 6);
+  assert.equal(board.ai_enabled, 1);
+  assert.deepEqual(lanes.map((lane) => lane.name), ["Backlog", "Todo", "AI Ready", "In Progress", "Review", "Done", "Cancelled"]);
+  assert.equal(lanes[2].role, "ai_ready");
 });
 
 test("orbit init --example creates onboarding tickets", () => {
   const h = makeHarness();
   const stdout = runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
   const db = openBoard(h.projectRoot);
-  const tickets = db.prepare("SELECT number, title FROM tickets ORDER BY number").all();
+  const tickets = db
+    .prepare(`SELECT t.number, t.title, s.name AS state_name
+              FROM tickets t JOIN states s ON s.id = t.state_id
+              ORDER BY t.number`)
+    .all();
 
-  assert.match(stdout, /Example tickets were created/);
+  assert.match(stdout, /Example ticket #12/);
   assert.deepEqual(tickets.map((ticket) => ticket.number), [1, 2, 3, 12]);
   assert.equal(tickets.at(-1).title, "Try Orbit MCP on this ticket");
+  assert.equal(tickets.at(-1).state_name, "AI Ready");
 });
 
 test("orbit --example is rejected because init is required", () => {
@@ -113,30 +121,58 @@ test("orbit --example is rejected because init is required", () => {
   assert.match(result.stdout, /Usage:/);
 });
 
-test("orbit init --ai enables AI collaboration and creates AI Ready lane without examples", () => {
+test("orbit init enables AI collaboration and creates AI Ready lane without examples", () => {
   const h = makeHarness();
-  const stdout = runOrbit(["init", "--ai", "--cwd", h.projectRoot], h);
+  const stdout = runOrbit(["init", "--cwd", h.projectRoot], h);
   const db = openBoard(h.projectRoot);
   const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
-  const lane = db.prepare("SELECT id, role FROM states WHERE name = 'AI Ready'").get();
+  const lane = db.prepare("SELECT id, role, position FROM states WHERE name = 'AI Ready'").get();
   const ticketCount = db.prepare("SELECT COUNT(*) AS count FROM tickets").get().count;
 
   assert.match(stdout, /AI collaboration enabled/);
   assert.equal(board.ai_enabled, 1);
   assert.equal(lane.role, "ai_ready");
+  assert.equal(lane.position, 2);
   assert.equal(ticketCount, 0);
 });
 
-test("orbit --ai is rejected because init is required", () => {
+test("orbit init --no-ai creates a board without the AI Ready lane", () => {
   const h = makeHarness();
-  const result = spawnSync(process.execPath, [orbitCli, "--ai", "--cwd", h.projectRoot], {
-    cwd: repoRoot,
-    env: { ...process.env, DATA_DIR: h.dataDir },
-    encoding: "utf8"
-  });
+  const stdout = runOrbit(["init", "--no-ai", "--cwd", h.projectRoot], h);
+  const db = openBoard(h.projectRoot);
+  const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
+  const lanes = db.prepare("SELECT name FROM states ORDER BY position").all();
 
-  assert.notEqual(result.status, 0);
-  assert.match(result.stdout, /Usage:/);
+  assert.doesNotMatch(stdout, /AI collaboration enabled/);
+  assert.equal(board.ai_enabled, 0);
+  assert.deepEqual(lanes.map((lane) => lane.name), ["Backlog", "Todo", "In Progress", "Review", "Done", "Cancelled"]);
+});
+
+test("orbit init --no-ai disables AI on an existing board", () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const stdout = runOrbit(["init", "--no-ai", "--cwd", h.projectRoot], h);
+  const db = openBoard(h.projectRoot);
+  const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
+  const aiReady = db.prepare("SELECT name, position FROM states WHERE role = 'ai_ready'").get();
+
+  assert.match(stdout, /AI collaboration disabled/);
+  assert.equal(board.ai_enabled, 0);
+  assert.equal(aiReady.name, "AI Ready");
+  assert.equal(aiReady.position, 2);
+});
+
+test("orbit init enables AI on an existing non-AI board", () => {
+  const h = makeHarness();
+  runOrbit(["init", "--no-ai", "--cwd", h.projectRoot], h);
+  const stdout = runOrbit(["init", "--cwd", h.projectRoot], h);
+  const db = openBoard(h.projectRoot);
+  const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
+  const lanes = db.prepare("SELECT name FROM states ORDER BY position").all();
+
+  assert.match(stdout, /AI collaboration enabled/);
+  assert.equal(board.ai_enabled, 1);
+  assert.deepEqual(lanes.map((lane) => lane.name), ["Backlog", "Todo", "AI Ready", "In Progress", "Review", "Done", "Cancelled"]);
 });
 
 test("orbit docker --dry-run prints build and isolated container run commands", () => {
@@ -177,9 +213,9 @@ test("orbit docker --foreground runs attached", () => {
   assert.doesNotMatch(stdout, /--detach/);
 });
 
-test("orbit init --ai --example enables AI collaboration, creates AI Ready lane, and stages ticket 12", () => {
+test("orbit init --example enables AI collaboration, creates AI Ready lane, and stages ticket 12", () => {
   const h = makeHarness();
-  const stdout = runOrbit(["init", "--ai", "--example", "--cwd", h.projectRoot], h);
+  const stdout = runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
   const db = openBoard(h.projectRoot);
   const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
   const lane = db.prepare("SELECT id, role FROM states WHERE name = 'AI Ready'").get();

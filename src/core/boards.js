@@ -1,5 +1,5 @@
 import { getRegistry, tx } from "./db.js";
-import { boardById } from "./queries.js";
+import { boardById, compactStatePositions } from "./queries.js";
 import {
   computeNewBoardDbPath,
   ensureBoardDbFileAndSchema,
@@ -33,14 +33,23 @@ export function createBoard(body, ctx) {
   const time = now();
   const sniff = buildBoardFromRepo(repoPath);
 
-  const defaultStates = body.states || [
+  const aiEnabled = body.ai_enabled === undefined ? true : Boolean(body.ai_enabled);
+  const defaultStates = body.states || (aiEnabled ? [
+    ["Backlog", null],
+    ["Todo", null],
+    ["AI Ready", "ai_ready"],
+    ["In Progress", "in_progress"],
+    ["Review", "review"],
+    ["Done", "done"],
+    ["Cancelled", null]
+  ] : [
     ["Backlog", null],
     ["Todo", null],
     ["In Progress", "in_progress"],
     ["Review", "review"],
     ["Done", "done"],
     ["Cancelled", null]
-  ];
+  ]);
 
   // Board row + lanes + creation event land atomically in the board DB. The
   // registry insert below is a different database (can't share this
@@ -49,8 +58,8 @@ export function createBoard(body, ctx) {
   tx(db, () => {
     db.prepare(
       `INSERT INTO boards
-       (id, slug, name, repo_url, system_path, default_branch, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, slug, name, repo_url, system_path, default_branch, ai_enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       boardId,
       slug,
@@ -58,6 +67,7 @@ export function createBoard(body, ctx) {
       body.repo_url || sniff.repoUrl || "",
       repoPath,
       body.default_branch || sniff.defaultBranch || "main",
+      aiEnabled ? 1 : 0,
       time,
       time
     );
@@ -70,6 +80,7 @@ export function createBoard(body, ctx) {
       ).run(id(), boardId, stateName, position, stateName === "Todo" ? 1 : 0, role || null, time);
     });
 
+    if (aiEnabled) ensureAgentLanes(db, boardId);
     recordEvent(db, boardId, "board_created", null, actor.name, { board_id: boardId, slug });
   });
 
@@ -95,24 +106,58 @@ const AGENT_LANES = [
   { name: "Review", role: "review" }
 ];
 
-/** Ensure the three role-bearing lanes that agent flow depends on
- *  (ai_ready / in_progress / review) exist on the board. Missing lanes are
- *  appended at the end of the lane order. Idempotent. */
+function desiredAgentLanePosition(db, boardId, role) {
+  if (role === "ai_ready") {
+    const todo = db.prepare("SELECT position FROM states WHERE board_id = ? AND name = 'Todo'").get(boardId);
+    if (todo) return Number(todo.position) + 1;
+    const inProgress = db.prepare("SELECT position FROM states WHERE board_id = ? AND role = 'in_progress'").get(boardId);
+    if (inProgress) return Number(inProgress.position);
+  }
+  const maxPosition = db
+    .prepare("SELECT MAX(position) AS value FROM states WHERE board_id = ?")
+    .get(boardId).value;
+  return Number(maxPosition ?? -1) + 1;
+}
+
+function openStateSlot(db, boardId, position, exceptStateId = null) {
+  db.prepare(
+    `UPDATE states
+     SET position = position + 1
+     WHERE board_id = ?
+       AND position >= ?
+       AND (? IS NULL OR id != ?)`
+  ).run(boardId, position, exceptStateId, exceptStateId);
+}
+
+/** Ensure the role-bearing lanes that agent flow depends on exist on the
+ *  board. AI Ready is kept directly after Todo so claim-next has a predictable
+ *  handoff column. Idempotent. */
 export function ensureAgentLanes(db, boardId) {
   const time = now();
   for (const lane of AGENT_LANES) {
     const existing = db
-      .prepare("SELECT id FROM states WHERE board_id = ? AND role = ?")
+      .prepare("SELECT id, position FROM states WHERE board_id = ? AND role = ?")
       .get(boardId, lane.role);
-    if (existing) continue;
-    const maxPosition = db
-      .prepare("SELECT MAX(position) AS value FROM states WHERE board_id = ?")
-      .get(boardId).value;
+    if (existing) {
+      if (lane.role === "ai_ready") {
+        let desiredPosition = desiredAgentLanePosition(db, boardId, lane.role);
+        if (Number(existing.position) !== desiredPosition) {
+          db.prepare("UPDATE states SET position = -1 WHERE id = ?").run(existing.id);
+          compactStatePositions(db, boardId);
+          desiredPosition = desiredAgentLanePosition(db, boardId, lane.role);
+          openStateSlot(db, boardId, desiredPosition, existing.id);
+          db.prepare("UPDATE states SET position = ? WHERE id = ?").run(desiredPosition, existing.id);
+        }
+      }
+      continue;
+    }
+    const position = desiredAgentLanePosition(db, boardId, lane.role);
+    openStateSlot(db, boardId, position);
     db.prepare(
       `INSERT INTO states
        (id, board_id, name, position, is_default, role, created_at)
        VALUES (?, ?, ?, ?, 0, ?, ?)`
-    ).run(id(), boardId, lane.name, Number(maxPosition || 0) + 1, lane.role, time);
+    ).run(id(), boardId, lane.name, position, lane.role, time);
   }
 }
 
