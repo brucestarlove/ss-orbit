@@ -7,7 +7,7 @@ import {
   createFlyoutInner,
   createFlyoutBackdrop
 } from "./dom.js";
-import { state, statesForProject, ticketsForProject } from "./state.js";
+import { state, visibleStatesForProject, ticketsForProject } from "./state.js";
 import { escapeHtml, ticketLabel } from "./format.js";
 import { api } from "./api.js";
 import { syncUrlFromState } from "./router.js";
@@ -54,7 +54,7 @@ export function closeCreateFlyout() {
 
 /** HTML for the “New” flyout: lane + type + priority on one row, then parent and labels. */
 function renderCreateForm(preselectedLaneId) {
-  const states = statesForProject();
+  const states = visibleStatesForProject();
   const defaultState = states.find((item) => item.is_default) || states[0];
   const effectiveStateId =
     preselectedLaneId && states.some((s) => s.id === preselectedLaneId)

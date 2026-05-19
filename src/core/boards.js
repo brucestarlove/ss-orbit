@@ -188,6 +188,18 @@ export function enableAiCollaboration(db, boardId, options = {}) {
   return boardById(db, boardId);
 }
 
+export function disableAiCollaboration(db, boardId, options = {}) {
+  const innerBoard = boardById(db, boardId);
+  if (!innerBoard) throw httpError(404, "board_not_found");
+
+  const time = now();
+  return tx(db, () => {
+    db.prepare("UPDATE boards SET ai_enabled = 0, updated_at = ? WHERE id = ?").run(time, boardId);
+    recordEvent(db, boardId, "ai_disabled", null, options.actor || "system", { board_id: boardId });
+    return boardById(db, boardId);
+  });
+}
+
 export function updateBoard(boardId, body, ctx) {
   const { db, board, actor } = ctx;
   if (boardId !== board.id) throw httpError(404, "board_not_found");

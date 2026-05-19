@@ -100,7 +100,7 @@ export function seedIfEmpty(db, repoPath, options = {}) {
       const firstTicket = insertSeedTicket(db, boardId, 2, {
         title: "Fill agent context & personal notes",
         description:
-          "Open Settings → AI (Agent Instructions) and Settings → Notes, and replace the seed text with real project context plus your own reminders.",
+          "Open Settings → AI (Agent Instructions) and Settings → Notes, and add real project context plus your own reminders.",
         type: "feature",
         parentTicketId: epicTicket,
         stateId: stateIds.get("Todo"),
@@ -193,7 +193,6 @@ export function buildBoardFromRepo(projectRoot) {
     "main";
   const defaultProjectNotes =
     "Personal reminders (Settings → Notes: Notes For You). Point yourself at SKILL-ORBIT.md, runbooks, or nudges for your tools.";
-  const defaultAgentInstructions = `Describe why ${boardName} exists, who it serves, and what success looks like. Add features, stack, constraints, and anything agents should know — this project-level context is provided to agents when they work on tickets.`;
   return {
     boardName,
     boardSlug,
@@ -201,7 +200,7 @@ export function buildBoardFromRepo(projectRoot) {
     systemPath,
     defaultBranch,
     projectNotes: readSeedValue("project_notes") || defaultProjectNotes,
-    agentInstructions: readSeedValue("agent_instructions") || defaultAgentInstructions
+    agentInstructions: readSeedValue("agent_instructions") || ""
   };
 }
 

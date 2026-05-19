@@ -5,9 +5,10 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { removeOrbitAgentsSection, syncAgentsMd } from "../core/agents-md.js";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -54,12 +55,9 @@ function formatCommand(executable, args) {
   return [executable, ...args].map(commandQuote).join(" ");
 }
 
-const ORBIT_AGENTS_START = "<!-- ORBIT:AGENTS-START -->";
-const ORBIT_AGENTS_END = "<!-- ORBIT:AGENTS-END -->";
-
 async function loadCliCore() {
   const [
-    { enableAiCollaboration },
+    { disableAiCollaboration, enableAiCollaboration },
     { backupBoardDatabase, backupRegistry },
     { createRegistrySchema, openConnection },
     { DATA_DIR, ROOT_DIR },
@@ -83,56 +81,13 @@ async function loadCliCore() {
     backupRegistry,
     createRegistrySchema,
     deleteBoard,
+    disableAiCollaboration,
     enableAiCollaboration,
     getBoardByRepoPath,
     normalizePath,
     openConnection,
     provisionRepoBoard
   };
-}
-
-function orbitAgentsSection() {
-  return `${ORBIT_AGENTS_START}
-When work mentions Orbit, kanban, board, lane, ticket, card, epic, blocker, claim, AI Ready, implementation fields, planning state, project memory, or handoff: read \`SKILL-ORBIT.md\` first and follow it.
-${ORBIT_AGENTS_END}\n`;
-}
-
-function buildAgentsMd() {
-  return `# AGENTS.md
-
-Git is canonical for code. \`SKILL-ORBIT.md\` is canonical for Orbit/kanban/ticket/card workflow.
-
-${orbitAgentsSection()}`;
-}
-
-function syncAgentsMd(projectRoot, options) {
-  const agentsPath = resolve(projectRoot, "AGENTS.md");
-  const section = orbitAgentsSection();
-
-  if (!existsSync(agentsPath)) {
-    writeFileSync(agentsPath, buildAgentsMd(), "utf8");
-    console.log(`Wrote ${agentsPath}`);
-    return;
-  }
-
-  const current = readFileSync(agentsPath, "utf8");
-  const startIndex = current.indexOf(ORBIT_AGENTS_START);
-  const endIndex = current.indexOf(ORBIT_AGENTS_END);
-
-  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-    if (!options.refreshAgentsMd) {
-      console.log("AGENTS.md already includes Orbit instructions — left unchanged (use --refresh-agents-md to replace).");
-      return;
-    }
-    const before = current.slice(0, startIndex).replace(/\s*$/, "\n\n");
-    const after = current.slice(endIndex + ORBIT_AGENTS_END.length).replace(/^\s*/, "");
-    writeFileSync(agentsPath, `${before}${section}${after}`, "utf8");
-    console.log(`Refreshed Orbit instructions inside ${agentsPath}`);
-    return;
-  }
-
-  writeFileSync(agentsPath, `${current.replace(/\s*$/, "\n\n")}${section}`, "utf8");
-  console.log(`Appended Orbit instructions to ${agentsPath}`);
 }
 
 function enableAiIfEnabled(options, registryRow, core) {
@@ -146,9 +101,9 @@ function enableAiIfEnabled(options, registryRow, core) {
 
 function disableAiIfRequested(options, registryRow, core) {
   if (options.ai || !registryRow) return;
-  const { openConnection } = core;
+  const { disableAiCollaboration, openConnection } = core;
   const db = openConnection(registryRow.db_path);
-  db.prepare("UPDATE boards SET ai_enabled = 0, updated_at = ? WHERE id = ?").run(new Date().toISOString(), registryRow.id);
+  disableAiCollaboration(db, registryRow.id, { actor: "orbit init" });
   console.log("AI collaboration disabled for this board.");
 }
 
@@ -304,6 +259,12 @@ async function runReset(options) {
     unlinkSync(skillMd);
     removed.push(skillMd);
   }
+  const agentsCleanup = removeOrbitAgentsSection(projectRoot);
+  if (agentsCleanup.removed) {
+    removed.push(`${agentsCleanup.path} Orbit section`);
+  } else if (!agentsCleanup.ok) {
+    console.warn(`Warning: skipped AGENTS.md cleanup (${agentsCleanup.reason}) in ${agentsCleanup.path}`);
+  }
 
   if (registryRow) {
     deleteBoard(registryRow.id);
@@ -447,4 +408,6 @@ async function main() {
   }
 }
 
-main();
+await main();
+await new Promise((resolvePromise) => process.stdout.write("", resolvePromise));
+await new Promise((resolvePromise) => process.stderr.write("", resolvePromise));

@@ -84,11 +84,12 @@ test("orbit init creates an empty board by default", () => {
   runOrbit(["init", "--cwd", h.projectRoot], h);
   const db = openBoard(h.projectRoot);
   const ticketCount = db.prepare("SELECT COUNT(*) AS count FROM tickets").get().count;
-  const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
+  const board = db.prepare("SELECT ai_enabled, agent_instructions FROM boards LIMIT 1").get();
   const lanes = db.prepare("SELECT name, role FROM states ORDER BY position").all();
 
   assert.equal(ticketCount, 0);
   assert.equal(board.ai_enabled, 1);
+  assert.equal(board.agent_instructions, "");
   assert.deepEqual(lanes.map((lane) => lane.name), ["Backlog", "Todo", "AI Ready", "In Progress", "Review", "Done", "Cancelled"]);
   assert.equal(lanes[2].role, "ai_ready");
 });

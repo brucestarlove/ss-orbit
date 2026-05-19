@@ -1,6 +1,6 @@
 {
   "name": "@starlove/orbit",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Starscape Orbit — SQLite-backed, agent-first task board (Starscape suite).",
   "license": "MIT",
   "type": "module",

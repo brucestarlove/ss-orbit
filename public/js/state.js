@@ -49,6 +49,22 @@ export function statesForProject() {
   return state.data.states.filter((item) => item.board_id === state.boardId);
 }
 
+export function isAiReadyState(item) {
+  return item?.role === "ai_ready" || item?.name === "AI Ready";
+}
+
+export function visibleStatesForProject() {
+  const states = statesForProject();
+  if (currentBoard()?.ai_enabled !== 0) return states;
+  return states.filter((item) => !isAiReadyState(item));
+}
+
+export function selectableStatesForProject(currentStateId = "") {
+  const states = statesForProject();
+  if (currentBoard()?.ai_enabled !== 0) return states;
+  return states.filter((item) => !isAiReadyState(item) || item.id === currentStateId);
+}
+
 export function ticketsForProject() {
   return state.data.tickets.filter((item) => item.board_id === state.boardId);
 }

@@ -4,7 +4,7 @@
 // related cards. Also owns the small render helpers (status history,
 // comments, detail-card) that are only used inside the drawer.
 
-import { state, ticketsForProject, statesForProject, boardLabelCatalog, currentBoard } from "./state.js";
+import { state, ticketsForProject, selectableStatesForProject, boardLabelCatalog, currentBoard } from "./state.js";
 import { drawerInner, drawer, $ } from "./dom.js";
 import {
   escapeHtml,
@@ -217,7 +217,7 @@ export async function renderDetail() {
   // user doesn't see it lingering until the next full re-render.
   markRead(ticket.id, ticket.updated_at);
   document.querySelector(`.card[data-ticket-id="${CSS.escape(ticket.id)}"] .card-unread-dot`)?.remove();
-  const states = statesForProject();
+  const states = selectableStatesForProject(ticket.state_id);
 
   // Ordered by the canonical hierarchy so the dropdown visually reinforces scale:
   // Epic (biggest) → Feature → Task → Bug.

@@ -4,7 +4,7 @@
 // owned by ticket-detail.js.
 
 import { kanban } from "./dom.js";
-import { state, statesForProject, ticketsForProject } from "./state.js";
+import { state, visibleStatesForProject, ticketsForProject } from "./state.js";
 import {
   escapeHtml,
   ticketLabel,
@@ -21,7 +21,7 @@ import { load } from "./app.js";
 import { unreadCount } from "./unread.js";
 
 export function renderBoard() {
-  const states = statesForProject();
+  const states = visibleStatesForProject();
   const tickets = ticketsForProject();
   kanban.innerHTML = states.map((column) => renderColumn(column, tickets)).join("");
 

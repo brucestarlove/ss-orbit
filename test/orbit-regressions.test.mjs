@@ -189,6 +189,9 @@ test("board delete removes registry row and local board database after slug conf
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
 
   const dbPath = join(h.projectRoot, ".orbit", "board.db");
+  const orbitDir = join(h.projectRoot, ".orbit");
+  const skillPath = join(h.projectRoot, "SKILL-ORBIT.md");
+  const agentsPath = join(h.projectRoot, "AGENTS.md");
   const db = new DatabaseSync(dbPath);
   const board = db.prepare("SELECT id, slug FROM boards LIMIT 1").get();
   db.close();
@@ -218,6 +221,11 @@ test("board delete removes registry row and local board database after slug conf
     });
     assert.equal(deleted.status, 200);
     assert.equal(existsSync(dbPath), false);
+    assert.equal(existsSync(orbitDir), false);
+    assert.equal(existsSync(skillPath), false);
+    const agentsContent = readFileSync(agentsPath, "utf8");
+    assert.doesNotMatch(agentsContent, /ORBIT:AGENTS-START/);
+    assert.doesNotMatch(agentsContent, /SKILL-ORBIT\.md/);
 
     const backupDir = join(h.dataDir, "backups", "boards", board.id);
     const backupFiles = readdirSync(backupDir).filter((name) => name.endsWith(".board.db"));

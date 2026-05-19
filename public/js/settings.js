@@ -144,7 +144,7 @@ function renderProjectAiTab(context) {
         </span>
         <span class="orbit-check-label">Enable AI</span>
       </label>
-      <p class="description">Provisions the <strong>AI Ready</strong>, <strong>In Progress</strong>, and <strong>Review</strong> lanes if missing, surfaces agent context fields, and exposes the MCP setup snippet. Disabling AI keeps the lanes in place.</p>
+      <p class="description">Provisions the <strong>AI Ready</strong>, <strong>In Progress</strong>, and <strong>Review</strong> lanes if missing, surfaces agent context fields, and exposes the MCP setup snippet. Disabling AI hides the AI Ready column but keeps its cards in place.</p>
     </div>
     ${aiDivider}
     ${agentContextSetup}
@@ -387,7 +387,7 @@ function renderDeleteBoardSection(project) {
     return `
       <div class="section repository-danger-zone">
         <h3>Delete Board</h3>
-        <p class="description">Delete this board from Orbit and remove its local database. Export a snapshot first if you may need this board again.</p>
+        <p class="description">Delete this board from Orbit and remove its repo-local Orbit files. Export a snapshot first if you may need this board again.</p>
         <div class="repository-delete-actions">
           <button type="button" class="ghost" id="deleteBoardExportFirst">Export first</button>
           <button type="button" class="ghost danger-button" id="deleteBoardSkipExport">Delete without exporting</button>
@@ -421,7 +421,7 @@ function renderDeleteBoardSection(project) {
   return `
     <div class="section repository-danger-zone">
       <h3>Delete Board</h3>
-      <p class="description">Remove this board from Orbit and delete its local database. This cannot be undone without an exported snapshot.</p>
+      <p class="description">Remove this board from Orbit and delete its repo-local Orbit files. This cannot be undone without an exported snapshot.</p>
       <button type="button" class="ghost danger-button" id="deleteBoardStart">Delete Board</button>
     </div>
   `;
@@ -674,7 +674,7 @@ function bindProjectTabHandlers(context, tab) {
       });
       await load();
       state.detailMode = "settings";
-      toast.success(enabled ? "AI features enabled — agent lanes provisioned" : "AI features disabled");
+      toast.success(enabled ? "AI features enabled — agent lanes provisioned" : "AI features disabled — AI Ready hidden");
     });
 
   }
@@ -804,7 +804,8 @@ function renderProjectEntries(entries = []) {
 }
 
 // In Progress and Review are core kanban lanes — undeletable regardless of
-// AI. AI Ready is only locked while AI is enabled; turn AI off to remove it.
+// AI. AI Ready is only locked while AI is enabled; disabling AI hides it from
+// the board without moving its cards.
 const CORE_LANE_ROLES = new Set(["in_progress", "review"]);
 
 /** A lane can't be deleted if it has cards (orphan risk), if it's the default
@@ -831,7 +832,7 @@ function deleteTitle(lane, counts, aiEnabled) {
     return "Cannot delete — core kanban lane";
   }
   if (aiEnabled && lane.role === "ai_ready") {
-    return "Cannot delete — required by agent flow (disable AI in Settings → AI to remove)";
+    return "Cannot delete — required by agent flow while AI is enabled";
   }
   return "Delete lane";
 }
@@ -850,7 +851,7 @@ function renderLaneManager() {
         .map((lane, index) => {
           const isAiReady = lane.role === "ai_ready";
           const nameTitle = isAiReady
-            ? "AI Ready lane name is locked — toggle from Settings → AI to remove this column"
+            ? "AI Ready lane name is locked — disable AI to hide this column"
             : "";
           return `
             <div class="lane-row${isAiReady ? " lane-row--locked" : ""}" data-lane-id="${lane.id}">
