@@ -9,6 +9,14 @@ Use it when you want the board to live with the code: one SQLite file, one small
 - Human UI for creating, editing, and moving tickets kanban-style.
 - Agent API/MCP for claiming work, reading context, updating implementation notes, commenting, and writing project memory.
 
+## Screenshots
+
+These screenshots show Orbit in dark and light mode. They were captured before the `AI Ready` lane was added to the board.
+
+![Orbit app in dark mode](docs/SS-Orbit-Dark.png)
+
+![Orbit app in light mode](docs/SS-Orbit-Light.png)
+
 ## 🛰️ Zero runtime dependencies
 
 **Orbit installs with zero third-party runtime dependencies.** The server, CLI, and MCP layer use Node.js built-ins: `node:sqlite`, `node:http`, `node:crypto`, and friends.
