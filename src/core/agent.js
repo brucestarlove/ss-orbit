@@ -24,7 +24,7 @@ import {
   requiredString
 } from "./util.js";
 import { boardManual } from "./boards.js";
-import { reindexTicket } from "./tickets.js";
+import { bumpTicketUpdatedAt, reindexTicket } from "./tickets.js";
 
 /**
  * Claim the next AI-ready ticket on the resolved board. The router/MCP layer
@@ -71,14 +71,16 @@ export function claimNext(body, ctx) {
     if (!inProgress) throw httpError(400, "missing_in_progress_state");
 
     tx(db, () => {
+      const time = now();
       db.prepare("UPDATE tickets SET state_id = ?, updated_at = ? WHERE id = ?").run(
         inProgress.id,
-        now(),
+        time,
         candidate.id
       );
       addComment(db, candidate.id, actor.name, "agent_note", "Agent claimed this ticket and is starting work.");
       recordEvent(db, candidate.board_id, "agent_claimed", candidate.id, actor.name, { agent_id: actor.id });
       reindexTicket(db, candidate.id);
+      bumpTicketUpdatedAt(db, candidate.parent_ticket_id, time);
     });
 
     return {
@@ -157,7 +159,8 @@ export function checkpointTicket(body, ctx) {
   if (!review) throw httpError(400, "missing_review_state");
   const message = requiredString(body.message, "message");
   tx(db, () => {
-    db.prepare("UPDATE tickets SET state_id = ?, updated_at = ? WHERE id = ?").run(review.id, now(), ticket.id);
+    const time = now();
+    db.prepare("UPDATE tickets SET state_id = ?, updated_at = ? WHERE id = ?").run(review.id, time, ticket.id);
     addComment(db, ticket.id, actor.name, "checkpoint", message);
     recordEvent(db, ticket.board_id, "checkpoint_requested", ticket.id, actor.name, {
       from: ticket.state_name,
@@ -167,6 +170,7 @@ export function checkpointTicket(body, ctx) {
       actor_id: actor.id
     });
     reindexTicket(db, ticket.id);
+    bumpTicketUpdatedAt(db, ticket.parent_ticket_id, time);
   });
   return getContextPack(ticket.id, ctx, 1);
 }
@@ -190,10 +194,11 @@ export function completeTicket(body, ctx) {
   if (body.pr_url) lines.push(`PR: ${body.pr_url}`);
   const updates = body.updates ? appendFieldNote(ticket.implementation_updates, body.updates, actor.name) : ticket.implementation_updates;
   tx(db, () => {
+    const time = now();
     addComment(db, ticket.id, actor.name, "completion", lines.join("\n\n"));
     db.prepare(
       "UPDATE tickets SET state_id = ?, implementation_summary = ?, implementation_updates = ?, updated_at = ? WHERE id = ?"
-    ).run(nextState.id, summary, updates, now(), ticket.id);
+    ).run(nextState.id, summary, updates, time, ticket.id);
     recordEvent(db, ticket.board_id, "agent_completed", ticket.id, actor.name, {
       from: ticket.state_name,
       next_state: nextState.name,
@@ -203,6 +208,7 @@ export function completeTicket(body, ctx) {
       actor_id: actor.id
     });
     reindexTicket(db, ticket.id);
+    bumpTicketUpdatedAt(db, ticket.parent_ticket_id, time);
   });
   return getContextPack(ticket.id, ctx, 1);
 }

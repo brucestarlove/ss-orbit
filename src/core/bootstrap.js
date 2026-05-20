@@ -105,7 +105,7 @@ export function getBootstrap(actor, requestedBoardId = null) {
        JOIN states s ON s.id = t.state_id
        JOIN boards b ON b.id = t.board_id
        WHERE t.archived_at IS NULL
-       ORDER BY t.updated_at DESC`
+       ORDER BY t.updated_at DESC, t.id ASC`
     )
     .all()
     .filter((ticket) => boardIds.has(ticket.board_id));

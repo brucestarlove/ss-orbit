@@ -44,13 +44,18 @@ export function searchTickets(args, ctx) {
          WHERE t.archived_at IS NULL
            AND (t.title LIKE ? OR t.description LIKE ? OR t.ai_plan LIKE ?
             OR t.implementation_summary LIKE ? OR t.implementation_updates LIKE ? OR c.body LIKE ?)
-         ORDER BY t.updated_at DESC
+         ORDER BY t.updated_at DESC, t.id ASC
          LIMIT ?`
       )
       .all(like, like, like, like, like, like, limit);
   }
 
-  rows.sort((a, b) => (a.rank !== b.rank ? a.rank - b.rank : String(b.updated_at).localeCompare(String(a.updated_at))));
+  rows.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    const byTime = String(b.updated_at).localeCompare(String(a.updated_at));
+    if (byTime !== 0) return byTime;
+    return String(a.id).localeCompare(String(b.id));
+  });
 
   const seen = new Set();
   const deduped = [];

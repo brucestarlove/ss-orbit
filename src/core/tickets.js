@@ -17,6 +17,17 @@ import {
   requiredString
 } from "./util.js";
 
+/**
+ * Bump a ticket's `updated_at` without recording an event or touching other
+ * fields. Used to roll child activity up to the parent epic so the column sort
+ * (ORDER BY updated_at DESC) keeps the epic group near recent activity even
+ * when only its children changed. Pass `null`/undefined to no-op.
+ */
+export function bumpTicketUpdatedAt(db, ticketId, time) {
+  if (!ticketId) return;
+  db.prepare("UPDATE tickets SET updated_at = ? WHERE id = ?").run(time, ticketId);
+}
+
 export function createTicket(body, ctx) {
   const { db, board, actor } = ctx;
   // The router resolves `ctx.board` from path/body/query before we get here.
@@ -82,6 +93,7 @@ export function createTicket(body, ctx) {
       parent_ticket_id: parentTicketId
     });
     reindexTicket(db, ticketId);
+    bumpTicketUpdatedAt(db, parentTicketId, time);
     return ticketById(db, ticketId);
   });
 }
@@ -139,11 +151,12 @@ export function updateTicket(ticketId, body, ctx) {
   }
 
   return tx(db, () => {
+    const time = now();
     if (fields.length > 0) {
       const sets = fields.map((field) => `${field} = ?`);
       const values = fields.map((field) => applied[field]);
       sets.push("updated_at = ?");
-      values.push(now(), ticketId);
+      values.push(time, ticketId);
       db.prepare(`UPDATE tickets SET ${sets.join(", ")} WHERE id = ?`).run(...values);
     }
 
@@ -160,7 +173,7 @@ export function updateTicket(ticketId, body, ctx) {
         db.prepare("INSERT OR IGNORE INTO ticket_labels (ticket_id, label_id) VALUES (?, ?)").run(ticketId, label.id);
       }
       if (fields.length === 0) {
-        db.prepare("UPDATE tickets SET updated_at = ? WHERE id = ?").run(now(), ticketId);
+        db.prepare("UPDATE tickets SET updated_at = ? WHERE id = ?").run(time, ticketId);
       }
     }
 
@@ -191,6 +204,13 @@ export function updateTicket(ticketId, body, ctx) {
       }
     }
     reindexTicket(db, ticketId);
+    // Roll activity up to the parent epic so the column sort keeps the epic
+    // group near recent child activity. On reparent, bump both old and new
+    // parent — both views changed (one lost a child, the other gained one).
+    bumpTicketUpdatedAt(db, before.parent_ticket_id, time);
+    if (after.parent_ticket_id && after.parent_ticket_id !== before.parent_ticket_id) {
+      bumpTicketUpdatedAt(db, after.parent_ticket_id, time);
+    }
     return after;
   });
 }
@@ -208,6 +228,7 @@ export function archiveTicket(ticketId, ctx) {
     const time = now();
     db.prepare("UPDATE tickets SET archived_at = ?, updated_at = ? WHERE id = ?").run(time, time, ticketId);
     recordEvent(db, ticket.board_id, "ticket_archived", ticketId, actor.name, { title: ticket.title });
+    bumpTicketUpdatedAt(db, ticket.parent_ticket_id, time);
     return ticketById(db, ticketId);
   });
 }
@@ -225,6 +246,7 @@ export function restoreTicket(ticketId, ctx) {
     const time = now();
     db.prepare("UPDATE tickets SET archived_at = NULL, updated_at = ? WHERE id = ?").run(time, ticketId);
     recordEvent(db, ticket.board_id, "ticket_restored", ticketId, actor.name, { title: ticket.title });
+    bumpTicketUpdatedAt(db, ticket.parent_ticket_id, time);
     return ticketById(db, ticketId);
   });
 }
@@ -246,6 +268,7 @@ export function deleteTicket(ticketId, ctx) {
     });
     db.prepare("DELETE FROM ticket_fts WHERE ticket_id = ?").run(ticketId);
     db.prepare("DELETE FROM tickets WHERE id = ?").run(ticketId);
+    bumpTicketUpdatedAt(db, ticket.parent_ticket_id, now());
     return { ok: true, deleted_id: ticketId };
   });
 }
@@ -262,10 +285,12 @@ export function createComment(ticketId, body, ctx) {
   const kind = body.kind || (actor.type === "agent" ? "agent_note" : "human_comment");
 
   return tx(db, () => {
+    const time = now();
     const comment = addComment(db, ticketId, author, kind, commentBody);
-    db.prepare("UPDATE tickets SET updated_at = ? WHERE id = ?").run(now(), ticketId);
+    db.prepare("UPDATE tickets SET updated_at = ? WHERE id = ?").run(time, ticketId);
     recordEvent(db, ticket.board_id, "comment_created", ticketId, actor.name, { kind: comment.kind });
     reindexTicket(db, ticketId);
+    bumpTicketUpdatedAt(db, ticket.parent_ticket_id, time);
     return comment;
   });
 }

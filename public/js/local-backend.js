@@ -307,7 +307,11 @@ function decorateTickets(snapshot, includeArchived = false) {
   const labelById = Object.fromEntries(labels.map((l) => [l.id, l]));
   const stateById = Object.fromEntries(states.map((s) => [s.id, s]));
   const visible = tickets.filter((t) => includeArchived || !t.archived_at);
-  const sorted = [...visible].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const sorted = [...visible].sort((a, b) => {
+    const byTime = String(b.updated_at).localeCompare(String(a.updated_at));
+    if (byTime !== 0) return byTime;
+    return String(a.id).localeCompare(String(b.id));
+  });
   return sorted.map((ticket) => {
     const stateRow = stateById[ticket.state_id];
     const tLabels = ticketLabels
@@ -575,6 +579,17 @@ async function handleStateReorder(boardId, body) {
   });
 }
 
+// Mirrors src/core/tickets.js#bumpTicketUpdatedAt — rolls child activity up to
+// the parent epic so the column sort (updated_at DESC) keeps the epic group
+// near recent child activity even when only its children changed.
+async function bumpTicketUpdatedAt(stores, ticketId, time) {
+  if (!ticketId) return;
+  const parent = await reqPromise(stores.tickets.get(ticketId));
+  if (!parent) return;
+  parent.updated_at = time;
+  stores.tickets.put(parent);
+}
+
 async function handleTicketCreate(body) {
   const db = await openDb();
   return putAndEvent(db, async (stores) => {
@@ -610,6 +625,7 @@ async function handleTicketCreate(body) {
       stores.ticket_labels.put({ key: tlKey(ticket.id, label.id), ticket_id: ticket.id, label_id: label.id });
     }
     recordEvent(stores, "ticket_created", ticket.id, { title: ticket.title, type: ticket.type });
+    await bumpTicketUpdatedAt(stores, ticket.parent_ticket_id, ticket.updated_at);
     return ticket;
   });
 }
@@ -620,6 +636,7 @@ async function handleTicketPatch(ticketId, body) {
     const ticket = await reqPromise(stores.tickets.get(ticketId));
     if (!ticket) throw err(404, "ticket_not_found");
     const oldStateId = ticket.state_id;
+    const oldParentId = ticket.parent_ticket_id;
     const SIMPLE = [
       "title",
       "description",
@@ -663,6 +680,10 @@ async function handleTicketPatch(ticketId, body) {
     } else {
       recordEvent(stores, "ticket_updated", ticketId, { fields: Object.keys(body) });
     }
+    await bumpTicketUpdatedAt(stores, oldParentId, ticket.updated_at);
+    if (ticket.parent_ticket_id && ticket.parent_ticket_id !== oldParentId) {
+      await bumpTicketUpdatedAt(stores, ticket.parent_ticket_id, ticket.updated_at);
+    }
     return ticket;
   });
 }
@@ -678,6 +699,7 @@ async function handleTicketDelete(ticketId) {
     const cmts = await getAll(stores.comments, ticketId, "ticket_id");
     for (const c of cmts) stores.comments.delete(c.id);
     recordEvent(stores, "ticket_deleted", ticketId, {});
+    await bumpTicketUpdatedAt(stores, ticket.parent_ticket_id, nowIso());
     return { ok: true };
   });
 }
@@ -691,6 +713,7 @@ async function handleTicketArchive(ticketId, archive) {
     ticket.updated_at = nowIso();
     stores.tickets.put(ticket);
     recordEvent(stores, archive ? "ticket_archived" : "ticket_restored", ticketId, {});
+    await bumpTicketUpdatedAt(stores, ticket.parent_ticket_id, ticket.updated_at);
     return ticket;
   });
 }
@@ -785,16 +808,20 @@ async function handleCommentCreate(ticketId, body) {
   return putAndEvent(db, async (stores) => {
     const ticket = await reqPromise(stores.tickets.get(ticketId));
     if (!ticket) throw err(404, "ticket_not_found");
+    const time = nowIso();
     const comment = {
       id: uid(),
       ticket_id: ticketId,
       author: "you",
       kind: body.kind || "note",
       body: body.body || "",
-      created_at: nowIso()
+      created_at: time
     };
     stores.comments.put(comment);
+    ticket.updated_at = time;
+    stores.tickets.put(ticket);
     recordEvent(stores, "comment_created", ticketId, { kind: comment.kind });
+    await bumpTicketUpdatedAt(stores, ticket.parent_ticket_id, time);
     return comment;
   });
 }

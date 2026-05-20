@@ -257,6 +257,14 @@ function renderColumnBody(columnTickets, allTickets) {
       continue;
     }
 
+    // Defer children whose epic is in this column — they'll render under the
+    // epic when the loop reaches it. Without this skip, a child iterated before
+    // its epic would render standalone here, then again inside epic-children
+    // (rendered.add happens at the epic, which may come later in updated_at order).
+    if (t.parent_ticket_id && epicIdsInColumn.has(t.parent_ticket_id)) {
+      continue;
+    }
+
     if (t.parent_ticket_id && epicById.has(t.parent_ticket_id) && !epicIdsInColumn.has(t.parent_ticket_id)) {
       const epic = epicById.get(t.parent_ticket_id);
       const siblings = childrenByEpicId.get(t.parent_ticket_id) || [];
