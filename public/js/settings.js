@@ -1,5 +1,5 @@
-// Project settings drawer (the cog/settings icon). Six tabs: Lanes, AI,
-// Notes, Journal, Repository, Archive. Owns lane CRUD/reorder, the
+// Project settings drawer (the cog/settings icon). Tabs: Lanes, Appearance,
+// Card Archive, Notes, Journal, AI, Repository. Owns lane CRUD/reorder, the
 // archive list, project context/notes form persistence, and per-tab handler wiring.
 
 import { state, getSettingsTab, statesForProject, ticketsForProject, currentBoard } from "./state.js";
@@ -13,6 +13,14 @@ import { renderBoard } from "./kanban.js";
 import { renderDetailCard } from "./ticket-detail.js";
 import { load } from "./app.js";
 import { features } from "./config.js";
+import {
+  applyReducedMotionPreference,
+  browserPrefersReducedMotion,
+  effectiveReducedMotionPreference,
+  setReducedMotionPreference,
+  storedReducedMotionPreference
+} from "./motion-preference.js";
+import { currentTheme, setThemePreference } from "./theme-preference.js";
 
 const repositoryDelete = {
   boardId: "",
@@ -27,10 +35,11 @@ export async function renderProjectDetail() {
 
   const tabs = [
     { id: "lanes", label: "Lanes" },
+    { id: "appearance", label: "Appearance" },
     { id: "archive", label: "Card Archive" },
     { id: "notes", label: "Notes" },
-    ...(features.ai ? [{ id: "ai", label: "AI" }] : []),
     { id: "journal", label: "Journal" },
+    ...(features.ai ? [{ id: "ai", label: "AI" }] : []),
     { id: "repository", label: "Repository" }
   ];
 
@@ -61,6 +70,8 @@ function renderProjectTabBody(context, tab) {
       return renderNotesSettingsTab(context);
     case "lanes":
       return renderProjectLanesTab();
+    case "appearance":
+      return renderProjectAppearanceTab();
     case "ai":
       return features.ai ? renderProjectAiTab(context) : renderProjectLanesTab();
     case "journal":
@@ -473,6 +484,70 @@ function renderProjectLanesTab() {
   `;
 }
 
+function renderProjectAppearanceTab() {
+  const theme = currentTheme();
+  const reduceMotion = effectiveReducedMotionPreference();
+  const storedMotion = storedReducedMotionPreference();
+  const browserDefault = browserPrefersReducedMotion();
+  const sourceLabel = storedMotion === null
+    ? `Using browser default (${browserDefault ? "reduced motion" : "motion allowed"}).`
+    : "Using your saved preference.";
+
+  return `
+    <div class="section appearance-theme-section">
+      <fieldset class="appearance-theme-field">
+        <legend>Theme</legend>
+        <div class="appearance-theme-options">
+          ${renderThemeOption("light", "Light", theme)}
+          ${renderThemeOption("dark", "Dark", theme)}
+        </div>
+        <p class="description">Applies the light/dark theme used by the top rail toggle.</p>
+      </fieldset>
+    </div>
+    <div class="section">
+      <label class="orbit-check" for="reduceMotionToggle">
+        <input
+          type="checkbox"
+          id="reduceMotionToggle"
+          ${reduceMotion ? "checked" : ""}
+        />
+        <span class="orbit-check-box" aria-hidden="true">
+          <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
+        </span>
+        <span class="orbit-check-label">Reduce theme motion</span>
+      </label>
+      <p class="description">Turns off the animated starfield, meteors, and theme animations. ${escapeHtml(sourceLabel)}</p>
+    </div>
+  `;
+}
+
+function renderThemeOption(value, label, selectedTheme) {
+  const checked = selectedTheme === value ? "checked" : "";
+  const icon = value === "dark"
+    ? '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />'
+    : '<circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.2 4.2l1.4 1.4m12.8 12.8l1.4 1.4M1 12h2m18 0h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />';
+
+  return `
+    <label class="appearance-theme-option">
+      <input type="radio" name="themePreference" value="${value}" ${checked} />
+      <span class="appearance-theme-option-mark" aria-hidden="true">
+        <svg
+          class="appearance-theme-option-icon"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >${icon}</svg>
+      </span>
+      <span class="appearance-theme-option-label">${label}</span>
+    </label>
+  `;
+}
+
 function renderProjectJournalTab(context) {
   const aiEnabled = context.board?.ai_enabled !== 0;
   return `
@@ -606,6 +681,24 @@ function bindProjectTabHandlers(context, tab) {
       state.showPriority = !!event.currentTarget.checked;
       localStorage.setItem("mab_show_priority", state.showPriority ? "true" : "false");
       renderBoard();
+    });
+  }
+
+  if (tab === "appearance") {
+    drawerInner.querySelectorAll("input[name='themePreference']").forEach((input) => {
+      input.addEventListener("change", (event) => {
+        if (!event.currentTarget.checked) return;
+        const theme = setThemePreference(event.currentTarget.value);
+        toast.success(theme === "dark" ? "Dark theme enabled" : "Light theme enabled");
+      });
+    });
+
+    $("#reduceMotionToggle")?.addEventListener("change", (event) => {
+      const reduce = !!event.currentTarget.checked;
+      setReducedMotionPreference(reduce);
+      applyReducedMotionPreference();
+      window.dispatchEvent(new CustomEvent("orbit:motion-preference-change", { detail: { reduce } }));
+      toast.success(reduce ? "Theme motion reduced" : "Theme motion enabled");
     });
   }
 

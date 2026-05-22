@@ -8,9 +8,50 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { folderPickerCommands, pickFolder } from "../src/core/system-picker.js";
 import { normalizePath } from "../src/core/util.js";
+import { renderMarkdown } from "../public/js/format.js";
+import { buildRoute, hasRoute, isCanonicalRouteUrl, parseRoute } from "../public/js/url-routes.js";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const orbitCli = join(repoRoot, "src", "cli", "orbit.js");
+
+
+test("ticket description markdown renders common formatting safely", () => {
+  const html = renderMarkdown(
+    'First **bold** and *em* with `code`.\nSecond line\n\n- one\n- [link](https://example.com?a=1&b=2)\n\n1. first\n2. second\n\n```js\nconst x = "<tag>";\n```'
+  );
+
+  assert.match(html, /<p>First <strong>bold<\/strong> and <em>em<\/em> with <code>code<\/code>\.<br>Second line<\/p>/);
+  assert.match(html, /<ul><li>one<\/li><li><a href="https:\/\/example\.com\?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">link<\/a><\/li><\/ul>/);
+  assert.match(html, /<ol><li>first<\/li><li>second<\/li><\/ol>/);
+  assert.match(html, /<pre><code>const x = &quot;&lt;tag&gt;&quot;;<\/code><\/pre>/);
+});
+
+test("ticket description markdown escapes HTML and rejects unsafe link URLs", () => {
+  const html = renderMarkdown(
+    '<script>alert(1)</script> [bad](javascript:alert(1)) [ok](/tickets/1) <img src=x onerror=alert(1)>'
+  );
+
+  assert.doesNotMatch(html, /<script/i);
+  assert.doesNotMatch(html, /<img/i);
+  assert.doesNotMatch(html, /href="javascript:/i);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(html, /bad\)/);
+  assert.match(html, /<a href="\/tickets\/1" target="_blank" rel="noopener noreferrer">ok<\/a>/);
+});
+
+test("ticket descriptions use markdown rendering in the board and detail pane", () => {
+  const formatSource = readFileSync(join(repoRoot, "public", "js", "format.js"), "utf8");
+  const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+
+  assert.match(formatSource, /export function renderMarkdown/);
+  assert.match(kanbanSource, /renderMarkdown\(ticket\.description\)/);
+  assert.match(kanbanSource, /card-description markdown-body/);
+  assert.match(detailSource, /description markdown-body editable-field/);
+  assert.match(detailSource, /renderMarkdown\(ticket\.description\)/);
+  assert.doesNotMatch(detailSource, /escapeHtml\(ticket\.description \|\| "No description yet\."\)/);
+});
 
 function makeHarness() {
   const root = mkdtempSync(join(tmpdir(), "orbit-regression-test-"));
@@ -179,6 +220,73 @@ test("board context exposes metadata needed by settings tabs", async () => {
 
     const archiveResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(context.board.id)}/archive`);
     assert.equal(archiveResponse.status, 200);
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("bootstrap exposes the selected default board separately from alphabetic board list order", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  const port = await freePort();
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child, /Starscape Orbit listening/);
+    const createdResponse = await fetch(`http://127.0.0.1:${port}/api/boards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Zzz Later Board", repo_path: h.projectRoot })
+    });
+    assert.equal(createdResponse.status, 201);
+    const created = await createdResponse.json();
+
+    const bootstrapResponse = await fetch(`http://127.0.0.1:${port}/api/bootstrap`);
+    assert.equal(bootstrapResponse.status, 200);
+    const bootstrap = await bootstrapResponse.json();
+
+    assert.equal(bootstrap.active_board_id, created.id);
+    assert.notEqual(bootstrap.boards[0].id, created.id, "registry list remains alphabetic, not active-first");
+    assert.deepEqual([...new Set(bootstrap.states.map((state) => state.board_id))], [created.id]);
+    assert.deepEqual([...new Set(bootstrap.tickets.map((ticket) => ticket.board_id))], []);
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("bootstrap can select the initial board by slug", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const secondProject = join(h.root, "second-project");
+  mkdirSync(secondProject, { recursive: true });
+
+  const port = await freePort();
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child, /Starscape Orbit listening/);
+    const createdResponse = await fetch(`http://127.0.0.1:${port}/api/boards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Second Board", slug: "second-board", repo_path: secondProject })
+    });
+    assert.equal(createdResponse.status, 201);
+    const created = await createdResponse.json();
+
+    const response = await fetch(`http://127.0.0.1:${port}/api/bootstrap?board=${encodeURIComponent(created.slug)}`);
+    assert.equal(response.status, 200);
+    const bootstrap = await response.json();
+    assert.ok(bootstrap.states.length > 0);
+    assert.ok(bootstrap.states.every((row) => row.board_id === created.id));
   } finally {
     child.kill("SIGTERM");
   }
@@ -458,6 +566,33 @@ test("router reloads board switches from the app module that exports load", () =
   assert.doesNotMatch(routerSource, /await import\("\.\/main\.js"\)/);
 });
 
+test("browser routes build hash URLs with board slugs", () => {
+  const boardSlug = "orbit-board";
+  const ticketId = "ticket 456";
+
+  assert.equal(buildRoute({ boardSlug }), "#/b/orbit-board");
+  assert.equal(
+    buildRoute({ boardSlug, view: "ticket", ticketId }),
+    "#/b/orbit-board/t/ticket%20456"
+  );
+  assert.equal(
+    buildRoute({ boardSlug, view: "settings", tab: "ai" }),
+    "#/b/orbit-board/settings/ai"
+  );
+
+  assert.deepEqual(parseRoute({ pathname: "/", hash: "#/b/orbit-board/settings/ai" }), {
+    boardSlug,
+    view: "settings",
+    ticketId: "",
+    tab: "ai"
+  });
+  assert.equal(hasRoute({ pathname: "/", hash: "" }), false);
+  assert.equal(hasRoute({ pathname: "/b/board-123", hash: "" }), false);
+  assert.equal(hasRoute({ pathname: "/app/", hash: "#/b/orbit-board" }), true);
+  assert.equal(isCanonicalRouteUrl({ pathname: "/app/", hash: "#/b/orbit-board" }, { boardSlug }), true);
+  assert.equal(isCanonicalRouteUrl({ pathname: "/", hash: "#/b/board-id" }, { boardSlug }), false);
+});
+
 test("board picker selection switches boards without opening Settings", () => {
   const boardMenuSource = readFileSync(join(repoRoot, "public", "js", "board-menu.js"), "utf8");
   const pickBoardHandler = boardMenuSource.match(/querySelectorAll\("\[data-pick-board\]"\)[\s\S]*?\n  \}\);/);
@@ -511,4 +646,30 @@ test("kanban horizontal wheel gestures stay inside the board scroller", () => {
   assert.match(wheelHandler[0], /event\.preventDefault\(\)/);
   assert.match(wheelHandler[0], /kanban\.scrollLeft \+= wheelPixels\(horizontalDelta, event\.deltaMode\)/);
   assert.match(stylesSource, /\.kanban\s*\{[\s\S]*overscroll-behavior-x:\s*contain;/);
+});
+
+test("kanban columns use the wide width by default", () => {
+  const stateSource = readFileSync(join(repoRoot, "public", "js", "state.js"), "utf8");
+  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.doesNotMatch(stateSource, /wideKanbanColumns|mab_wide_kanban_columns|applyKanbanColumnWidthPreference/);
+  assert.doesNotMatch(settingsSource, /wideKanbanColumnsToggle|mab_wide_kanban_columns|Wide kanban columns/);
+  assert.match(stylesSource, /--kanban-column-width:\s*22rem;/);
+  assert.match(stylesSource, /@media \(max-width: 720px\)[\s\S]*--kanban-column-width:\s*18rem;/);
+  assert.match(stylesSource, /\.kanban\s*\{[\s\S]*grid-auto-columns:\s*minmax\(var\(--kanban-column-width\), 1fr\);/);
+});
+
+test("minimized epic headers span the lane while epic children stay indented", () => {
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+  const miniHeaderRule = stylesSource.match(/\.epic-mini-header\s*\{[\s\S]*?\n\}/)?.[0] || "";
+  const childrenRule = stylesSource.match(/\.epic-children\s*\{[\s\S]*?\n\}/)?.[0] || "";
+
+  assert.ok(miniHeaderRule, "mini epic header CSS should exist");
+  assert.ok(childrenRule, "epic children CSS should exist");
+  assert.match(miniHeaderRule, /width:\s*100%;/);
+  assert.doesNotMatch(miniHeaderRule, /width:\s*92%;/);
+  assert.doesNotMatch(miniHeaderRule, /align-self:\s*flex-end;/);
+  assert.match(childrenRule, /width:\s*92%;/);
+  assert.match(childrenRule, /align-self:\s*flex-end;/);
 });

@@ -9,12 +9,19 @@
 // nebula ghosts, signature stars with spikes, and meteors stay in CSS.
 
 import { themeToggle, themeIcon } from "./dom.js";
+import { applyReducedMotionPreference, effectiveReducedMotionPreference } from "./motion-preference.js";
+import {
+  THEME_CHANGE_EVENT,
+  applyStoredThemePreference,
+  currentTheme,
+  toggleThemePreference
+} from "./theme-preference.js";
 
 // Stored theme must be applied before startStarscape() so its first sync()
 // sees the real theme; otherwise the canvas stays stopped until next resize.
 {
-  const storedTheme = localStorage.getItem("mab_theme");
-  if (storedTheme) document.documentElement.setAttribute("data-theme", storedTheme);
+  applyStoredThemePreference();
+  applyReducedMotionPreference();
 }
 
 const starscape = startStarscape();
@@ -31,19 +38,18 @@ scheduleMeteor();
 }
 
 syncThemeIcon();
-themeToggle.addEventListener("click", () => {
-  const next =
-    document.documentElement.getAttribute("data-theme") === "dark"
-      ? "light"
-      : "dark";
-  document.documentElement.setAttribute("data-theme", next);
-  localStorage.setItem("mab_theme", next);
+themeToggle?.addEventListener("click", () => {
+  toggleThemePreference();
+});
+
+window.addEventListener(THEME_CHANGE_EVENT, () => {
   syncThemeIcon();
   starscape.sync();
 });
 
 function syncThemeIcon() {
-  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  if (!themeIcon) return;
+  const dark = currentTheme() === "dark";
   themeIcon.innerHTML = dark
     ? '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />'
     : '<circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.2 4.2l1.4 1.4m12.8 12.8l1.4 1.4M1 12h2m18 0h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />';
@@ -207,8 +213,8 @@ function startStarscape() {
   }
 
   function sync() {
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isDark = currentTheme() === "dark";
+    const reduced = effectiveReducedMotionPreference();
     if (!isDark) {
       stop();
       ctx.clearRect(0, 0, width, height);
@@ -229,7 +235,11 @@ function startStarscape() {
   }, { passive: true });
   window.addEventListener("pointermove", onPointerMove, { passive: true });
   document.addEventListener("visibilitychange", sync);
-  window.matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", sync);
+  window.matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", () => {
+    applyReducedMotionPreference();
+    sync();
+  });
+  window.addEventListener("orbit:motion-preference-change", sync);
 
   resize();
   sync();
@@ -259,11 +269,8 @@ function scheduleMeteor() {
 }
 
 function spawnMeteor() {
-  const isDark =
-    document.documentElement.getAttribute("data-theme") === "dark";
-  const reduced = window.matchMedia(
-    "(prefers-reduced-motion: reduce)"
-  ).matches;
+  const isDark = currentTheme() === "dark";
+  const reduced = effectiveReducedMotionPreference();
   const grain = document.querySelector(".grain");
   if (!isDark || reduced || document.hidden || !grain) {
     scheduleMeteor();

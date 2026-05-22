@@ -10,6 +10,8 @@ export const state = {
   /** Currently selected board id. Single-board UI; this points at the active
    *  board in `state.data.boards`. */
   boardId: "",
+  /** URL-facing board identifier. Routes use slugs; API calls keep using ids. */
+  boardSlug: "",
   selectedTicketId: "",
   expandedCardIds: new Set(),
   /** "empty" | "ticket" | "settings" — drives the main right overlay drawer (not the New flyout). */
@@ -30,9 +32,16 @@ export function getSettingsTab() {
 export function syncBoardSelection() {
   if (!state.data) return;
   const boards = state.data.boards || [];
-  if (!state.boardId || !boards.some((b) => b.id === state.boardId)) {
-    state.boardId = boards[0]?.id || "";
+  let board = state.boardId ? boards.find((b) => b.id === state.boardId) : null;
+  if (!board && state.boardSlug) {
+    board = boards.find((b) => b.slug === state.boardSlug) || boards.find((b) => b.id === state.boardSlug);
   }
+  if (!board) {
+    const activeBoardId = state.data.active_board_id;
+    board = boards.find((b) => b.id === activeBoardId) || boards[0] || null;
+  }
+  state.boardId = board?.id || "";
+  state.boardSlug = board?.slug || "";
 }
 
 export function currentBoard() {

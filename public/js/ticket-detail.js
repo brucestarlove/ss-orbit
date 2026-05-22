@@ -15,7 +15,8 @@ import {
   typeLabel,
   typeLabelLong,
   priorityLabel,
-  priorityKeyFor
+  priorityKeyFor,
+  renderMarkdown
 } from "./format.js";
 import { renderTypeIcon, renderPriorityPill } from "./kanban.js";
 import { renderDrawerShell, openDrawer, closeDrawer } from "./drawer.js";
@@ -125,7 +126,8 @@ function wireTicketDetailEditors(ticket) {
 
   const descEl = drawerInner.querySelector('[data-edit-field="description"]');
   if (descEl) {
-    descEl.addEventListener("click", () => {
+    descEl.addEventListener("click", (event) => {
+      event.preventDefault();
       startInlineEdit(descEl, "description", ticket.description || "", ticketId);
     });
     descEl.addEventListener("keydown", (event) => {
@@ -270,6 +272,7 @@ export async function renderDetail() {
   `;
 
   renderDrawerShell({
+    mode: "ticket",
     title: ticket.title,
     titleAttrs: {
       class: "editable-field",
@@ -281,7 +284,7 @@ export async function renderDetail() {
     body: `
     <div class="detail-head">
       <p class="detail-updated" title="Last saved change">Updated ${escapeHtml(formatDateDetail(ticket.updated_at))}</p>
-      <p class="description editable-field ${ticket.description ? "" : "is-placeholder"}" data-edit-field="description" tabindex="0" title="Click to edit">${escapeHtml(ticket.description || "No description yet.")}</p>
+      <div class="description markdown-body editable-field ${ticket.description ? "" : "is-placeholder"}" data-edit-field="description" tabindex="0" title="Click to edit">${ticket.description ? renderMarkdown(ticket.description) : escapeHtml("No description yet.")}</div>
       <dl class="ticket-meta" id="ticketMetaGrid" data-ticket-id="${escapeHtml(ticket.id)}">
         <div class="ticket-meta-row">
           <dt>State</dt>

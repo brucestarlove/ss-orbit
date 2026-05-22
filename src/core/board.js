@@ -100,7 +100,7 @@ export {
   updateBoardEntry,
   boardManual
 } from "./boards.js";
-export { archiveTicket, createComment, deleteTicket, restoreTicket, updateTicket } from "./tickets.js";
+export { archiveTicket, createComment, createTicket, deleteTicket, restoreTicket, updateTicket } from "./tickets.js";
 export { archivedTicketsForBoard } from "./queries.js";
 export { getTicketBlockers, getTicketRelations } from "./relations.js";
 export { checkpointTicket, claimNext, completeTicket, getContextPack, readComments, readTicket } from "./agent.js";

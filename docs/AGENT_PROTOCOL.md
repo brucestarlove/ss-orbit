@@ -4,6 +4,8 @@ The board is intentionally agent-first. Agents should not scrape the UI. They sh
 
 If an MCP client is available, use the MCP server instead of rebuilding these HTTP calls yourself. The MCP tools map directly to the same core operations.
 
+Never edit `.orbit/board.db` directly to create or mutate cards. The SQLite file is Orbit's storage detail; use the HTTP API or MCP tools so validation, events, search indexing, backups, and cross-process locking all run.
+
 ## Core Flow
 
 1. `POST /api/agent/claim-next`
@@ -297,6 +299,8 @@ Over MCP these are exposed as `board_archive_ticket`, `board_restore_ticket`, `b
 ### Create Epic With Feature Cards
 
 Ticket types are `epic`, `feature`, `task`, and `bug`.
+
+MCP equivalent: `board_create_ticket`. Use it for new cards instead of modifying `.orbit/board.db`.
 
 Create the epic/story parent first:
 

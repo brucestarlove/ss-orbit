@@ -33,8 +33,9 @@ function boardSummaryFromRegistry(r) {
  *
  * @param actor authenticated actor
  * @param requestedBoardId optional board id from `?board_id=` (or null)
+ * @param requestedBoardSlug optional board slug from `?board=` (or null)
  */
-export function getBootstrap(actor, requestedBoardId = null) {
+export function getBootstrap(actor, requestedBoardId = null, requestedBoardSlug = null) {
   const registryRows = listBoards();
   const accessible = registryRows.filter((row) => canAccessBoard(actor, { slug: row.slug }));
 
@@ -56,6 +57,9 @@ export function getBootstrap(actor, requestedBoardId = null) {
   let chosen = null;
   if (requestedBoardId) {
     chosen = accessible.find((row) => row.id === requestedBoardId) || null;
+  }
+  if (!chosen && requestedBoardSlug) {
+    chosen = accessible.find((row) => row.slug === requestedBoardSlug) || null;
   }
   if (!chosen) {
     const defaultRow = pickDefaultBoard();
@@ -143,6 +147,10 @@ export function getBootstrap(actor, requestedBoardId = null) {
 
   return {
     actor: publicActor(actor),
+    // The server may choose a default board that is not first in the registry's
+    // alphabetic board list. Expose that choice explicitly so first-page load
+    // selects the same board whose lanes/tickets are included below.
+    active_board_id: chosenRow.id,
     meta: {
       db_path: chosenRow.db_path,
       export_dir: EXPORT_DIR

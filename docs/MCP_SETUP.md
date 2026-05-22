@@ -29,7 +29,9 @@ The checked-in example file is not read automatically by Starscape Orbit. It exi
 3. Replace the path to `src/mcp-server.js` with the absolute path on your machine.
 4. Restart the MCP client.
 
-The MCP server finds a board from an explicit project root first: pass `orbit mcp --cwd <repo>` or set `PROJECT_ROOT=<repo>` in persistent MCP configs. If neither is set, it falls back to the process cwd and walks upward to the first ancestor with `.orbit/board.db`. Prefer explicit roots for long-lived agent configs so launching the agent from another folder does not attach the wrong board. **`AGENTS.md` / `SKILL-ORBIT.md`** are unrelated to MCP transport: agents open them via the workspace file tree, and `orbit init` keeps a terse Orbit pointer section in `AGENTS.md`.
+By default MCP runs in local mode. It finds a board from an explicit project root first: pass `orbit mcp --cwd <repo>` or set `PROJECT_ROOT=<repo>` in persistent MCP configs. If neither is set, it falls back to the process cwd and walks upward to the first ancestor with `.orbit/board.db`. Prefer explicit roots for long-lived agent configs so launching the agent from another folder does not attach the wrong board.
+
+For a shared/deployed board, run MCP in remote mode instead: set `ORBIT_MODE=remote`, `ORBIT_API_URL=<server origin>`, and usually `ORBIT_DEFAULT_BOARD=<slug-or-id>`. Remote mode calls the HTTP API and does not open or auto-create local `.orbit` databases; it fails at startup if `ORBIT_API_URL` is missing. **`AGENTS.md` / `SKILL-ORBIT.md`** are unrelated to MCP transport: agents open them via the workspace file tree, and `orbit init` keeps a terse Orbit pointer section in `AGENTS.md`.
 
 Typical use:
 

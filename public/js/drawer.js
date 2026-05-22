@@ -50,6 +50,7 @@ export function closeDrawer() {
     }
     if (subtitleEl) { subtitleEl.innerHTML = ""; subtitleEl.hidden = true; }
     if (tabsEl) { tabsEl.innerHTML = ""; tabsEl.hidden = true; }
+    drawer.classList.remove("is-wide");
   };
 
   if (!wasOpen) {
@@ -75,6 +76,7 @@ export function closeDrawer() {
  */
 export function renderDrawerShell({ eyebrow, title, titleAttrs, subtitleHtml, tabs, activeTab, onTabSelect, body, mode }) {
   drawer.classList.toggle("is-settings", mode === "settings");
+  drawer.classList.toggle("is-wide", mode === "ticket" || mode === "settings");
   const eyebrowEl = document.getElementById("drawerEyebrow");
   const titleEl = document.getElementById("drawerTitle");
   const subtitleEl = document.getElementById("drawerSubtitle");

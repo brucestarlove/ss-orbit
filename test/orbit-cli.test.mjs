@@ -60,6 +60,7 @@ test("orbit init creates AGENTS.md with Orbit instructions when missing", () => 
   assert.match(content, /^# AGENTS\.md/m);
   assert.match(content, /SKILL-ORBIT\.md` is canonical for Orbit\/kanban\/ticket\/card workflow/);
   assert.match(content, /When work mentions Orbit, kanban, board, lane, ticket, card/);
+  assert.match(content, /Use Orbit API\/MCP tools for tickets\/cards; do not edit \.orbit\/board\.db directly\./);
   assert.doesNotMatch(content, /## Orbit Project Context/);
 });
 
@@ -77,6 +78,7 @@ test("orbit init appends Orbit instructions to existing AGENTS.md once", () => {
   assert.match(content, /Keep this repo-specific rule/);
   assert.equal((content.match(/ORBIT:AGENTS-START/g) || []).length, 1);
   assert.match(content, /SKILL-ORBIT\.md/);
+  assert.match(content, /Use Orbit API\/MCP tools for tickets\/cards; do not edit \.orbit\/board\.db directly\./);
 });
 
 test("orbit init creates an empty board by default", () => {
@@ -332,4 +334,64 @@ test("orbit mcp speaks newline-delimited JSON-RPC for Hermes native MCP", async 
 
   assert.equal(tools.id, 2);
   assert.ok(tools.result.tools.some((tool) => tool.name === "board_context"));
+});
+
+test("orbit mcp exposes board_create_ticket and creates cards through core API", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  const child = spawn(process.execPath, [orbitCli, "mcp", "--cwd", h.projectRoot], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  let created;
+  try {
+    child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05" } }) + "\n");
+    const init = JSON.parse(await waitForLine(child));
+    assert.equal(init.id, 1);
+
+    child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }) + "\n");
+    const tools = JSON.parse(await waitForLine(child));
+    assert.ok(tools.result.tools.some((tool) => tool.name === "board_create_ticket"));
+
+    child.stdin.write(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: {
+          name: "board_create_ticket",
+          arguments: {
+            title: "MCP-created task",
+            type: "task",
+            description: "Created via MCP, not direct SQLite editing.",
+            labels: ["mcp"]
+          }
+        }
+      }) + "\n"
+    );
+    const call = JSON.parse(await waitForLine(child));
+    assert.equal(call.id, 3);
+    assert.equal(call.result.isError, undefined);
+    created = JSON.parse(call.result.content[0].text);
+  } finally {
+    child.kill("SIGTERM");
+  }
+
+  assert.equal(created.title, "MCP-created task");
+  assert.equal(created.type, "task");
+
+  const db = openBoard(h.projectRoot);
+  const ticket = db.prepare("SELECT id, title, type, created_by FROM tickets WHERE title = ?").get("MCP-created task");
+  assert.ok(ticket);
+  assert.equal(ticket.id, created.id);
+  assert.equal(ticket.title, "MCP-created task");
+  assert.equal(ticket.type, "task");
+  assert.equal(ticket.created_by, "agent");
+
+  const event = db.prepare("SELECT type, actor FROM events WHERE ticket_id = ? AND type = 'ticket_created'").get(ticket.id);
+  assert.ok(event);
+  assert.equal(event.actor, "agent");
 });

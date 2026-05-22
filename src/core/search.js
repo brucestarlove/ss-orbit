@@ -16,38 +16,65 @@ export function searchTickets(args, ctx) {
   if (!q) return { query: q, results: [] };
   if (!canAccessBoard(actor, board)) return { query: q, results: [] };
 
+  const ticketNumber = ticketNumberQuery(q);
   const fts = toFtsQuery(q);
   let rows = [];
-  try {
+
+  if (ticketNumber !== null) {
     rows = db
       .prepare(
-        `SELECT t.*, s.name AS state_name, b.slug AS board_slug,
-                bm25(ticket_fts) AS rank
-         FROM ticket_fts
-         JOIN tickets t ON t.id = ticket_fts.ticket_id
-         JOIN states s ON s.id = t.state_id
-         JOIN boards b ON b.id = t.board_id
-         WHERE ticket_fts MATCH ? AND t.archived_at IS NULL
-         ORDER BY rank
-         LIMIT ?`
-      )
-      .all(fts, limit);
-  } catch {
-    const like = `%${q}%`;
-    rows = db
-      .prepare(
-        `SELECT DISTINCT t.*, s.name AS state_name, b.slug AS board_slug, 0 AS rank
+        `SELECT t.*, s.name AS state_name, b.slug AS board_slug, -1 AS rank
          FROM tickets t
          JOIN states s ON s.id = t.state_id
          JOIN boards b ON b.id = t.board_id
-         LEFT JOIN comments c ON c.ticket_id = t.id
-         WHERE t.archived_at IS NULL
-           AND (t.title LIKE ? OR t.description LIKE ? OR t.ai_plan LIKE ?
-            OR t.implementation_summary LIKE ? OR t.implementation_updates LIKE ? OR c.body LIKE ?)
-         ORDER BY t.updated_at DESC, t.id ASC
+         WHERE t.board_id = ? AND t.number = ? AND t.archived_at IS NULL
          LIMIT ?`
       )
-      .all(like, like, like, like, like, like, limit);
+      .all(board.id, ticketNumber, limit);
+  }
+
+  try {
+    rows = rows.concat(
+      db
+        .prepare(
+          `SELECT t.*, s.name AS state_name, b.slug AS board_slug,
+                  bm25(ticket_fts) AS rank
+           FROM ticket_fts
+           JOIN tickets t ON t.id = ticket_fts.ticket_id
+           JOIN states s ON s.id = t.state_id
+           JOIN boards b ON b.id = t.board_id
+           WHERE ticket_fts MATCH ? AND t.board_id = ? AND t.archived_at IS NULL
+           ORDER BY rank
+           LIMIT ?`
+        )
+        .all(fts, board.id, limit)
+    );
+  } catch {
+    const like = `%${q}%`;
+    const numberRank = ticketNumber !== null ? "CASE WHEN t.number = ? THEN -1 ELSE 0 END" : "0";
+    const numberPredicate = ticketNumber !== null ? "OR t.number = ?" : "";
+    const fallbackArgs = ticketNumber !== null ? [ticketNumber, board.id] : [board.id];
+    fallbackArgs.push(like, like, like, like, like, like);
+    if (ticketNumber !== null) fallbackArgs.push(ticketNumber);
+    fallbackArgs.push(limit);
+
+    rows = rows.concat(
+      db
+        .prepare(
+          `SELECT DISTINCT t.*, s.name AS state_name, b.slug AS board_slug, ${numberRank} AS rank
+           FROM tickets t
+           JOIN states s ON s.id = t.state_id
+           JOIN boards b ON b.id = t.board_id
+           LEFT JOIN comments c ON c.ticket_id = t.id
+           WHERE t.board_id = ? AND t.archived_at IS NULL
+             AND (t.title LIKE ? OR t.description LIKE ? OR t.ai_plan LIKE ?
+              OR t.implementation_summary LIKE ? OR t.implementation_updates LIKE ? OR c.body LIKE ?
+              ${numberPredicate})
+           ORDER BY t.updated_at DESC, t.id ASC
+           LIMIT ?`
+        )
+        .all(...fallbackArgs)
+    );
   }
 
   rows.sort((a, b) => {
@@ -72,4 +99,11 @@ export function searchTickets(args, ctx) {
   }));
 
   return { query: q, results };
+}
+
+function ticketNumberQuery(q) {
+  const match = String(q).trim().match(/^#?(\d+)$/);
+  if (!match) return null;
+  const number = Number(match[1]);
+  return Number.isSafeInteger(number) ? number : null;
 }

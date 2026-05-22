@@ -19,6 +19,7 @@ import {
   deleteTicket
 } from "../src/core/tickets.js";
 import { createRelation } from "../src/core/relations.js";
+import { searchTickets } from "../src/core/search.js";
 import { now, id } from "../src/core/util.js";
 
 function makeBoard() {
@@ -94,6 +95,28 @@ test("comment is reindexed into FTS", () => {
     .prepare("SELECT 1 FROM ticket_fts WHERE ticket_id = ? AND comments LIKE '%searchable-needle%'")
     .get(a.id);
   assert.ok(hit, "comment body searchable");
+});
+
+test("search matches ticket numbers", () => {
+  const { ctx } = makeBoard();
+  for (let i = 0; i < 37; i += 1) createTicket({ title: "Alpha" }, ctx);
+  const target = createTicket({ title: "Comet" }, ctx);
+
+  const result = searchTickets({ q: "38" }, ctx);
+
+  assert.equal(target.number, 38);
+  assert.equal(result.results[0]?.id, target.id);
+});
+
+test("search matches hash-prefixed ticket numbers", () => {
+  const { ctx } = makeBoard();
+  for (let i = 0; i < 37; i += 1) createTicket({ title: "Alpha" }, ctx);
+  const target = createTicket({ title: "Comet" }, ctx);
+
+  const result = searchTickets({ q: "#38" }, ctx);
+
+  assert.equal(target.number, 38);
+  assert.equal(result.results[0]?.id, target.id);
 });
 
 test("duplicate relation is rejected instead of silently returning", () => {

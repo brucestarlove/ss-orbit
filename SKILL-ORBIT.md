@@ -92,3 +92,5 @@ The same flow is exposed over MCP as `board_archive_ticket`, `board_restore_tick
 ## Current Rule
 
 Board is canonical for planning state. Git repo is canonical for code.
+
+Use Orbit API/MCP tools for tickets/cards and board memory. Do not open, edit, patch, script, or write .orbit/board.db directly unless you are explicitly debugging Orbit internals and the user asked for database repair.

@@ -1,0 +1,90 @@
+name: Feature request
+description: Suggest a new capability, workflow improvement, or product change.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. The strongest feature requests explain the workflow, the pain, and what would count as done.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What are you trying to do?
+      description: Describe the user goal or workflow, not just the implementation you have in mind.
+      placeholder: |
+        I want to use Orbit across multiple repos and quickly see...
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Explain what is awkward, slow, confusing, missing, or risky today.
+      placeholder: |
+        Today I have to...
+
+        This is hard because...
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would a good solution look like?
+      description: Describe the outcome, acceptance criteria, or behavior you would expect.
+      placeholder: |
+        A good solution would let me...
+
+        I would consider this done when...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which part of Orbit is this about?
+      description: Pick the main surface affected by the request.
+      options:
+        - Web UI
+        - CLI
+        - Docker runtime
+        - MCP / agent workflow
+        - Board model / ticket workflow
+        - Import / export / backup
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples, sketches, or prior art
+      description: Link screenshots, rough sketches, similar tools, or concrete examples that clarify the request.
+      placeholder: |
+        Similar behavior exists in...
+
+        A rough version could look like...
+    validations:
+      required: false
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints or tradeoffs
+      description: Note any compatibility, local-first, agent workflow, privacy, performance, or migration concerns.
+      placeholder: |
+        This should still work when...
+
+        It should not require...
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: If you tried a workaround or considered another approach, describe it here.
+      placeholder: |
+        I currently work around this by...
+
+        Another option might be...
+    validations:
+      required: false

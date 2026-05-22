@@ -9,7 +9,11 @@ import { request } from "./transport.js";
 
 /** Bootstrap for the currently selected board (server opens the right DB). */
 export function bootstrapPath() {
-  const q = state.boardId ? `?board_id=${encodeURIComponent(state.boardId)}` : "";
+  const q = state.boardId
+    ? `?board_id=${encodeURIComponent(state.boardId)}`
+    : state.boardSlug
+      ? `?board=${encodeURIComponent(state.boardSlug)}`
+      : "";
   return `/api/bootstrap${q}`;
 }
 

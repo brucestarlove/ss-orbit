@@ -78,9 +78,9 @@ function assembleSite() {
   const appIndexPath = join(siteDir, "app", "index.html");
   let appHtml = readFileSync(appIndexPath, "utf8");
   appHtml = appHtml
-    .replace(/href="\.\/(apple-touch-icon\.png|favicon-32x32\.png)"/g, 'href="/app/$1"')
+    .replace(/href="(?:\.\/|\/)(apple-touch-icon\.png|favicon-32x32\.png)"/g, 'href="/app/$1"')
     .replace(/href="(styles\.[^"]+\.css)"/g, 'href="/app/$1"')
-    .replace(/src="\.\/([^"]+\.png)"/g, 'src="/app/$1"')
+    .replace(/src="(?:\.\/|\/)([^"]+\.png)"/g, 'src="/app/$1"')
     .replace(/src="(js\/app\.[^"]+\.js)"/g, 'src="/app/$1"');
   writeFileSync(appIndexPath, appHtml);
 

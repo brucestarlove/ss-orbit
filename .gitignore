@@ -6,6 +6,8 @@ data/
 node_modules/
 .pnpm-store/
 dist/
+.tmp/
 .orbit/
+.tmp/
 package-lock.json
 

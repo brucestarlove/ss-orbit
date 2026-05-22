@@ -18,7 +18,14 @@ import {
 import { state } from "./state.js";
 import { api, withBoardQuery } from "./api.js";
 import { toast, debounce } from "./toast.js";
-import { navigate, applyRoute, syncUrlFromState, setRouterReady } from "./router.js";
+import {
+  navigate,
+  applyRoute,
+  currentRoute,
+  hasRoute,
+  syncUrlFromState,
+  setRouterReady
+} from "./router.js";
 import {
   openBoardFlyout,
   closeBoardFlyout,
@@ -125,14 +132,15 @@ async function init() {
 
   enableKanbanDragScroll();
 
+  const initialRoute = currentRoute();
+  if (initialRoute.boardSlug) state.boardSlug = initialRoute.boardSlug;
   await load();
 
-  // Activate the router. If the page was loaded with a hash, restore that
-  // view; otherwise canonicalize the URL to reflect the current state so the
-  // back button has a starting point.
+  // Activate the router. If the page was loaded with a hash route, restore
+  // that view; otherwise canonicalize the URL to reflect the current
+  // state so the back button has a starting point.
   setRouterReady(true);
-  const initialHash = location.hash;
-  if (initialHash && initialHash !== "#" && initialHash !== "#/") {
+  if (hasRoute()) {
     await applyRoute();
   } else {
     syncUrlFromState({ replace: true });

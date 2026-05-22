@@ -107,7 +107,7 @@ export async function handleApi(req, res, url) {
 
   // Bootstrap: read-only registry + one chosen board. No global state mutated.
   if (req.method === "GET" && url.pathname === "/api/bootstrap") {
-    sendJson(res, 200, getBootstrap(actor, url.searchParams.get("board_id")));
+    sendJson(res, 200, getBootstrap(actor, url.searchParams.get("board_id"), url.searchParams.get("board")));
     return;
   }
 

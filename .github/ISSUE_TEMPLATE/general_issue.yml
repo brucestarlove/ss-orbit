@@ -1,0 +1,56 @@
+name: General issue
+description: Ask a question, report confusing documentation, or raise something that is not clearly a bug or feature request.
+title: "[Issue]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the bug or feature templates do not fit. Please still include enough context that someone can understand the situation without guessing.
+  - type: textarea
+    id: topic
+    attributes:
+      label: What is this about?
+      description: Summarize the question, documentation gap, maintenance concern, or other issue.
+      placeholder: |
+        I am trying to understand how...
+
+        The docs say..., but I expected...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include links, commands, screenshots, logs, or surrounding details that explain why this came up.
+      placeholder: |
+        I was using...
+
+        I looked at...
+
+        The confusing part is...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which part of Orbit is involved?
+      options:
+        - Web UI
+        - CLI
+        - Docker runtime
+        - MCP / agent workflow
+        - Board model / ticket workflow
+        - Documentation
+        - Project process
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: useful_outcome
+    attributes:
+      label: What outcome would help?
+      description: Describe the answer, doc update, decision, or next step that would resolve this for you.
+      placeholder: |
+        This would be resolved for me if...
+    validations:
+      required: false

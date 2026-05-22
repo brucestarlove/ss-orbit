@@ -12,7 +12,8 @@ import {
   typeLabel,
   priorityLabel,
   priorityKeyFor,
-  renderLabels
+  renderLabels,
+  renderMarkdown
 } from "./format.js";
 import { api, withBoardQuery } from "./api.js";
 import { navigate } from "./router.js";
@@ -70,6 +71,11 @@ export function renderBoard() {
     // follow-up click so dropping a card does not also open the detail drawer.
     let suppressClickAfterDrag = false;
     card.addEventListener("click", async (event) => {
+      const clickTarget = event.target instanceof Element ? event.target : event.target?.parentElement;
+      if (clickTarget?.closest("a")) {
+        event.stopPropagation();
+        return;
+      }
       if (suppressClickAfterDrag) {
         suppressClickAfterDrag = false;
         event.preventDefault();
@@ -336,7 +342,8 @@ function renderCard(ticket, { asEpicChild = false } = {}) {
   const priorityKey = priorityKeyFor(ticket.priority);
   const typeText = typeLabel(ticket.type).toUpperCase();
   const isExpanded = state.expandedCardIds.has(ticket.id);
-  const hasExpandable = (ticket.labels && ticket.labels.length) || ticket.parent_ticket || ticket.child_count;
+  const hasDescription = Boolean(String(ticket.description || "").trim());
+  const hasExpandable = hasDescription || (ticket.labels && ticket.labels.length) || ticket.parent_ticket || ticket.child_count;
 
   const triggerInner = `
     <span class="ticket-number">${escapeHtml(ticketLabel(ticket))}</span>
@@ -368,6 +375,7 @@ function renderCard(ticket, { asEpicChild = false } = {}) {
 
       ${hasExpandable ? `
         <div class="card-expandable">
+          ${hasDescription ? `<div class="card-description markdown-body">${renderMarkdown(ticket.description)}</div>` : ""}
           ${renderLabels(ticket.labels)}
           ${ticket.parent_ticket ? `<div class="parent-line">-> ${escapeHtml(ticketLabel(ticket.parent_ticket))}</div>` : ""}
           ${ticket.child_count ? `<div class="child-count">${ticket.child_count} feature${ticket.child_count === 1 ? "" : "s"} inside</div>` : ""}

@@ -1,0 +1,98 @@
+name: Bug report
+description: Report something that broke, regressed, or behaved differently than expected.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. The best reports make the behavior easy to reproduce or investigate.
+
+        Please include exact commands, logs, screenshots, and environment details where they matter.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the behavior you observed. Include the exact error message if there was one.
+      placeholder: |
+        I ran `orbit init` in a repo that already had...
+
+        Instead of creating/updating the board, Orbit...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: Describe the outcome you expected.
+      placeholder: |
+        I expected Orbit to detect the existing `.orbit/board.db` and...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest set of steps that reproduces the issue. If you cannot reproduce it reliably, say what you tried.
+      placeholder: |
+        1. Create a new repo with...
+        2. Run `orbit init`
+        3. Run `orbit serve`
+        4. Open `http://localhost:3337`
+        5. Click...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did this happen?
+      description: Pick the main surface where you saw the problem.
+      options:
+        - Web UI
+        - CLI
+        - Docker runtime
+        - MCP / agent workflow
+        - Board import/export
+        - Install / upgrade
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Fill in what you know. Leave unknown fields as "not sure".
+      placeholder: |
+        - OS:
+        - Node version:
+        - Package manager and version:
+        - Orbit version:
+        - Install method: npm package / source checkout / Docker / other
+        - Browser:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, screenshots, or relevant output
+      description: Paste short logs or attach screenshots. Please remove secrets, tokens, and private paths if needed.
+      render: shell
+      placeholder: |
+        Paste terminal output, browser console errors, stack traces, or screenshots here.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add anything else that might help, including recent changes, workarounds, or things you already ruled out.
+      placeholder: |
+        This started after upgrading from...
+
+        I also tried...
+
+        I am not sure if this is related, but...
+    validations:
+      required: false

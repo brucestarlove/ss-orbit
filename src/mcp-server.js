@@ -4,166 +4,14 @@
 // the call it's about to make, so adding new tools never has to think about
 // "active board" state.
 
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import {
-  archivedTicketsForBoard,
-  archiveTicket,
-  checkpointTicket,
-  claimNext,
-  completeTicket,
-  createBoardEntry,
-  createComment,
-  deleteTicket,
-  exportBoard,
-  getBoardContext,
-  getContextPack,
-  readComments,
-  readTicket,
-  getTicketBlockers,
-  getTicketRelations,
-  localAgentActor,
-  restoreTicket,
-  searchTickets,
-  updateBoard,
-  updateTicket
-} from "./core/board.js";
-import { createBoardSchema, openConnection } from "./core/db.js";
-import {
-  getBoardByRegistryId,
-  getBoardBySlug,
-  getBoardByRepoPath,
-  insertBoard,
-  listBoards,
-  openBoardDb,
-  syncRegistryFromBoardDb,
-  touchBoardActive
-} from "./core/registry.js";
-import { scheduleAutomaticBoardBackup } from "./core/backups.js";
-import { seedIfEmpty } from "./core/seed.js";
-import { now, normalizePath } from "./core/util.js";
+import { createOrbitClient } from "./mcp/orbit-client.js";
 
 const SERVER_INFO = {
   name: "minimal-agent-board",
   version: "0.1.0"
 };
 
-// Per-process session board. Set on init by walking up from cwd, mutable via
-// `board_set_active`. NEVER read by anything outside this file — every
-// downstream call receives an explicit ctx.
-let sessionBoardRow = null;
-
-function setSessionBoard(row) {
-  sessionBoardRow = row;
-  if (row) touchBoardActive(row.id);
-}
-
-function getSessionBoard() {
-  return sessionBoardRow;
-}
-
-/**
- * Walk up from `startDir` toward the filesystem root, returning the first
- * directory that satisfies `predicate`. Returns null if none found.
- */
-function walkUp(startDir, predicate) {
-  let dir = startDir;
-  while (true) {
-    if (predicate(dir)) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-/**
- * Initialise the MCP session board. Resolution order:
- *   1. Walk up from PROJECT_ROOT (cwd unless `orbit mcp --cwd` or env overrides it)
- *      for an existing `.orbit/board.db` — finds the board even when the agent
- *      is launched from a subdirectory or MCP config uses an absolute command.
- *   2. Walk up from PROJECT_ROOT for a `.git/` directory — auto-creates a board at
- *      the git root on first launch.
- *   3. Fall back to PROJECT_ROOT itself — supports non-git projects and global installs.
- */
-function initMcpSessionBoard() {
-  const start = normalizePath(process.env.PROJECT_ROOT ? resolve(process.env.PROJECT_ROOT) : process.cwd());
-
-  // 1. Walk up for an existing board db.
-  const boardRoot = walkUp(start, (dir) => existsSync(join(dir, ".orbit", "board.db")));
-  if (boardRoot) {
-    const root = normalizePath(boardRoot);
-    const existing = getBoardByRepoPath(root);
-    if (existing) { setSessionBoard(existing); return; }
-    // db exists on disk but isn't in the registry yet — register it.
-    const dbPath = join(boardRoot, ".orbit", "board.db");
-    const db = openConnection(dbPath);
-    createBoardSchema(db);
-    const seeded = seedIfEmpty(db, root);
-    if (seeded) {
-      const t = now();
-      insertBoard({ id: seeded.id, slug: seeded.slug, name: seeded.name, repo_path: root, db_path: dbPath, repo_url: seeded.repo_url || "", default_branch: seeded.default_branch || "main", last_active_at: t, created_at: t, updated_at: t });
-    }
-    const fresh = getBoardByRepoPath(root);
-    if (fresh) { syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
-    return;
-  }
-
-  // 2. Walk up for a git root; fall back to cwd for non-git projects.
-  const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
-  createBoardAtRoot(normalizePath(gitRoot || start));
-}
-
-function createBoardAtRoot(root) {
-  const dbPath = join(root, ".orbit", "board.db");
-  mkdirSync(dirname(dbPath), { recursive: true });
-  const db = openConnection(dbPath);
-  createBoardSchema(db);
-  const seeded = seedIfEmpty(db, root);
-  if (seeded) {
-    const t = now();
-    insertBoard({ id: seeded.id, slug: seeded.slug, name: seeded.name, repo_path: root, db_path: dbPath, repo_url: seeded.repo_url || "", default_branch: seeded.default_branch || "main", last_active_at: t, created_at: t, updated_at: t });
-  }
-  const fresh = getBoardByRepoPath(root);
-  if (fresh) { syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
-}
-
-initMcpSessionBoard();
-
-/** Build a ctx for the session board (or a board the tool argument selected). */
-function ctxFor(boardRow, actor) {
-  if (!boardRow) throw rpcError(-32602, "No board in session; pass board_id or board_slug, or call board_set_active first.");
-  return { actor, board: boardRow, db: openBoardDb(boardRow) };
-}
-
-function sessionCtx(actor) {
-  return ctxFor(getSessionBoard(), actor);
-}
-
-function withAutomaticBackup(ctx, result) {
-  scheduleAutomaticBoardBackup(ctx.board, ctx.db);
-  return result;
-}
-
-/** Resolve a registry row from explicit args (no session fallback). */
-function resolveExplicitBoard(args) {
-  if (args.board_id) {
-    const row = getBoardByRegistryId(args.board_id);
-    if (!row) throw rpcError(-32004, "Board id not found.");
-    return row;
-  }
-  if (args.board_slug || args.board) {
-    const row = getBoardBySlug(args.board_slug || args.board);
-    if (!row) throw rpcError(-32004, "Board slug not found.");
-    return row;
-  }
-  return null;
-}
-
-/** Resolve a board for a tool that accepts board_id/board_slug AND can fall
- *  back to the session board. */
-function resolveBoardOrSession(args) {
-  return resolveExplicitBoard(args) || getSessionBoard();
-}
+const orbitClient = await createOrbitClient();
 
 const TOOL_DEFS = [
   {
@@ -180,12 +28,7 @@ const TOOL_DEFS = [
       },
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const row = resolveBoardOrSession(args);
-      const ctx = ctxFor(row, actor);
-      return getBoardContext(ctx.board.id, ctx, { includeStruck: Boolean(args.include_struck) });
-    }
+    handler: (args) => orbitClient.boardContext(args)
   },
   {
     name: "board_list",
@@ -196,16 +39,7 @@ const TOOL_DEFS = [
       properties: {},
       additionalProperties: false
     },
-    handler: () => {
-      return {
-        boards: listBoards().map((row) => ({
-          id: row.id,
-          slug: row.slug,
-          name: row.name,
-          repo_path: row.repo_path
-        }))
-      };
-    }
+    handler: () => orbitClient.boardList()
   },
   {
     name: "board_set_active",
@@ -219,14 +53,7 @@ const TOOL_DEFS = [
       required: ["slug"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const slug = String(args.slug || "").trim();
-      if (!slug) throw rpcError(-32602, "slug is required.");
-      const row = getBoardBySlug(slug);
-      if (!row) throw rpcError(-32004, `Board slug not found: ${slug}`);
-      setSessionBoard(row);
-      return { ok: true, board_id: row.id, slug: row.slug, name: row.name, db_path: row.db_path };
-    }
+    handler: (args) => orbitClient.boardSetActive(args)
   },
   {
     name: "board_claim_next",
@@ -243,12 +70,7 @@ const TOOL_DEFS = [
       },
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const row = resolveBoardOrSession(args);
-      const ctx = ctxFor(row, actor);
-      return withAutomaticBackup(ctx, claimNext(args, ctx));
-    }
+    handler: (args) => orbitClient.claimNext(args)
   },
   {
     name: "board_get_ticket_context",
@@ -263,11 +85,7 @@ const TOOL_DEFS = [
       required: ["ticket_id"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return getContextPack(args.ticket_id, ctx, Number(args.depth || 1));
-    }
+    handler: (args) => orbitClient.getTicketContext(args)
   },
   {
     name: "board_read_ticket",
@@ -282,11 +100,7 @@ const TOOL_DEFS = [
       },
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return readTicket(args, ctx);
-    }
+    handler: (args) => orbitClient.readTicket(args)
   },
   {
     name: "board_read_comments",
@@ -301,11 +115,7 @@ const TOOL_DEFS = [
       },
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return readComments(args, ctx);
-    }
+    handler: (args) => orbitClient.readComments(args)
   },
   {
     name: "board_get_ticket_relations",
@@ -318,10 +128,7 @@ const TOOL_DEFS = [
       required: ["ticket_id"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      return getTicketRelations(args.ticket_id, sessionCtx(actor));
-    }
+    handler: (args) => orbitClient.getTicketRelations(args)
   },
   {
     name: "board_get_ticket_blockers",
@@ -334,10 +141,7 @@ const TOOL_DEFS = [
       required: ["ticket_id"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      return getTicketBlockers(args.ticket_id, sessionCtx(actor));
-    }
+    handler: (args) => orbitClient.getTicketBlockers(args)
   },
   {
     name: "board_search",
@@ -355,12 +159,33 @@ const TOOL_DEFS = [
       required: ["q"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const row = resolveBoardOrSession(args);
-      const ctx = ctxFor(row, actor);
-      return searchTickets({ q: args.q, limit: args.limit }, ctx);
-    }
+    handler: (args) => orbitClient.search(args)
+  },
+  {
+    name: "board_create_ticket",
+    description:
+      "Create a new Orbit ticket/card on the active board. Use this instead of editing .orbit/board.db directly. Same operation as POST /api/tickets.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        type: { type: "string", enum: ["epic", "feature", "task", "bug"] },
+        parent_ticket_id: { type: ["string", "null"] },
+        ai_plan: { type: "string" },
+        implementation_summary: { type: "string" },
+        implementation_updates: { type: "string" },
+        state_id: { type: "string" },
+        priority: { type: "integer" },
+        labels: { type: "array", items: { type: "string" } }
+      },
+      required: ["title"],
+      additionalProperties: false
+    },
+    handler: (args) => orbitClient.createTicket(args)
   },
   {
     name: "board_update_ticket",
@@ -384,11 +209,7 @@ const TOOL_DEFS = [
       required: ["ticket_id"],
       additionalProperties: false
     },
-    handler: ({ ticket_id, ...patch }) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return withAutomaticBackup(ctx, updateTicket(ticket_id, patch, ctx));
-    }
+    handler: ({ ticket_id, ...patch }) => orbitClient.updateTicket({ ticket_id, ...patch })
   },
   {
     name: "board_add_comment",
@@ -403,11 +224,7 @@ const TOOL_DEFS = [
       required: ["ticket_id", "body"],
       additionalProperties: false
     },
-    handler: ({ ticket_id, ...body }) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return withAutomaticBackup(ctx, createComment(ticket_id, body, ctx));
-    }
+    handler: ({ ticket_id, ...body }) => orbitClient.addComment({ ticket_id, ...body })
   },
   {
     name: "board_add_board_entry",
@@ -425,12 +242,7 @@ const TOOL_DEFS = [
       required: ["type", "title"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const row = resolveBoardOrSession(args);
-      const ctx = ctxFor(row, actor);
-      return withAutomaticBackup(ctx, createBoardEntry(ctx.board.id, args, ctx));
-    }
+    handler: (args) => orbitClient.addBoardEntry(args)
   },
   {
     name: "board_checkpoint",
@@ -445,11 +257,7 @@ const TOOL_DEFS = [
       required: ["ticket_id", "message"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return withAutomaticBackup(ctx, checkpointTicket(args, ctx));
-    }
+    handler: (args) => orbitClient.checkpoint(args)
   },
   {
     name: "board_complete",
@@ -467,11 +275,7 @@ const TOOL_DEFS = [
       required: ["ticket_id", "summary"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return withAutomaticBackup(ctx, completeTicket(args, ctx));
-    }
+    handler: (args) => orbitClient.complete(args)
   },
   {
     name: "board_archive_ticket",
@@ -483,11 +287,7 @@ const TOOL_DEFS = [
       required: ["ticket_id"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return withAutomaticBackup(ctx, archiveTicket(args.ticket_id, ctx));
-    }
+    handler: (args) => orbitClient.archiveTicket(args)
   },
   {
     name: "board_restore_ticket",
@@ -498,11 +298,7 @@ const TOOL_DEFS = [
       required: ["ticket_id"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return withAutomaticBackup(ctx, restoreTicket(args.ticket_id, ctx));
-    }
+    handler: (args) => orbitClient.restoreTicket(args)
   },
   {
     name: "board_delete_ticket",
@@ -514,11 +310,7 @@ const TOOL_DEFS = [
       required: ["ticket_id"],
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const ctx = sessionCtx(actor);
-      return withAutomaticBackup(ctx, deleteTicket(args.ticket_id, ctx));
-    }
+    handler: (args) => orbitClient.deleteTicket(args)
   },
   {
     name: "board_list_archive",
@@ -531,12 +323,7 @@ const TOOL_DEFS = [
       },
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const row = resolveBoardOrSession(args);
-      const ctx = ctxFor(row, actor);
-      return { tickets: archivedTicketsForBoard(ctx.db, ctx.board.id) };
-    }
+    handler: (args) => orbitClient.listArchive(args)
   },
   {
     name: "board_export_board",
@@ -549,12 +336,7 @@ const TOOL_DEFS = [
       },
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const row = resolveBoardOrSession(args);
-      const ctx = ctxFor(row, actor);
-      return exportBoard(ctx.board.id, ctx);
-    }
+    handler: (args) => orbitClient.exportBoard(args)
   },
   {
     name: "board_update_settings",
@@ -574,13 +356,7 @@ const TOOL_DEFS = [
       },
       additionalProperties: false
     },
-    handler: (args) => {
-      const actor = localAgentActor();
-      const row = resolveBoardOrSession(args);
-      const ctx = ctxFor(row, actor);
-      const { board_id, board_slug, ...patch } = args;
-      return withAutomaticBackup(ctx, updateBoard(ctx.board.id, patch, ctx));
-    }
+    handler: (args) => orbitClient.updateSettings(args)
   }
 ];
 
@@ -769,5 +545,5 @@ process.on("unhandledRejection", (error) => {
 });
 
 if (process.env.MAB_MCP_STDERR_LOG === "1") {
-  console.error(`Starscape Orbit MCP ready. Session board: ${getSessionBoard()?.db_path || "(none)"}`);
+  console.error(`Starscape Orbit MCP ready. Mode: ${orbitClient.mode}. Target: ${typeof orbitClient.sessionLabel === "function" ? orbitClient.sessionLabel() : orbitClient.sessionLabel}`);
 }
