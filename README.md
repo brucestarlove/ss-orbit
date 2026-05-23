@@ -43,7 +43,7 @@ From the repo you want a board for:
 
 ```bash
 cd path/to/your-app
-orbit init            # creates .orbit/board.db + SKILL-ORBIT.md + AGENTS.md
+orbit init            # creates .orbit/board.db + managed SKILL-ORBIT.md + AGENTS.md
 orbit init --example  # optional: add onboarding example tickets
 orbit init --no-ai    # optional: create or update the board with AI disabled
 ```
@@ -51,7 +51,7 @@ orbit init --no-ai    # optional: create or update the board with AI disabled
 Start one runtime and keep using it:
 
 ```bash
-orbit serve   # host runtime, uses ~/.orbit
+orbit serve   # host runtime, uses ~/.orbit, refreshes managed SKILL-ORBIT.md copies
 # or
 orbit docker  # Docker runtime, uses <repo>/.orbit/docker-data
 ```
@@ -60,7 +60,7 @@ Both serve `http://localhost:3337`. Use `--port 3400` to change ports and `--cwd
 
 `orbit serve` and `orbit docker` run the same app but use different registries by default. A board registered in one mode will not appear in the other unless you share `DATA_DIR`, re-register it, or import a snapshot.
 
-For multiple boards, run your chosen runtime once. In another terminal, `cd` into another repo and run `orbit init`; the board joins that runtime's board picker without a restart.
+For multiple boards, run your chosen runtime once. In another terminal, `cd` into another repo and run `orbit init`; the board joins that runtime's board picker without a restart. `SKILL-ORBIT.md` is Orbit-managed guidance and may be overwritten by `orbit init` or refreshed by `orbit serve`; keep repo/team-specific agent rules in `AGENTS.md` or board *Agent Instructions*.
 
 Docker options:
 
@@ -91,12 +91,12 @@ If you initialized with `--example`, ticket #12 (`Try Orbit MCP on this ticket`)
 For a first-class handoff to a named Hermes profile on a local board, use `orbit dispatch` instead of writing an ad-hoc prompt file:
 
 ```bash
-orbit dispatch --board my-app --ticket 12 --profile nova --worktree
+orbit dispatch --board my-app --ticket 12 --profile agent --worktree
 orbit dispatch --board my-app --ticket 12 --dry-run    # preview only; no writes or spawn
 orbit dispatch --board my-app --ticket 12 --no-spawn   # prepare handoff/comment; leave lane unchanged
 ```
 
-Dispatch validates the local board, ticket, blockers, and Hermes availability before mutating a ticket. Normal spawn mode writes the generated handoff into the ticket's **AI Written-Plan**, moves the ticket to **In Progress**, optionally preserves a git worktree/branch for review, starts Hermes, and comments a run record back onto the card. `--no-spawn` writes the handoff/comment but does not move the ticket to In Progress. The default `nova-safe` policy allows local inspection, edits, tests, and commits while blocking Docker, pushes, deploys, package installs, destructive git commands, and common network/cloud escape hatches.
+Dispatch validates the local board, ticket, blockers, and Hermes availability before mutating a ticket. Normal spawn mode writes the generated handoff into the ticket's **AI Written-Plan**, moves the ticket to **In Progress**, optionally preserves a git worktree/branch for review, starts Hermes, and comments a run record back onto the card. `--no-spawn` writes the handoff/comment but does not move the ticket to In Progress. The default `agent-safe` policy allows local inspection, edits, tests, and commits while blocking Docker, pushes, deploys, package installs, destructive git commands, and common network/cloud escape hatches.
 
 `orbit dispatch` is intentionally not a hosted-board client yet: `--server-url` and `--remote` are refused before side effects. Use remote MCP tools for hosted/remote boards, or run dispatch on the board host. Full operator/user guide: [docs/ORBIT_DISPATCH.md](docs/ORBIT_DISPATCH.md).
 
@@ -124,7 +124,7 @@ Bun is not used as the Orbit runtime because Orbit depends on Node's built-in `n
 
 Each repo gets its own board database. Orbit keeps a small central registry that maps repo paths to their board files; the CLI, web app, and MCP server use explicit project roots when provided, then fall back to walking upward to find `.orbit/board.db`.
 
-- **Per-repo board** — `.orbit/board.db` lives in the repo it tracks. `orbit init` creates it, drops `SKILL-ORBIT.md` at the repo root, and creates/updates `AGENTS.md` with a terse pointer so agents load the full Orbit protocol only when relevant. Add `--example` to create onboarding cards, or `--no-ai` to disable AI collaboration for the board.
+- **Per-repo board** — `.orbit/board.db` lives in the repo it tracks. `orbit init` creates it, writes the managed `SKILL-ORBIT.md` at the repo root, and creates/updates `AGENTS.md` with a terse pointer so agents load the full Orbit protocol only when relevant. `orbit serve` refreshes managed `SKILL-ORBIT.md` copies for registered repos on startup. Add `--example` to create onboarding cards, or `--no-ai` to disable AI collaboration for the board.
 - **Central registry** — `registry.db` records each board's path, slug, and last-active timestamp. Host `orbit serve` uses `~/.orbit`; `orbit docker` uses `<repo>/.orbit/docker-data`. Keep one mode unless you intentionally share `DATA_DIR`, re-register boards, or import snapshots.
 - **Project-root discovery** — `orbit serve`, `orbit mcp`, and MCP-attached agents resolve a board from an explicit `--cwd` / `PROJECT_ROOT` first, then fall back to walking up from process cwd to find `.orbit/board.db`. Persistent MCP configs should use an explicit root so the right board attaches even when the agent launches elsewhere.
 - **Two channels for AI** — `AGENTS.md` is the auto-loaded briefing, with an Orbit-managed pointer to `SKILL-ORBIT.md`; the *MCP config* tells the agent runtime how to launch Orbit's MCP server for the right project. The briefing travels with the repo; the MCP registration is per-agent-install.

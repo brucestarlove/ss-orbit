@@ -13,7 +13,7 @@ Orbit generates neutral template paths for Windows, macOS, and Linux. Replace th
 
 Board data lives under each tracked repo at `.orbit/board.db` (flat file or `.orbit/boards/<slug>/` for extra boards)—not beside the MCP script.
 
-After installing Orbit as a package, run **`orbit init`** in (or with `--cwd` pointing at) the repo where you want `.orbit/`, **`AGENTS.md`**, and a copy of **`SKILL-ORBIT.md`** so agents and MCP line up with that tree. Orbit enables the AI Ready / In Progress / Review agent lanes by default. Add `--no-ai` if you want AI collaboration disabled, and add `--example` if you want the onboarding example tickets.
+After installing Orbit as a package, run **`orbit init`** in (or with `--cwd` pointing at) the repo where you want `.orbit/`, **`AGENTS.md`**, and the managed **`SKILL-ORBIT.md`** so agents and MCP line up with that tree. Orbit enables the AI Ready / In Progress / Review agent lanes by default. Add `--no-ai` if you want AI collaboration disabled, and add `--example` if you want the onboarding example tickets. Keep repo-specific agent customization in `AGENTS.md` or board *Agent Instructions*; `SKILL-ORBIT.md` is Orbit-managed and may be overwritten by `orbit init` or refreshed by `orbit serve`.
 
 The generated format changes by app:
 
@@ -31,11 +31,11 @@ The checked-in example file is not read automatically by Starscape Orbit. It exi
 
 By default MCP runs in local mode. It finds a board from an explicit project root first: pass `orbit mcp --cwd <repo>` or set `PROJECT_ROOT=<repo>` in persistent MCP configs. If neither is set, it falls back to the process cwd and walks upward to the first ancestor with `.orbit/board.db`. Prefer explicit roots for long-lived agent configs so launching the agent from another folder does not attach the wrong board.
 
-For a shared/deployed board, run MCP in remote mode instead: set `ORBIT_MODE=remote`, `ORBIT_API_URL=<server origin>`, and usually `ORBIT_DEFAULT_BOARD=<slug-or-id>`. Remote mode calls the HTTP API and does not open or auto-create local `.orbit` databases; it fails at startup if `ORBIT_API_URL` is missing. **`AGENTS.md` / `SKILL-ORBIT.md`** are unrelated to MCP transport: agents open them via the workspace file tree, and `orbit init` keeps a terse Orbit pointer section in `AGENTS.md`.
+For a shared/deployed board, run MCP in remote mode instead: set `ORBIT_MODE=remote`, `ORBIT_API_URL=<server origin>`, and usually `ORBIT_DEFAULT_BOARD=<slug-or-id>`. Remote mode calls the HTTP API and does not open or auto-create local `.orbit` databases; it fails at startup if `ORBIT_API_URL` is missing. **`AGENTS.md` / `SKILL-ORBIT.md`** are unrelated to MCP transport: agents open them via the workspace file tree, `orbit init` keeps a terse Orbit pointer section in `AGENTS.md`, and `orbit serve` refreshes managed `SKILL-ORBIT.md` copies for registered repos.
 
 Typical use:
 
-- Keep the web UI running with `node src/server.js`.
+- Keep the web UI running with `orbit serve` (`node src/server.js` is fine for source-tree development, but `orbit serve` is the package command that refreshes managed `SKILL-ORBIT.md` copies).
 - Point the MCP client at `node src/cli/orbit.js mcp --cwd /absolute/project`, set `PROJECT_ROOT=/absolute/project` with `node src/mcp-server.js`, or paste the generated setup from Settings -> AI.
 - Use the MCP tools to claim tickets, read context, update implementation fields, and write project memory.
 

@@ -33,9 +33,10 @@ Keep existing init flags:
 
 - `--cwd <dir>` selects the project root.
 - `--example` creates onboarding example tickets.
-- `--refresh-agents-md` refreshes generated agent guidance files.
 
-Do not add `--multi-ai`, `--output=starlog-authored`, `--starlog`, `--suite`, `--forge`, `--sync`, hosted-service flags, or remote-sync flags in this pass.
+`SKILL-ORBIT.md` is managed Orbit guidance: `orbit init` writes it, and `orbit serve` refreshes registered repo copies on startup. Repo/team customization belongs in `AGENTS.md` or board `agent_instructions`, not in `SKILL-ORBIT.md`.
+
+Do not add `--multi-ai`, `--output=starlog-authored`, `--starlog`, `--suite`, `--forge`, `--sync`, hosted-service flags, agent-guidance refresh flags, or remote-sync flags in this pass.
 
 ## Wizard rules
 
@@ -92,7 +93,7 @@ Behavior:
 - Create or repair the board database and registry row for the selected project root.
 - Persist `ai_enabled = 1`.
 - Ensure `AI Ready`, `In Progress`, and `Review` exist for agent flow.
-- Generate or refresh `AGENTS.md` and `SKILL-ORBIT.md` so agents know to read board context, respect blockers, use MCP/API tools, and update `ai_plan`, `implementation_summary`, and `implementation_updates`.
+- Create/update `AGENTS.md` as the repo-owned pointer and write the managed `SKILL-ORBIT.md` so agents know to read board context, respect blockers, use MCP/API tools, and update `ai_plan`, `implementation_summary`, and `implementation_updates`.
 - Print MCP setup guidance after init, including project-root-specific `orbit mcp --cwd <repo>` / `PROJECT_ROOT=<repo>` guidance or the generated client snippet.
 - If `--example` is used, stage the stable MCP exercise ticket in `AI Ready`.
 
@@ -105,7 +106,7 @@ Success copy should say AI collaboration lanes are present and the next step is 
 - `AGENTS.md`
 - `SKILL-ORBIT.md`
 
-`AGENTS.md` should stay terse: when work mentions Orbit/tickets/boards, read `SKILL-ORBIT.md` first. `SKILL-ORBIT.md` remains the durable protocol: read board context, check blockers, use Orbit API/MCP instead of editing SQLite directly, update implementation fields, and hand off through Review.
+`AGENTS.md` should stay terse and repo-owned: when work mentions Orbit/tickets/boards, read `SKILL-ORBIT.md` first. `SKILL-ORBIT.md` is Orbit-managed durable protocol and may be overwritten by `orbit init` or refreshed by `orbit serve`; it tells agents to read board context, check blockers, use Orbit API/MCP instead of editing SQLite directly, update implementation fields, and hand off through Review.
 
 For local/no-AI boards, these files are still useful if an agent later opens the repo, but init output should not frame MCP as mandatory.
 

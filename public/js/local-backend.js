@@ -736,9 +736,6 @@ async function handleTicketContext(ticketId) {
     .map((tl) => snap.labels.find((l) => l.id === tl.label_id))
     .filter(Boolean)
     .map((l) => ({ ticket_id: ticketId, id: l.id, name: l.name, color: l.color }));
-  const comments = snap.comments
-    .filter((c) => c.ticket_id === ticketId)
-    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   const stateById = Object.fromEntries(snap.states.map((s) => [s.id, s]));
   const compact = (t) => {
     if (!t) return null;
@@ -783,13 +780,23 @@ async function handleTicketContext(ticketId) {
     ticket: { ...ticket, labels },
     board: snap.board,
     board_manual: { entries: snap.boardEntries.filter((e) => !e.struck_at) },
-    comments,
     parent_ticket: compact(parent),
     child_tickets: childTickets,
     relations,
     blockers: [],
-    related_tickets: [...childTickets, ...(parent ? [parent] : [])],
-    related_comments: []
+    related_tickets: [...childTickets, ...(parent ? [parent] : [])]
+  };
+}
+
+async function handleTicketComments(ticketId) {
+  const snap = await snapshotAll();
+  const ticket = snap.tickets.find((t) => t.id === ticketId && !t.archived_at);
+  if (!ticket) throw err(404, "ticket_not_found");
+  return {
+    ticket_id: ticketId,
+    comments: snap.comments
+      .filter((c) => c.ticket_id === ticketId)
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
   };
 }
 
@@ -949,6 +956,7 @@ const ROUTES = [
   { m: "POST", re: /^\/api\/tickets\/([^/]+)\/archive$/, fn: (m) => handleTicketArchive(decodeURIComponent(m[1]), true) },
   { m: "POST", re: /^\/api\/tickets\/([^/]+)\/restore$/, fn: (m) => handleTicketArchive(decodeURIComponent(m[1]), false) },
   { m: "GET", re: /^\/api\/tickets\/([^/]+)\/context$/, fn: (m) => handleTicketContext(decodeURIComponent(m[1])) },
+  { m: "GET", re: /^\/api\/tickets\/([^/]+)\/comments$/, fn: (m) => handleTicketComments(decodeURIComponent(m[1])) },
   { m: "GET", re: /^\/api\/tickets\/([^/]+)\/history$/, fn: (m) => handleTicketHistory(decodeURIComponent(m[1])) },
   { m: "POST", re: /^\/api\/tickets\/([^/]+)\/comments$/, fn: (m, u, body) => handleCommentCreate(decodeURIComponent(m[1]), body) },
   { m: "POST", re: /^\/api\/relations$/, fn: (m, u, body) => handleRelationCreate(body) },

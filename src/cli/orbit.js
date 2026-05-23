@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
  * Orbit CLI — `orbit init` provisions `.orbit/board.db`, registry row, and
- * copies SKILL-ORBIT.md into the target repo. Does not import board.js.
+ * copies managed SKILL-ORBIT.md into the target repo. Does not import board.js.
  */
 
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { removeOrbitAgentsSection, syncAgentsMd } from "../core/agents-md.js";
+import { removeOrbitAgentsSection, syncAgentsMd, syncSkillOrbitMd } from "../core/agents-md.js";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -28,7 +28,6 @@ Options (init / reset / serve / docker / mcp / dispatch):
 Options (init only):
   --no-ai               Create the board with AI collaboration disabled
   --example             Create example onboarding tickets
-  --refresh-agents-md   Overwrite SKILL-ORBIT.md and refresh Orbit section in AGENTS.md
 
 Options (serve / docker):
   --port <n>            HTTP port (default: 3337, or $PORT)
@@ -36,8 +35,8 @@ Options (serve / docker):
 Options (dispatch):
   --board <slug-or-id>  Local board to dispatch against (default: board for --cwd)
   --ticket <number-id>  Ticket number or id to dispatch
-  --profile <name>      Hermes profile to run (default: nova)
-  --policy <name>       Autonomous policy wrappers to apply (default: nova-safe; use none to disable)
+  --profile <name>      Hermes profile to run (default: agent)
+  --policy <name>       Autonomous policy wrappers to apply (default: agent-safe; use none to disable)
   --server-url <url>    Refused for now; dispatch is local-board only
   --remote              Refused for now; use remote MCP/manual orchestration for hosted boards
   --worktree            Create and preserve a git worktree for review/testing
@@ -163,7 +162,6 @@ function parseArgs(argv) {
     command: null,
     cwd: process.env.PROJECT_ROOT ? resolve(process.env.PROJECT_ROOT) : process.cwd(),
     cwdProvided: false,
-    refreshAgentsMd: false,
     ai: true,
     example: false,
     port: null,
@@ -175,8 +173,8 @@ function parseArgs(argv) {
     dryRun: false,
     board: null,
     ticket: null,
-    profile: "nova",
-    policy: "nova-safe",
+    profile: "agent",
+    policy: "agent-safe",
     serverUrl: null,
     worktree: false,
     worktreePath: null,
@@ -188,7 +186,8 @@ function parseArgs(argv) {
     force: false,
     foreground: false,
     remote: false,
-    help: false
+    help: false,
+    invalid: false
   };
   const rest = argv.slice(2);
   if (rest.length === 0 || rest[0] === "-h" || rest[0] === "--help") {
@@ -207,8 +206,7 @@ function parseArgs(argv) {
   args.command = rest[0];
   for (let i = 1; i < rest.length; i++) {
     const a = rest[i];
-    if (a === "--refresh-agents-md") args.refreshAgentsMd = true;
-    else if (a === "--no-ai") args.ai = false;
+    if (a === "--no-ai") args.ai = false;
     else if (a === "--example") args.example = true;
     else if (a === "--cwd" && rest[i + 1]) {
       args.cwdProvided = true;
@@ -290,6 +288,7 @@ function parseArgs(argv) {
     } else {
       console.error(`Unknown argument: ${a}`);
       args.command = "help";
+      args.invalid = true;
       return args;
     }
   }
@@ -310,15 +309,13 @@ async function runInit(options) {
   if (!existsSync(skillSrc)) {
     console.warn(`Warning: missing ${skillSrc} — skipped copying SKILL-ORBIT.md and AGENTS.md Orbit section.`);
   } else {
-    if (skillSrc === skillDest) {
+    const skillSync = syncSkillOrbitMd(projectRoot, skillSrc);
+    if (skillSync.status === "same_file") {
       console.log("SKILL-ORBIT.md source is already the project copy — left unchanged.");
-    } else if (existsSync(skillDest) && !options.refreshAgentsMd) {
-      console.log(`SKILL-ORBIT.md already exists — left unchanged (use --refresh-agents-md to replace).`);
     } else {
-      copyFileSync(skillSrc, skillDest);
       console.log(`Wrote ${skillDest}`);
     }
-    syncAgentsMd(projectRoot, options);
+    syncAgentsMd(projectRoot);
   }
 
   enableAiIfEnabled(options, result.registryRow, core);
@@ -438,6 +435,7 @@ async function runServe(options) {
   // captures it at module load. cwd defaults are equivalent for most users, but
   // an explicit --cwd lets a global install target a board outside cwd.
   process.env.PROJECT_ROOT = resolve(options.cwd);
+  process.env.ORBIT_SYNC_MANAGED_SKILL_ORBIT = "1";
   if (options.port) process.env.PORT = String(options.port);
   await import("../server.js");
 }
@@ -587,7 +585,7 @@ async function main() {
       printVersion();
     } else {
       printUsage();
-      process.exitCode = args.command === "help" ? 0 : 1;
+      process.exitCode = args.command === "help" && !args.invalid ? 0 : 1;
     }
   } catch (err) {
     console.error(err?.message || err);

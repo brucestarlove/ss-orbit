@@ -58,7 +58,9 @@ import {
   checkpointTicket,
   claimNext,
   completeTicket,
-  getContextPack
+  getContextPack,
+  readComments,
+  readTicket
 } from "./agent.js";
 
 /** Build a ctx for an already-resolved registry row + actor. */
@@ -212,6 +214,18 @@ export async function handleApi(req, res, url) {
     return;
   }
 
+  // /api/tickets/lookup GET — exact lightweight lookup by number or title.
+  if (req.method === "GET" && url.pathname === "/api/tickets/lookup") {
+    const { boardId, boardSlug } = boardHintsFromQuery(url);
+    const row = resolveBoardFromHint(boardId, boardSlug);
+    if (!row) throw httpError(400, "board_id_required");
+    const lookup = {};
+    if (url.searchParams.has("number")) lookup.number = url.searchParams.get("number");
+    if (url.searchParams.has("title")) lookup.title = url.searchParams.get("title");
+    sendJson(res, 200, readTicket(lookup, ctxFromBoardRow(row, actor)));
+    return;
+  }
+
   // /api/tickets/:id/... — board resolved from query hint or via lookup.
   const ticketPath = url.pathname.match(/^\/api\/tickets\/([^/]+)(?:\/(.*))?$/);
   if (ticketPath) {
@@ -223,6 +237,10 @@ export async function handleApi(req, res, url) {
     if (!found) throw httpError(404, "ticket_not_found");
     const ctx = ctxFromBoardRow(found.board, actor);
 
+    if (sub === "" && req.method === "GET") {
+      sendJson(res, 200, readTicket(ticketId, ctx));
+      return;
+    }
     if (sub === "" && req.method === "PATCH") {
       const body = await readJson(req);
       sendMutationJson(res, 200, updateTicket(ticketId, body, ctx), ctx);
@@ -255,6 +273,10 @@ export async function handleApi(req, res, url) {
     }
     if (sub === "blockers" && req.method === "GET") {
       sendJson(res, 200, getTicketBlockers(ticketId, ctx));
+      return;
+    }
+    if (sub === "comments" && req.method === "GET") {
+      sendJson(res, 200, readComments(ticketId, ctx));
       return;
     }
     if (sub === "comments" && req.method === "POST") {

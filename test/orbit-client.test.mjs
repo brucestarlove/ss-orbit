@@ -33,18 +33,55 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
     calls.push({ url: String(url), method: options.method, body: options.body ? JSON.parse(options.body) : null });
     return new Response(JSON.stringify({ ok: true }), { status: options.method === "POST" && String(url).endsWith("/api/tickets") ? 201 : 200 });
   };
-  const client = createHttpOrbitClient({ ORBIT_API_URL: "http://orbit.example/api-root/", ORBIT_DEFAULT_BOARD: "starlove-orbit" }, fetchImpl);
+  const client = createHttpOrbitClient({ ORBIT_API_URL: "http://orbit.example/api-root/", ORBIT_DEFAULT_BOARD: "example-board" }, fetchImpl);
 
   await client.boardContext({ include_struck: true });
   await client.search({ q: "ticket 53", limit: 5 });
   await client.createTicket({ title: "Remote ticket" });
+  await client.readTicket({ ticket_id: "ticket-1" });
+  await client.readComments({ ticket_id: "ticket-1" });
 
   assert.equal(calls[0].method, "GET");
-  assert.equal(calls[0].url, "http://orbit.example/api-root/api/boards/starlove-orbit/context?include_struck=true");
-  assert.equal(calls[1].url, "http://orbit.example/api-root/api/search?q=ticket+53&limit=5&board=starlove-orbit");
+  assert.equal(calls[0].url, "http://orbit.example/api-root/api/boards/example-board/context?include_struck=true");
+  assert.equal(calls[1].url, "http://orbit.example/api-root/api/search?q=ticket+53&limit=5&board=example-board");
   assert.deepEqual(calls[2], {
     url: "http://orbit.example/api-root/api/tickets",
     method: "POST",
-    body: { title: "Remote ticket", board: "starlove-orbit" }
+    body: { title: "Remote ticket", board: "example-board" }
   });
+  assert.deepEqual(calls[3], {
+    url: "http://orbit.example/api-root/api/tickets/ticket-1?board=example-board",
+    method: "GET",
+    body: null
+  });
+  assert.deepEqual(calls[4], {
+    url: "http://orbit.example/api-root/api/tickets/ticket-1/comments?board=example-board",
+    method: "GET",
+    body: null
+  });
+});
+
+test("HTTP Orbit client resolves number and title lookups through the exact lightweight lookup endpoint", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url: String(url), method: options.method, body: options.body ? JSON.parse(options.body) : null });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  const client = createHttpOrbitClient({ ORBIT_API_URL: "http://orbit.example", ORBIT_DEFAULT_BOARD: "example-board" }, fetchImpl);
+
+  await client.readTicket({ number: 42 });
+  await client.readTicket({ title: "Exact Title" });
+
+  assert.deepEqual(calls, [
+    {
+      url: "http://orbit.example/api/tickets/lookup?board=example-board&number=42",
+      method: "GET",
+      body: null
+    },
+    {
+      url: "http://orbit.example/api/tickets/lookup?board=example-board&title=Exact+Title",
+      method: "GET",
+      body: null
+    }
+  ]);
 });

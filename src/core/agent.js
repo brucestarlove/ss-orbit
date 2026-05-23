@@ -112,9 +112,6 @@ export function readTicket(lookup, ctx) {
   const innerBoard = boardById(db, ticket.board_id);
   requireBoardAccess(actor, innerBoard);
 
-  const comments = db
-    .prepare("SELECT * FROM comments WHERE ticket_id = ? ORDER BY created_at ASC")
-    .all(ticket.id);
   const labels = labelsForTicket(db, ticket.id);
 
   return {
@@ -128,7 +125,6 @@ export function readTicket(lookup, ctx) {
       priority: ticket.priority,
       labels
     },
-    comments,
     board_manual: boardManual(innerBoard.id, ctx)
   };
 }
@@ -220,7 +216,6 @@ export function getContextPack(ticketId, ctx, depth = 1) {
   const innerBoard = boardById(db, ticket.board_id);
   requireBoardAccess(actor, innerBoard);
 
-  const comments = db.prepare("SELECT * FROM comments WHERE ticket_id = ? ORDER BY created_at ASC").all(ticketId);
   const labels = labelsForTicket(db, ticketId);
   const relations = relationRows(db, ticketId);
   const blockers = unresolvedBlockers(db, ticketId);
@@ -236,16 +231,6 @@ export function getContextPack(ticketId, ctx, depth = 1) {
     ...childTickets,
     ...(parentTicket ? [parentTicket] : [])
   ]);
-  const relatedCommentRows =
-    depth > 0
-      ? relatedTickets.flatMap((related) =>
-          db
-            .prepare("SELECT * FROM comments WHERE ticket_id = ? ORDER BY created_at DESC LIMIT 5")
-            .all(related.id)
-            .reverse()
-            .map((comment) => ({ ...comment, ticket_id: related.id, ticket_title: related.title }))
-        )
-      : [];
 
   return {
     ticket: {
@@ -254,7 +239,6 @@ export function getContextPack(ticketId, ctx, depth = 1) {
     },
     board: innerBoard,
     board_manual: boardManual(innerBoard.id, ctx),
-    comments,
     parent_ticket: parentTicket ? compactTicket(parentTicket) : null,
     child_tickets: childTickets.map((child) => ({
       ...child,
@@ -262,7 +246,6 @@ export function getContextPack(ticketId, ctx, depth = 1) {
     })),
     relations,
     blockers,
-    related_tickets: relatedTickets,
-    related_comments: relatedCommentRows
+    related_tickets: relatedTickets
   };
 }

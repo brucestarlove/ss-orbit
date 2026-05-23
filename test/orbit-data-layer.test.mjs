@@ -19,6 +19,7 @@ import {
   deleteTicket
 } from "../src/core/tickets.js";
 import { createRelation } from "../src/core/relations.js";
+import { getContextPack, readComments, readTicket } from "../src/core/agent.js";
 import { searchTickets } from "../src/core/search.js";
 import { now, id } from "../src/core/util.js";
 
@@ -95,6 +96,37 @@ test("comment is reindexed into FTS", () => {
     .prepare("SELECT 1 FROM ticket_fts WHERE ticket_id = ? AND comments LIKE '%searchable-needle%'")
     .get(a.id);
   assert.ok(hit, "comment body searchable");
+});
+
+test("default agent context omits ticket and related comments", () => {
+  const { ctx } = makeBoard();
+  const a = createTicket({ title: "Alpha" }, ctx);
+  const b = createTicket({ title: "Beta" }, ctx);
+  createComment(a.id, { body: "private-ticket-thread" }, ctx);
+  createComment(b.id, { body: "private-related-thread" }, ctx);
+  createRelation({ source_ticket_id: a.id, target_ticket_id: b.id, type: "relates_to" }, ctx);
+
+  const context = getContextPack(a.id, ctx, 1);
+  const lightweight = readTicket(a.id, ctx);
+
+  assert.equal(Object.hasOwn(context, "comments"), false);
+  assert.equal(Object.hasOwn(context, "related_comments"), false);
+  assert.equal(Object.hasOwn(lightweight, "comments"), false);
+  assert.equal(JSON.stringify(context).includes("private-ticket-thread"), false);
+  assert.equal(JSON.stringify(context).includes("private-related-thread"), false);
+  assert.equal(JSON.stringify(lightweight).includes("private-ticket-thread"), false);
+});
+
+test("explicit comment retrieval remains available", () => {
+  const { ctx } = makeBoard();
+  const a = createTicket({ title: "Alpha" }, ctx);
+  createComment(a.id, { body: "explicit-comment-thread" }, ctx);
+
+  const result = readComments(a.id, ctx);
+
+  assert.equal(result.ticket_id, a.id);
+  assert.equal(result.comments.length, 1);
+  assert.equal(result.comments[0].body, "explicit-comment-thread");
 });
 
 test("search matches ticket numbers", () => {

@@ -305,6 +305,7 @@ test("board settings PATCH renames display name without changing canonical slug"
   const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id, name, slug, project_notes FROM boards LIMIT 1").get();
   db.close();
+
   const port = await freePort();
   const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
@@ -345,6 +346,126 @@ test("board settings PATCH renames display name without changing canonical slug"
     const bootstrapBoard = bootstrap.boards.find((item) => item.id === board.id);
     assert.equal(bootstrapBoard?.name, "Renamed Orbit");
     assert.equal(bootstrapBoard?.slug, board.slug);
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("ticket read endpoint returns the lightweight agent ticket shape", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  const db = new DatabaseSync(boardDbPath(h));
+  const board = db.prepare("SELECT id, slug FROM boards LIMIT 1").get();
+  db.close();
+
+  const port = await freePort();
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child, /Starscape Orbit listening/);
+    const createdResponse = await fetch(`http://127.0.0.1:${port}/api/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ board_id: board.id, title: "Lightweight", description: "Small read" })
+    });
+    assert.equal(createdResponse.status, 201);
+    const ticket = await createdResponse.json();
+
+    const commentResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/comments?board=${encodeURIComponent(board.slug)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: "comment-only-thread" })
+    });
+    assert.equal(commentResponse.status, 201);
+
+    const readResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}?board=${encodeURIComponent(board.slug)}`);
+    assert.equal(readResponse.status, 200);
+    const read = await readResponse.json();
+
+    assert.deepEqual(Object.keys(read).sort(), ["board_manual", "ticket"]);
+    assert.equal(read.ticket.id, ticket.id);
+    assert.equal(read.ticket.title, "Lightweight");
+    assert.equal(Object.hasOwn(read.ticket, "implementation_summary"), false);
+    assert.equal(Object.hasOwn(read.ticket, "implementation_updates"), false);
+    assert.equal(Object.hasOwn(read, "relations"), false);
+    assert.equal(Object.hasOwn(read, "blockers"), false);
+    assert.equal(Object.hasOwn(read, "child_tickets"), false);
+    assert.equal(Object.hasOwn(read, "comments"), false);
+    assert.equal(JSON.stringify(read).includes("comment-only-thread"), false);
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("ticket lookup endpoint resolves number and title exactly with the lightweight shape", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  const db = new DatabaseSync(boardDbPath(h));
+  const board = db.prepare("SELECT id, slug FROM boards LIMIT 1").get();
+  db.close();
+
+  const port = await freePort();
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child, /Starscape Orbit listening/);
+    const targetResponse = await fetch(`http://127.0.0.1:${port}/api/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ board_id: board.id, title: "Exact Lookup Ticket", description: "Target" })
+    });
+    assert.equal(targetResponse.status, 201);
+    const target = await targetResponse.json();
+
+    const distractorResponse = await fetch(`http://127.0.0.1:${port}/api/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ board_id: board.id, title: "Different Ticket", description: "Not the target" })
+    });
+    assert.equal(distractorResponse.status, 201);
+    const distractor = await distractorResponse.json();
+
+    const targetCommentResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(target.id)}/comments?board=${encodeURIComponent(board.slug)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: "target-comment-secret" })
+    });
+    assert.equal(targetCommentResponse.status, 201);
+
+    const distractorCommentResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(distractor.id)}/comments?board=${encodeURIComponent(board.slug)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: "Exact Lookup Ticket" })
+    });
+    assert.equal(distractorCommentResponse.status, 201);
+
+    const byNumberResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/lookup?board=${encodeURIComponent(board.slug)}&number=${target.number}`);
+    assert.equal(byNumberResponse.status, 200);
+    const byNumber = await byNumberResponse.json();
+
+    const byTitleResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/lookup?board=${encodeURIComponent(board.slug)}&title=${encodeURIComponent("Exact Lookup Ticket")}`);
+    assert.equal(byTitleResponse.status, 200);
+    const byTitle = await byTitleResponse.json();
+
+    for (const read of [byNumber, byTitle]) {
+      assert.deepEqual(Object.keys(read).sort(), ["board_manual", "ticket"]);
+      assert.equal(read.ticket.id, target.id);
+      assert.equal(read.ticket.title, "Exact Lookup Ticket");
+      assert.equal(Object.hasOwn(read.ticket, "implementation_summary"), false);
+      assert.equal(Object.hasOwn(read, "relations"), false);
+      assert.equal(Object.hasOwn(read, "comments"), false);
+      assert.equal(JSON.stringify(read).includes("target-comment-secret"), false);
+    }
   } finally {
     child.kill("SIGTERM");
   }

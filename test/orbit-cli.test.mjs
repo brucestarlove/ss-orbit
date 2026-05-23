@@ -23,7 +23,7 @@ function makeHarness() {
 function runOrbit(args, harness, options = {}) {
   const result = spawnSync(process.execPath, [orbitCli, ...args], {
     cwd: options.cwd || repoRoot,
-    env: { ...process.env, DATA_DIR: harness.dataDir, ...(options.env || {}) },
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: harness.dataDir, ...(options.env || {}) },
     encoding: "utf8"
   });
   if (result.status !== 0) {
@@ -35,7 +35,7 @@ function runOrbit(args, harness, options = {}) {
 function runOrbitResult(args, harness, options = {}) {
   return spawnSync(process.execPath, [orbitCli, ...args], {
     cwd: options.cwd || repoRoot,
-    env: { ...process.env, DATA_DIR: harness.dataDir, ...(options.env || {}) },
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: harness.dataDir, ...(options.env || {}) },
     encoding: "utf8"
   });
 }
@@ -127,7 +127,7 @@ test("orbit -v and --version print the package version", () => {
   for (const flag of ["-v", "--version"]) {
     const result = spawnSync(process.execPath, [orbitCli, flag], {
       cwd: repoRoot,
-      env: { ...process.env, DATA_DIR: h.dataDir },
+      env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
       encoding: "utf8"
     });
 
@@ -137,17 +137,33 @@ test("orbit -v and --version print the package version", () => {
   }
 });
 
+test("orbit --help no longer advertises the removed refresh-agents-md flag", () => {
+  const h = makeHarness();
+  const result = runOrbitResult(["--help"], h);
+
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(result.stdout, /refresh-agents-md/);
+});
+
+test("orbit init rejects the removed refresh-agents-md flag", () => {
+  const h = makeHarness();
+  const result = runOrbitResult(["init", "--refresh-agents-md", "--cwd", h.projectRoot], h);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Unknown argument: --refresh-agents-md/);
+});
+
 test("orbit dispatch prepares a ticket handoff, run record, safe policy, and preserved worktree", () => {
   const h = makeHarness();
   initGitRepo(h.projectRoot);
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
 
-  const stdout = runOrbit(["dispatch", "--cwd", h.projectRoot, "--ticket", "12", "--profile", "nova", "--worktree", "--no-spawn"], h);
+  const stdout = runOrbit(["dispatch", "--cwd", h.projectRoot, "--ticket", "12", "--profile", "agent", "--worktree", "--no-spawn"], h);
 
   assert.match(stdout, /Dispatch prepared:/);
   assert.match(stdout, /Ticket: #12 Try Orbit MCP on this ticket/);
-  assert.match(stdout, /Profile: nova/);
-  assert.match(stdout, /Policy: nova-safe/);
+  assert.match(stdout, /Profile: agent/);
+  assert.match(stdout, /Policy: agent-safe/);
 
   const db = openBoard(h);
   const ticket = db
@@ -157,14 +173,14 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
     .get();
   assert.equal(ticket.state_name, "AI Ready");
   assert.match(ticket.ai_plan, /# Orbit Agent Handoff/);
-  assert.match(ticket.ai_plan, /Autonomous policy: nova-safe/);
+  assert.match(ticket.ai_plan, /Autonomous policy: agent-safe/);
   assert.match(ticket.ai_plan, /AI Implementation Summary/);
 
   const comment = db
     .prepare("SELECT body FROM comments WHERE author = 'orbit dispatch' ORDER BY created_at DESC LIMIT 1")
     .get();
   assert.ok(comment);
-  assert.match(comment.body, /run_id: orbit-12-nova-/);
+  assert.match(comment.body, /run_id: orbit-12-agent-/);
   assert.match(comment.body, /pid: not spawned/);
   assert.match(comment.body, /mode: prepare-only/);
   assert.match(comment.body, /ticket state left unchanged/);
@@ -181,7 +197,7 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.match(docker.stderr, /Docker requires explicit human approval/);
   const gitPush = spawnSync(join(policyBin, "git"), ["push", "origin", "HEAD"], { encoding: "utf8" });
   assert.equal(gitPush.status, 126);
-  assert.match(gitPush.stderr, /Blocked by Orbit nova-safe policy: git push/);
+  assert.match(gitPush.stderr, /Blocked by Orbit agent-safe policy: git push/);
   const npmInstall = spawnSync(join(policyBin, "npm"), ["install"], { encoding: "utf8" });
   assert.equal(npmInstall.status, 126);
   assert.match(npmInstall.stderr, /allowed package commands: test/);
@@ -291,10 +307,15 @@ test("orbit dispatch with a valid Hermes preflight writes run record and moves I
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
   const ticket = createCliTicket(h);
+  const db = openBoard(h);
+  const time = new Date().toISOString();
+  db.prepare("INSERT INTO comments (id, ticket_id, author, kind, body, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .run("dispatch-context-comment", ticket.id, "tester", "human_comment", "handoff-secret-comment", time);
+  db.close();
   const hermes = createFakeHermesBin(h.root);
 
   const result = runOrbitResult(
-    ["dispatch", "--board", ticket.board.slug, "--ticket", String(ticket.number), "--profile", "nova", "--hermes-bin", hermes],
+    ["dispatch", "--board", ticket.board.slug, "--ticket", String(ticket.number), "--profile", "agent", "--hermes-bin", hermes],
     h
   );
 
@@ -303,11 +324,15 @@ test("orbit dispatch with a valid Hermes preflight writes run record and moves I
   const after = readCliTicket(h, ticket.id);
   assert.equal(after.ticket.state_name, "In Progress");
   assert.match(after.ticket.ai_plan, /# Orbit Agent Handoff/);
-  assert.equal(after.comments.length, 1);
-  assert.match(after.comments[0].body, /mode: spawned/);
-  assert.match(after.comments[0].body, /pid: \d+/);
+  assert.match(after.ticket.ai_plan, /## Implementation records/);
+  assert.doesNotMatch(after.ticket.ai_plan, /handoff-secret-comment/);
+  assert.doesNotMatch(after.ticket.ai_plan, /Recent ticket comments/);
+  assert.equal(after.comments.length, 2);
+  const runRecord = after.comments.find((comment) => /mode: spawned/.test(comment.body));
+  assert.ok(runRecord);
+  assert.match(runRecord.body, /pid: \d+/);
   const hermesLog = readFileSync(join(h.root, "hermes.log"), "utf8");
-  assert.match(hermesLog, /-p nova --help/);
+  assert.match(hermesLog, /-p agent --help/);
 });
 
 test("orbit init creates AGENTS.md with Orbit instructions when missing", () => {
@@ -330,6 +355,45 @@ test("orbit init creates AGENTS.md with Orbit instructions when missing", () => 
   assert.doesNotMatch(content, /## Orbit Project Context/);
 });
 
+test("orbit init treats SKILL-ORBIT.md as managed and overwrites stale repo copies", () => {
+  const h = makeHarness();
+  const skillOrbit = join(h.projectRoot, "SKILL-ORBIT.md");
+  writeFileSync(skillOrbit, "# stale local copy\n\nThis should be replaced by Orbit.\n", "utf8");
+
+  const stdout = runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  assert.equal(readFileSync(skillOrbit, "utf8"), readFileSync(join(repoRoot, "SKILL-ORBIT.md"), "utf8"));
+  assert.match(stdout, /Wrote .*SKILL-ORBIT\.md/);
+  assert.doesNotMatch(stdout, /left unchanged|refresh-agents-md/);
+});
+
+test("orbit serve refreshes managed SKILL-ORBIT.md for registered board repos on startup", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const skillOrbit = join(h.projectRoot, "SKILL-ORBIT.md");
+  writeFileSync(skillOrbit, "# stale local copy\n\nServe should replace this before listening.\n", "utf8");
+
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", "0"], {
+    cwd: repoRoot,
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForLine(child, 5000);
+    assert.equal(readFileSync(skillOrbit, "utf8"), readFileSync(join(repoRoot, "SKILL-ORBIT.md"), "utf8"));
+  } finally {
+    child.kill("SIGTERM");
+    await new Promise((resolvePromise) => {
+      const timer = setTimeout(resolvePromise, 1000);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolvePromise();
+      });
+    });
+  }
+});
+
 test("orbit init appends Orbit instructions to existing AGENTS.md once", () => {
   const h = makeHarness();
   const agents = join(h.projectRoot, "AGENTS.md");
@@ -341,6 +405,7 @@ test("orbit init appends Orbit instructions to existing AGENTS.md once", () => {
 
   assert.match(first, /Appended Orbit instructions to .*AGENTS\.md/);
   assert.match(second, /AGENTS\.md already includes Orbit instructions/);
+  assert.doesNotMatch(second, /refresh-agents-md/);
   assert.match(content, /Keep this repo-specific rule/);
   assert.equal((content.match(/ORBIT:AGENTS-START/g) || []).length, 1);
   assert.match(content, /SKILL-ORBIT\.md/);
@@ -382,7 +447,7 @@ test("orbit --example is rejected because init is required", () => {
   const h = makeHarness();
   const result = spawnSync(process.execPath, [orbitCli, "--example", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, DATA_DIR: h.dataDir },
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
     encoding: "utf8"
   });
 
@@ -538,7 +603,7 @@ test("orbit mcp --cwd selects the requested project root instead of process cwd"
 
   const child = spawn(process.execPath, [orbitCli, "mcp", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, DATA_DIR: h.dataDir, MAB_MCP_STDERR_LOG: "1" },
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir, MAB_MCP_STDERR_LOG: "1" },
     stdio: ["ignore", "ignore", "pipe"]
   });
 
@@ -585,7 +650,7 @@ test("orbit mcp honors PROJECT_ROOT env when --cwd is omitted", async () => {
 
   const child = spawn(process.execPath, [orbitCli, "mcp"], {
     cwd: repoRoot,
-    env: { ...process.env, DATA_DIR: h.dataDir, PROJECT_ROOT: h.projectRoot, MAB_MCP_STDERR_LOG: "1" },
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir, PROJECT_ROOT: h.projectRoot, MAB_MCP_STDERR_LOG: "1" },
     stdio: ["ignore", "ignore", "pipe"]
   });
 
@@ -612,7 +677,7 @@ test("orbit mcp speaks newline-delimited JSON-RPC for Hermes native MCP", async 
 
   const child = spawn(process.execPath, [orbitCli, "mcp", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, DATA_DIR: h.dataDir },
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
     stdio: ["pipe", "pipe", "pipe"]
   });
 
@@ -639,7 +704,7 @@ test("orbit mcp exposes board_create_ticket and creates cards through core API",
 
   const child = spawn(process.execPath, [orbitCli, "mcp", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, DATA_DIR: h.dataDir },
+    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
     stdio: ["pipe", "pipe", "pipe"]
   });
 

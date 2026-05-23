@@ -8,12 +8,16 @@
 //   3. Iterate every registry board, ensuring the per-board schema exists
 //      and reindexing FTS for that board's DB. No "active board" singleton:
 //      each iteration opens its own connection.
+//   4. When launched through `orbit serve`, refresh Orbit-managed
+//      SKILL-ORBIT.md copies for registered repo paths.
 //
 // Beyond startup this module just re-exports per-domain functions for
 // `src/server.js` and `src/mcp-server.js` to consume.
 
 import { existsSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 import "./paths.js";
+import { syncSkillOrbitMd } from "./agents-md.js";
 import { createBoardSchema, createRegistrySchema } from "./db.js";
 import { reindexAllTickets } from "./tickets.js";
 import { deleteBoard, listBoards, openBoardDb, syncRegistryFromBoardDb } from "./registry.js";
@@ -59,6 +63,25 @@ function ensureSchemaForEveryBoard() {
   }
 }
 
+function syncManagedSkillOrbitFiles() {
+  const skillSrc = resolve(ROOT_DIR, "SKILL-ORBIT.md");
+  for (const row of listBoards()) {
+    if (!row.repo_path) continue;
+    try {
+      const result = syncSkillOrbitMd(row.repo_path, skillSrc);
+      if (result.status === "missing_source") {
+        console.warn(`[orbit] Missing managed SKILL-ORBIT.md source at ${skillSrc}; skipped repo guidance refresh.`);
+        return;
+      }
+      if (result.status === "written") {
+        console.log(`[orbit] Refreshed managed SKILL-ORBIT.md in ${row.repo_path}`);
+      }
+    } catch (error) {
+      console.warn(`[orbit] Could not refresh SKILL-ORBIT.md in ${row.repo_path}: ${error.message}`);
+    }
+  }
+}
+
 ensureWorkspace();
 // Move any per-board SQLite files that still live in in-repo .orbit/ directories
 // into the central DATA_DIR/boards/<slug>/ store. Must run before
@@ -69,6 +92,9 @@ migrateInRepoBoards();
 // listBoards() non-empty and we never re-seed.
 ensureSchemaForEveryBoard();
 ensureFirstBoard();
+if (process.env.ORBIT_SYNC_MANAGED_SKILL_ORBIT === "1") {
+  syncManagedSkillOrbitFiles();
+}
 
 export const boardRuntime = {
   rootDir: ROOT_DIR,

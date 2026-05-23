@@ -24,7 +24,7 @@ From the code repository you are working in, target the local Orbit board explic
 orbit dispatch \
   --board my-app \
   --ticket 12 \
-  --profile nova \
+  --profile agent \
   --worktree
 ```
 
@@ -35,13 +35,13 @@ Common variants:
 orbit dispatch --board my-app --ticket 12 --dry-run
 
 # Prepare the handoff/comment/worktree, but do not spawn Hermes and do not move the card to In Progress.
-orbit dispatch --board my-app --ticket 12 --profile nova --worktree --no-spawn
+orbit dispatch --board my-app --ticket 12 --profile agent --worktree --no-spawn
 
 # Attach the Hermes child process to the current terminal instead of detaching it.
-orbit dispatch --board my-app --ticket 12 --profile nova --worktree --foreground
+orbit dispatch --board my-app --ticket 12 --profile agent --worktree --foreground
 
 # Use an explicit branch/worktree name.
-orbit dispatch --board my-app --ticket 12 --profile nova --worktree \
+orbit dispatch --board my-app --ticket 12 --profile agent --worktree \
   --branch orbit/my-app-12-search \
   --worktree-path .worktrees/my-app-12-search
 ```
@@ -64,7 +64,7 @@ Only after those checks does dispatch create run artifacts/worktrees, write the 
 
 In normal spawn mode:
 
-1. Builds a run id such as `orbit-12-nova-abc123def0`.
+1. Builds a run id such as `orbit-12-agent-abc123def0`.
 2. Creates `.orbit/dispatch-runs/<run-id>/` for run metadata and policy wrappers.
 3. Creates and preserves a git worktree/branch when `--worktree` is used.
 4. Generates a full agent handoff and writes the canonical copy to the ticket's **AI Written-Plan** (`ai_plan`) field.
@@ -84,11 +84,11 @@ Dispatch stores the generated handoff in the ticket's AI Written-Plan field. It 
 - repository root, worktree, branch, and run id
 - required reading order: `AGENTS.md`, `SKILL-ORBIT.md`, then the handoff
 - ticket description
+- implementation fields (`ai_plan`, `implementation_summary`, `implementation_updates`)
 - board-level agent instructions and notes
 - board journal lessons/decisions
 - parent/child ticket context
 - unresolved blockers
-- recent comments
 - scope boundaries
 - autonomous policy
 - completion protocol
@@ -161,7 +161,7 @@ Then from a project repo with an Orbit board:
 
 ```bash
 orbit init            # if the repo does not have a board yet
-orbit dispatch --board my-app --ticket 12 --profile nova --worktree --no-spawn
+orbit dispatch --board my-app --ticket 12 --profile agent --worktree --no-spawn
 ```
 
 For support, bug reports, and reproducibility notes, human users can print the installed CLI version with either form:

@@ -61,6 +61,7 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
   return {
     mode: "remote",
     sessionLabel: apiUrl,
+    close() {},
     async boardContext(args = {}) {
       return request("GET", `/api/boards/${encodeURIComponent(requireBoard(args))}/context`, { query: { include_struck: args.include_struck ? "true" : undefined } });
     },
@@ -69,11 +70,26 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
     async claimNext(args = {}) { return request("POST", "/api/agent/claim-next", { body: { ...args, board: requireBoard(args) } }); },
     async getTicketContext(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/context`, { query: { ...ticketQuery(args), depth: args.depth || 1 } }); },
     async readTicket(args = {}) {
-      if (args.ticket_id) return this.getTicketContext({ ...args, depth: 1 });
-      const found = await this.search({ q: args.title || String(args.number || ""), limit: 10, ...args });
-      return found;
+      if (args.ticket_id) {
+        return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}`, { query: ticketQuery(args) });
+      }
+      if (args.number !== undefined || args.title) {
+        return request("GET", "/api/tickets/lookup", { query: { ...ticketQuery(args), number: args.number, title: args.title } });
+      }
+      throw rpcError(-32602, "ticket_id_or_number_or_title_required");
     },
-    async readComments(args = {}) { const ctx = await this.readTicket(args); return { comments: ctx.comments || ctx.ticket?.comments || [] }; },
+    async readComments(args = {}) {
+      if (args.ticket_id) {
+        return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/comments`, { query: ticketQuery(args) });
+      }
+      const found = await this.readTicket(args);
+      const ticket = found.ticket || found.results?.find((row) =>
+        (args.number !== undefined && Number(row.number) === Number(args.number)) ||
+        (args.title && String(row.title || "").toLowerCase() === String(args.title).toLowerCase())
+      );
+      if (!ticket?.id) throw rpcError(-32004, "ticket_not_found");
+      return request("GET", `/api/tickets/${encodeURIComponent(ticket.id)}/comments`, { query: ticketQuery(args) });
+    },
     async getTicketRelations(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/relations`, { query: ticketQuery(args) }); },
     async getTicketBlockers(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/blockers`, { query: ticketQuery(args) }); },
     async search(args = {}) { return request("GET", "/api/search", { query: { q: args.q, limit: args.limit, board_id: args.board_id, board: args.board_slug || args.board || defaultBoard } }); },
@@ -170,6 +186,7 @@ export async function createLocalOrbitClient(env = process.env) {
       const b = getSessionBoard();
       return b ? `${b.repo_path}  db: ${b.db_path}` : "(none)";
     },
+    close: () => dbMod.closeAllConnections(),
     boardContext: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getBoardContext(ctx.board.id, ctx, { includeStruck: Boolean(args.include_struck) }); },
     boardList: () => ({ boards: registry.listBoards().map((row) => ({ id: row.id, slug: row.slug, name: row.name, repo_path: row.repo_path })) }),
     boardSetActive: (args = {}) => { const slug = String(args.slug || "").trim(); if (!slug) throw rpcError(-32602, "slug is required."); const row = registry.getBoardBySlug(slug); if (!row) throw rpcError(-32004, `Board slug not found: ${slug}`); setSessionBoard(row); return { ok: true, board_id: row.id, slug: row.slug, name: row.name, db_path: row.db_path }; },

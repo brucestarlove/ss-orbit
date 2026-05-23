@@ -2,6 +2,8 @@
 
 Read this before repo work. This board is the repo-local memory and execution layer.
 
+This file is managed by Orbit and may be overwritten by `orbit init` or refreshed by `orbit serve`. Put repo/team-specific agent rules in `AGENTS.md` or board `agent_instructions`, not here.
+
 ## MCP, cwd, and this file
 
 These are separate concerns; mixing them causes confusion:
@@ -88,6 +90,8 @@ For a full picture of cross-cutting links call `GET /api/tickets/:id/relations`.
 
 - `GET /api/boards/:board_id/context`
 - `GET /api/boards/:board_id/archive`
+- `GET /api/tickets/:ticket_id`
+- `GET /api/tickets/lookup?board=<slug>&number=<n>` / `GET /api/tickets/lookup?board=<slug>&title=<exact-title>`
 - `GET /api/tickets/:ticket_id/context?depth=1`
 - `GET /api/tickets/:ticket_id/relations`
 - `GET /api/tickets/:ticket_id/blockers`

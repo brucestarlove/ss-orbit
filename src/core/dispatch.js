@@ -10,7 +10,7 @@ import { createRegistrySchema } from "./db.js";
 import { createComment, updateTicket } from "./tickets.js";
 import { id, normalizePath, slugify } from "./util.js";
 
-const DEFAULT_POLICY = "nova-safe";
+const DEFAULT_POLICY = "agent-safe";
 
 function shortId() {
   return id().replace(/-/g, "").slice(0, 10);
@@ -226,8 +226,7 @@ exec ${q(realRm)} "$@"
 }
 
 function buildHandoff({ boardRow, context, profile, repoRoot, worktreePath, branchName, policyName, runId, serverUrl }) {
-  const { ticket, board, board_manual: manual, comments, parent_ticket: parent, child_tickets: children, blockers } = context;
-  const recentComments = comments.slice(-8).map((comment) => `- ${comment.kind} by ${comment.author}: ${comment.body}`).join("\n");
+  const { ticket, board, board_manual: manual, parent_ticket: parent, child_tickets: children, blockers } = context;
   const boardEntries = (manual.entries || [])
     .slice(0, 12)
     .map((entry) => `- ${entry.type}: ${entry.title}\n  ${entry.body}`)
@@ -254,16 +253,23 @@ Branch: ${branchName || "current branch"}
 ${serverUrl ? `Orbit server: ${serverUrl}` : ""}
 
 ## Mission
-Implement the ticket faithfully. Treat this ticket as the source of truth for human ↔ Aeva ↔ agent communication.
+Implement the ticket faithfully. Treat this ticket as the source of truth for communication between the human, orchestrator, and dispatched agent.
 
 ## Read first
 1. AGENTS.md in the repository.
 2. SKILL-ORBIT.md in the repository.
 3. This AI Written-Plan handoff.
-4. The ticket description, recent comments, blockers, parent/child cards, and board journal entries below.
+4. The ticket description, implementation fields, blockers, parent/child cards, and board journal entries below.
 
 ## Ticket description
 ${ticket.description || "(No description.)"}
+
+## Implementation records
+AI Written-Plan: ${ticket.ai_plan || "(Empty.)"}
+
+AI Implementation Summary: ${ticket.implementation_summary || "(Empty.)"}
+
+Implementation Updates/Lessons: ${ticket.implementation_updates || "(Empty.)"}
 
 ## Board agent instructions
 ${board.agent_instructions || "(No board-level agent instructions.)"}
@@ -283,13 +289,10 @@ ${childText}
 ## Unresolved blockers
 ${blockerText}
 
-## Recent ticket comments
-${recentComments || "(No comments yet.)"}
-
 ## Scope boundaries
 - Keep changes local to this repository/worktree.
 - Do not push, deploy, publish, or open/merge PRs.
-- Do not run Docker unless Bruce explicitly approves it outside this autonomous run.
+- Do not run Docker unless the human operator explicitly approves it outside this autonomous run.
 - Do not expose secrets, tokens, credentials, private keys, or connection strings.
 - Prefer small, reviewable commits.
 
@@ -304,7 +307,7 @@ When done:
 3. Update the ticket's AI Implementation Summary with what changed, commit SHA, branch/worktree, verification, and manual checks still needed.
 4. Add Implementation Updates/Lessons for pitfalls, remediation, or future-agent guidance.
 5. Add a completion comment/run record on the ticket.
-6. Move the ticket to Review, not Done, unless Bruce explicitly requested auto-completion.
+6. Move the ticket to Review, not Done, unless the human operator explicitly requested auto-completion.
 `;
 }
 
@@ -335,7 +338,7 @@ export function dispatchTicket(options) {
   const remoteError = remoteDispatchError(options);
   if (remoteError) throw new Error(remoteError);
 
-  const profile = options.profile || "nova";
+  const profile = options.profile || "agent";
   const policyName = options.policy === undefined ? DEFAULT_POLICY : options.policy;
   createRegistrySchema();
   const actor = localOwnerActor();

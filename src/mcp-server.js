@@ -5,46 +5,6 @@
 // "active board" state.
 
 import { createOrbitClient } from "./mcp/orbit-client.js";
-import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import {
-  archivedTicketsForBoard,
-  archiveTicket,
-  checkpointTicket,
-  claimNext,
-  completeTicket,
-  createBoardEntry,
-  createComment,
-  createTicket,
-  deleteTicket,
-  exportBoard,
-  getBoardContext,
-  getContextPack,
-  readComments,
-  readTicket,
-  getTicketBlockers,
-  getTicketRelations,
-  localAgentActor,
-  restoreTicket,
-  searchTickets,
-  updateBoard,
-  updateTicket
-} from "./core/board.js";
-import { closeAllConnections, createBoardSchema, openConnection } from "./core/db.js";
-import {
-  getBoardByRegistryId,
-  getBoardBySlug,
-  getBoardByRepoPath,
-  insertBoard,
-  listBoards,
-  openBoardDb,
-  syncRegistryFromBoardDb,
-  touchBoardActive
-} from "./core/registry.js";
-import { scheduleAutomaticBoardBackup } from "./core/backups.js";
-import { provisionRepoBoard } from "./core/provision-repo-board.js";
-import { seedIfEmpty } from "./core/seed.js";
-import { now, normalizePath } from "./core/util.js";
 
 const SERVER_INFO = {
   name: "minimal-agent-board",
@@ -52,132 +12,6 @@ const SERVER_INFO = {
 };
 
 const orbitClient = await createOrbitClient();
-// Per-process session board. Set on init by walking up from cwd, mutable via
-// `board_set_active`. NEVER read by anything outside this file — every
-// downstream call receives an explicit ctx.
-let sessionBoardRow = null;
-
-function setSessionBoard(row) {
-  sessionBoardRow = row;
-  if (row) touchBoardActive(row.id);
-}
-
-function getSessionBoard() {
-  return sessionBoardRow;
-}
-
-/**
- * Walk up from `startDir` toward the filesystem root, returning the first
- * directory that satisfies `predicate`. Returns null if none found.
- */
-function walkUp(startDir, predicate) {
-  let dir = startDir;
-  while (true) {
-    if (predicate(dir)) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-/**
- * Initialise the MCP session board. Resolution order:
- *   1. Walk up from PROJECT_ROOT for a .git root (or fall back to PROJECT_ROOT)
- *      then check the registry by repo_path — finds centrally-stored boards.
- *   2. Walk up for a legacy in-repo `.orbit/board.db` — backwards compatibility
- *      for boards that were not yet migrated to central storage.
- *   3. No board found — auto-create one at the repo root via provisionRepoBoard.
- */
-function initMcpSessionBoard() {
-  const start = normalizePath(process.env.PROJECT_ROOT ? resolve(process.env.PROJECT_ROOT) : process.cwd());
-
-  // Find the repository root (git root or fall back to the start directory).
-  const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
-  const repoRoot = normalizePath(gitRoot || start);
-
-  // 1. Registry-first lookup: walk upward from start so we find boards regardless
-  //    of whether they were registered at the git root, at PROJECT_ROOT itself, or
-  //    at any ancestor (handles boards that were originally created from a subdir).
-  {
-    let dir = start;
-    while (true) {
-      const row = getBoardByRepoPath(dir);
-      if (row && existsSync(row.db_path)) { setSessionBoard(row); return; }
-      const parent = normalizePath(dirname(dir));
-      if (parent === dir) break; // filesystem root
-      dir = parent;
-    }
-  }
-
-  // 2. Legacy fallback: walk up for an existing in-repo .orbit/board.db.
-  const boardRoot = walkUp(start, (dir) => existsSync(join(dir, ".orbit", "board.db")));
-  if (boardRoot) {
-    const root = normalizePath(boardRoot);
-    const existing = getBoardByRepoPath(root);
-    if (existing) { setSessionBoard(existing); return; }
-    // db exists on disk but isn't in the registry yet — register it.
-    const dbPath = join(boardRoot, ".orbit", "board.db");
-    const db = openConnection(dbPath);
-    createBoardSchema(db);
-    const seeded = seedIfEmpty(db, root);
-    if (seeded) {
-      const t = now();
-      insertBoard({ id: seeded.id, slug: seeded.slug, name: seeded.name, repo_path: root, db_path: dbPath, repo_url: seeded.repo_url || "", default_branch: seeded.default_branch || "main", last_active_at: t, created_at: t, updated_at: t });
-    }
-    const fresh = getBoardByRepoPath(root);
-    if (fresh) { syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
-    return;
-  }
-
-  // 3. No board found — auto-create one at the repo root.
-  createBoardAtRoot(repoRoot);
-}
-
-function createBoardAtRoot(root) {
-  // provisionRepoBoard uses computeNewBoardDbPath → stores db in central DATA_DIR/boards/.
-  provisionRepoBoard(root, { enableAi: true });
-  const fresh = getBoardByRepoPath(root);
-  if (fresh) setSessionBoard(fresh);
-}
-
-initMcpSessionBoard();
-closeAllConnections();
-
-/** Build a ctx for the session board (or a board the tool argument selected). */
-function ctxFor(boardRow, actor) {
-  if (!boardRow) throw rpcError(-32602, "No board in session; pass board_id or board_slug, or call board_set_active first.");
-  return { actor, board: boardRow, db: openBoardDb(boardRow) };
-}
-
-function sessionCtx(actor) {
-  return ctxFor(getSessionBoard(), actor);
-}
-
-function withAutomaticBackup(ctx, result) {
-  scheduleAutomaticBoardBackup(ctx.board, ctx.db);
-  return result;
-}
-
-/** Resolve a registry row from explicit args (no session fallback). */
-function resolveExplicitBoard(args) {
-  if (args.board_id) {
-    const row = getBoardByRegistryId(args.board_id);
-    if (!row) throw rpcError(-32004, "Board id not found.");
-    return row;
-  }
-  if (args.board_slug || args.board) {
-    const row = getBoardBySlug(args.board_slug || args.board);
-    if (!row) throw rpcError(-32004, "Board slug not found.");
-    return row;
-  }
-  return null;
-}
-
-/** Resolve a board for a tool that accepts board_id/board_slug AND can fall
- *  back to the session board. */
-function resolveBoardOrSession(args) {
-  return resolveExplicitBoard(args) || getSessionBoard();
-}
 
 const TOOL_DEFS = [
   {
@@ -241,7 +75,7 @@ const TOOL_DEFS = [
   {
     name: "board_get_ticket_context",
     description:
-      "Read the full context pack for a ticket, including board agent_instructions (project-level agent context), relations, blockers, comments, and child cards. Heavy — prefer board_read_ticket when you only need title/description/comments.",
+      "Read the default agent context pack for a ticket, including board agent_instructions (project-level agent context), relations, blockers, implementation fields, and child cards. Ticket comments are intentionally omitted; use board_read_comments for explicit comment retrieval.",
     inputSchema: {
       type: "object",
       properties: {
@@ -256,7 +90,7 @@ const TOOL_DEFS = [
   {
     name: "board_read_ticket",
     description:
-      "Look up a ticket by ticket_id, number, or exact title (case-insensitive) on the session's active board, and return its title, description, labels, state, and full comment thread plus the board manual (agent_instructions + journal + deployment paths).",
+      "Look up a ticket by ticket_id, number, or exact title (case-insensitive) on the session's active board, and return its title, description, labels, state, and the board manual (agent_instructions + journal + deployment paths). Ticket comments are intentionally omitted; use board_read_comments for explicit comment retrieval.",
     inputSchema: {
       type: "object",
       properties: {
@@ -535,7 +369,7 @@ let shuttingDown = false;
 function shutdown(code = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
-  closeAllConnections();
+  orbitClient.close?.();
   process.exit(code);
 }
 
@@ -624,7 +458,7 @@ async function handleMessage(body, transport = "content-length") {
   } catch (error) {
     writeMessage(errorResponse(message.id, error.code || -32000, error.message || "Internal error."), transport);
   } finally {
-    closeAllConnections();
+    orbitClient.close?.();
   }
 }
 
@@ -722,10 +556,9 @@ process.on("unhandledRejection", (error) => {
 
 process.once("SIGINT", () => shutdown(0));
 process.once("SIGTERM", () => shutdown(0));
-process.once("exit", () => closeAllConnections());
+process.once("exit", () => orbitClient.close?.());
 
 if (process.env.MAB_MCP_STDERR_LOG === "1") {
-  const sb = getSessionBoard();
-  const target = sb ? `${sb.repo_path}  db: ${sb.db_path}` : "(none)";
+  const target = typeof orbitClient.sessionLabel === "function" ? orbitClient.sessionLabel() : orbitClient.sessionLabel;
   console.error(`Starscape Orbit MCP ready. Mode: ${orbitClient.mode}. Target: ${target}`);
 }

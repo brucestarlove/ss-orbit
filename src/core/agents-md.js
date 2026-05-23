@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const ORBIT_AGENTS_START = "<!-- ORBIT:AGENTS-START -->";
@@ -21,7 +21,19 @@ export function buildAgentsMd() {
 ${orbitAgentsSection()}`;
 }
 
-export function syncAgentsMd(projectRoot, options = {}, logger = console.log) {
+export function syncSkillOrbitMd(projectRoot, skillSrc) {
+  const skillDest = resolve(projectRoot, "SKILL-ORBIT.md");
+  if (!existsSync(skillSrc)) {
+    return { ok: false, status: "missing_source", source: skillSrc, path: skillDest };
+  }
+  if (resolve(skillSrc) === skillDest) {
+    return { ok: true, status: "same_file", source: skillSrc, path: skillDest };
+  }
+  copyFileSync(skillSrc, skillDest);
+  return { ok: true, status: "written", source: skillSrc, path: skillDest };
+}
+
+export function syncAgentsMd(projectRoot, _options = {}, logger = console.log) {
   const agentsPath = resolve(projectRoot, "AGENTS.md");
   const section = orbitAgentsSection();
 
@@ -36,14 +48,7 @@ export function syncAgentsMd(projectRoot, options = {}, logger = console.log) {
   const endIndex = current.indexOf(ORBIT_AGENTS_END);
 
   if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-    if (!options.refreshAgentsMd) {
-      logger("AGENTS.md already includes Orbit instructions — left unchanged (use --refresh-agents-md to replace).");
-      return;
-    }
-    const before = current.slice(0, startIndex).replace(/\s*$/, "\n\n");
-    const after = current.slice(endIndex + ORBIT_AGENTS_END.length).replace(/^\s*/, "");
-    writeFileSync(agentsPath, `${before}${section}${after}`, "utf8");
-    logger(`Refreshed Orbit instructions inside ${agentsPath}`);
+    logger("AGENTS.md already includes Orbit instructions — left unchanged.");
     return;
   }
 

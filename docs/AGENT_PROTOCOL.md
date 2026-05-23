@@ -72,7 +72,19 @@ Returns the first schedulable `AI Ready` ticket. The scheduler skips tickets blo
 
 By default, `claim-next` skips `epic` cards because they are index/planning cards. To claim an epic for planning, pass `"type": "epic"` or `"include_epics": true`.
 
-The response shape is `{ claimed: true, ticket_id, context }` where `context` is the lightweight `board_read_ticket` pack (`ticket` with title/description/labels/state, full `comments`, and the `board_manual`). For the heavier ticket pack with relations, blockers, and child cards, call `GET /api/tickets/:id/context` (or MCP `board_get_ticket_context`).
+The response shape is `{ claimed: true, ticket_id, context }` where `context` is the lightweight `board_read_ticket` pack (`ticket` with title/description/labels/state and the `board_manual`). Ticket comments are not included in the default claim context; call `GET /api/tickets/:id/comments` (or MCP `board_read_comments`) when an explicit chat/comment surface needs them. For the heavier ticket pack with relations, blockers, implementation fields, and child cards, call `GET /api/tickets/:id/context` (or MCP `board_get_ticket_context`).
+
+### Read Lightweight Ticket
+
+```http
+GET /api/tickets/:id
+GET /api/tickets/lookup?board=your-board-slug&number=42
+GET /api/tickets/lookup?board=your-board-slug&title=Exact%20Title
+```
+
+MCP equivalent: `board_read_ticket`.
+
+Returns the lightweight agent read shape: `ticket` with identity, title, description, labels, state/type/priority, plus `board_manual`. Ticket comments, relations, blockers, child cards, and implementation fields are intentionally omitted. Use this for quick orientation and claim context. The `lookup` form is exact by per-board ticket number or exact title; it does not use fuzzy search or comment/implementation indexes.
 
 ### Get Context Pack
 
@@ -84,13 +96,19 @@ Returns:
 
 - Ticket, board, state, labels.
 - The board manual (`board_manual`), including `agent_instructions` and `project_notes`.
-- Full comments for the assigned ticket.
 - Dedicated implementation fields: `ai_plan`, `implementation_summary`, and `implementation_updates`.
 - Parent epic/story ticket when present.
 - Child feature cards when the ticket is an epic/story.
 - Related tickets.
-- Recent comments from directly related tickets.
 - Blockers and blocking tickets.
+
+Ticket comments are intentionally omitted from this default agent context. Explicit comment/chat consumers should call:
+
+```http
+GET /api/tickets/:id/comments
+```
+
+MCP equivalent: `board_read_comments`.
 
 ### Get Ticket Relations
 
