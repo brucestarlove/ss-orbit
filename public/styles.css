@@ -80,6 +80,9 @@ input[type="file"] {
   --scrollbar-thumb: rgba(var(--accent-rgb),0.45);
   --scrollbar-thumb-hover: rgba(var(--accent-rgb),0.65);
   --scrollbar-track: transparent;
+  /* Default text-control interior spacing; component-specific fields override this. */
+  --field-padding-y: 0.62rem;
+  --field-padding-x: 0.8rem;
   /* RGB channels — use as rgba(var(--name), alpha) for arbitrary-opacity tints */
   --paper-rgb: 255, 252, 246;        /* warm cream paper — light-mode surface/inset base */
   --warmth-rgb: 53, 43, 28;          /* warm parchment brown — light-mode shadow tint */
@@ -97,7 +100,7 @@ input[type="file"] {
   --indigo-rgb: 139, 92, 246;        /* dark-mode epic gradient tint 2 / orbit-accent-2 */
   --coral-rgb: 248, 113, 113;        /* dark-mode bug card bezel (brighter than --red-rgb) */
   /* Native <select> chevron: same horizontal inset for value text (left) and glyph (right). */
-  --select-chevron-pad-x: 0.55rem;
+  --select-chevron-pad-x: var(--field-padding-x);
   --select-chevron-size: 12px;
 }
 
@@ -253,6 +256,24 @@ textarea {
   color: var(--ink);
   background: var(--surface-input);
   outline: none;
+}
+
+input:not([type]),
+input[type="date"],
+input[type="datetime-local"],
+input[type="email"],
+input[type="month"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="text"],
+input[type="time"],
+input[type="url"],
+input[type="week"],
+select,
+textarea {
+  padding: var(--field-padding-y) var(--field-padding-x);
 }
 
 input:focus,
@@ -654,7 +675,7 @@ h1 {
 
 .menu-flyout-form input {
   width: 100%;
-  padding: 0.42rem 0.55rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   border: 1px solid var(--line);
   border-radius: 8px;
   font: inherit;
@@ -953,7 +974,7 @@ h1 {
 .create-flyout-form input[type="text"],
 .create-flyout-form textarea {
   width: 100%;
-  padding: 0.62rem 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   border: 1px solid var(--line);
   border-radius: 10px;
   font: inherit;
@@ -963,7 +984,7 @@ h1 {
 
 .create-flyout-form select.select-chevron-field {
   width: 100%;
-  padding: 0.62rem var(--select-chevron-pad-x);
+  padding: var(--field-padding-y) var(--select-chevron-pad-x);
   padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1043,7 +1064,7 @@ h1 {
 
 .topbar-search input {
   width: 100%;
-  padding: 0.42rem 0.65rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-input);
@@ -1063,7 +1084,7 @@ h1 {
 .drawer-composer textarea,
 .composer input,
 .composer textarea {
-  padding: 0.82rem 0.95rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
 }
 
 .drawer-composer textarea,
@@ -1080,11 +1101,11 @@ h1 {
 
 .composer-row select,
 .composer-row input {
-  padding: 0.7rem 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
 }
 
 .composer-row select.select-chevron-field {
-  padding: 0.7rem var(--select-chevron-pad-x);
+  padding: var(--field-padding-y) var(--select-chevron-pad-x);
   padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
 }
 
@@ -2659,7 +2680,7 @@ select.detail-meta-badge::-ms-expand {
 
 .inline-title-editor {
   margin-inline: -0.35rem;
-  padding: 0.3rem 0.5rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   font-size: 1.35rem;
   font-weight: inherit;
   letter-spacing: -0.04em;
@@ -2668,7 +2689,7 @@ select.detail-meta-badge::-ms-expand {
 
 .inline-desc-editor {
   margin-top: 0.5rem;
-  padding: 0.65rem 0.75rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   min-height: 5rem;
   font-size: 1rem;
   line-height: 1.45;
@@ -2885,7 +2906,7 @@ select.detail-meta-badge::-ms-expand {
 .meta-inline {
   width: 100%;
   margin: 0;
-  padding: 0.42rem 0.55rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   border: 1px solid transparent;
   border-radius: 10px;
   /* Use background-color only — `background` shorthand resets background-image
@@ -3070,7 +3091,7 @@ input.meta-inline {
 .label-add-input {
   flex: 1;
   min-width: 8rem;
-  padding: 0.62rem 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   font-size: 0.86rem;
 }
 
@@ -3256,7 +3277,7 @@ details.section > summary .mcp-title-row {
 
 .comment-form textarea {
   min-height: 5rem;
-  padding: 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   resize: vertical;
 }
 
@@ -3280,7 +3301,7 @@ details.section > summary .mcp-title-row {
 
 .field-form textarea {
   min-height: 6rem;
-  padding: 0.62rem 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   resize: vertical;
 }
 
@@ -3419,7 +3440,7 @@ details.section > summary .mcp-title-row {
 
 .repository-confirm-field input {
   width: 100%;
-  padding: 0.62rem 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
 }
 
 [data-theme="dark"] .repository-danger-zone {
@@ -3445,11 +3466,11 @@ details.section > summary .mcp-title-row {
 }
 
 .project-entry-form input {
-  padding: 0.62rem 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
 }
 
 .project-entry-form select.select-chevron-field {
-  padding: 0.62rem var(--select-chevron-pad-x);
+  padding: var(--field-padding-y) var(--select-chevron-pad-x);
   padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
 }
 
@@ -3942,7 +3963,7 @@ details.section > summary .mcp-title-row {
 }
 
 .mcp-flow select.select-chevron-field {
-  padding: 0.62rem var(--select-chevron-pad-x);
+  padding: var(--field-padding-y) var(--select-chevron-pad-x);
   padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
   font-size: 0.88rem;
 }
@@ -4023,7 +4044,7 @@ details.section > summary .mcp-title-row {
 
 .mcp-path-grid input {
   min-width: 0;
-  padding: 0.55rem 0.65rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   font-size: 0.82rem;
 }
 
@@ -4278,13 +4299,13 @@ details.section > summary .mcp-title-row {
 .lane-row select,
 .lane-create-form input,
 .lane-create-form select {
-  padding: 0.5rem 0.65rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   font-size: 0.86rem;
 }
 
 .lane-row select.select-chevron-field,
 .lane-create-form select.select-chevron-field {
-  padding: 0.5rem var(--select-chevron-pad-x);
+  padding: var(--field-padding-y) var(--select-chevron-pad-x);
   padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
 }
 
@@ -4600,7 +4621,7 @@ button:disabled,
 .related-add-input {
   flex: 1;
   width: 100%;
-  padding: 0.62rem 2rem 0.62rem 0.8rem;
+  padding: var(--field-padding-y) var(--field-padding-x);
   font-size: 0.86rem;
 }
 

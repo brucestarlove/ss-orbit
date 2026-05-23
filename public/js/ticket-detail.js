@@ -52,9 +52,12 @@ function startInlineEdit(node, field, initialValue, ticketId) {
   editor.className = isTextarea ? "inline-desc-editor" : "inline-title-editor";
   editor.value = initialValue;
   editor.setAttribute("data-editing-field", field);
+  editor.setAttribute("aria-label", isTextarea ? "Edit ticket description" : "Edit ticket title");
   if (!isTextarea) {
     editor.type = "text";
     editor.maxLength = 500;
+    editor.autocomplete = "off";
+    editor.spellcheck = true;
   } else {
     editor.rows = Math.max(3, String(initialValue).split("\n").length + 1);
   }
@@ -66,15 +69,45 @@ function startInlineEdit(node, field, initialValue, ticketId) {
 
   let done = false;
 
+  const stopWatchingOutsideClicks = () => {
+    document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+  };
+
+  // The title row uses a persistent shell element (#drawerTitle) that
+  // renderDrawerShell re-queries by id on every render. Leaving the editor in
+  // its place means the next render finds nothing, throws, and the input is
+  // stranded on screen until a full reload. Put the original node back before
+  // any downstream render runs.
+  const restoreNode = () => {
+    if (editor.isConnected) editor.replaceWith(node);
+    delete node.dataset.editing;
+  };
+
+  const finish = () => {
+    done = true;
+    stopWatchingOutsideClicks();
+    restoreNode();
+  };
+
+  function handleOutsidePointerDown(event) {
+    if (done || event.target === editor || editor.contains(event.target)) return;
+    // Some drawer/header surfaces are not focusable, so clicking them does not
+    // reliably blur the title input in every browser. Force the same blur path
+    // description editing already uses so the edit styling cannot get stuck.
+    editor.blur();
+  }
+
+  document.addEventListener("pointerdown", handleOutsidePointerDown, true);
+
   const commit = async () => {
     if (done) return;
-    done = true;
-    const next = editor.value;
+    const next = field === "title" ? editor.value.trim() : editor.value;
+    finish();
     if (String(next) === String(initialValue)) {
       await renderDetail();
       return;
     }
-    if (field === "title" && !next.trim()) {
+    if (field === "title" && !next) {
       toast.warning("Title cannot be empty");
       await renderDetail();
       return;
@@ -84,7 +117,7 @@ function startInlineEdit(node, field, initialValue, ticketId) {
 
   const cancel = async () => {
     if (done) return;
-    done = true;
+    finish();
     await renderDetail();
   };
 
@@ -282,8 +315,10 @@ export async function renderDetail() {
     titleAttrs: {
       class: "editable-field",
       "data-edit-field": "title",
+      role: "button",
       tabindex: "0",
-      title: "Click to edit"
+      title: "Click or press Enter to edit ticket title",
+      "aria-label": "Edit ticket title"
     },
     subtitleHtml: detailSubtitleHtml,
     body: `

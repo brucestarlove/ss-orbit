@@ -72,6 +72,50 @@ test("ticket detail moves state, type, and priority controls into header badge d
   assert.match(stylesSource, /\.detail-state-badge/);
 });
 
+test("ticket title editor is explicit, keyboard friendly, and exits edit mode on outside clicks", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+  const drawerSource = readFileSync(join(repoRoot, "public", "js", "drawer.js"), "utf8");
+  const localBackendSource = readFileSync(join(repoRoot, "public", "js", "local-backend.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+  const mcpServerSource = readFileSync(join(repoRoot, "src", "mcp-server.js"), "utf8");
+
+  assert.match(detailSource, /"data-edit-field": "title"/);
+  assert.match(detailSource, /role: "button"/);
+  assert.match(detailSource, /"aria-label": "Edit ticket title"/);
+  assert.match(detailSource, /event\.key === "Escape"/);
+  assert.match(detailSource, /event\.key === "Enter"/);
+  assert.match(detailSource, /editor\.value\.trim\(\)/);
+  assert.match(detailSource, /handleOutsidePointerDown/);
+  assert.match(detailSource, /editor\.blur\(\)/);
+  assert.match(settingsSource, /title: project\.name/);
+  assert.doesNotMatch(settingsSource, /data-edit-field.*title/s);
+  assert.match(drawerSource, /if \(titleAttrs\)/);
+  const previewBoardPatchAllowed = localBackendSource.match(/async function handleBoardPatch[\s\S]*?const ALLOWED = \[([\s\S]*?)\];/);
+  assert.ok(previewBoardPatchAllowed);
+  assert.match(previewBoardPatchAllowed[1], /"name"/);
+  assert.match(settingsSource, /id="boardRenameForm"/);
+  assert.match(settingsSource, /Canonical slug unchanged/);
+  assert.match(stylesSource, /--field-padding-y:\s*0\.62rem;/);
+  assert.match(stylesSource, /--field-padding-x:\s*0\.8rem;/);
+  assert.match(stylesSource, /input:not\(\[type\]\)[\s\S]*input\[type="text"\][\s\S]*select,[\s\S]*textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.inline-title-editor\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.inline-desc-editor\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.lane-row input,[\s\S]*\.lane-create-form select\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.topbar-search input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.drawer-composer input,[\s\S]*\.composer textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.meta-inline\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.label-add-input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.comment-form textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.field-form textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.mcp-path-grid input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /\.related-add-input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
+  assert.match(stylesSource, /--select-chevron-pad-x:\s*var\(--field-padding-x\);/);
+  const settingsToolSchema = mcpServerSource.match(/name: "board_update_settings"[\s\S]*?inputSchema: \{([\s\S]*?)\n    handler:/);
+  assert.ok(settingsToolSchema);
+  assert.match(settingsToolSchema[1], /name: \{ type: "string" \}/);
+});
+
 function makeHarness() {
   const root = mkdtempSync(join(tmpdir(), "orbit-regression-test-"));
   const projectRoot = join(root, "project");
@@ -226,6 +270,7 @@ test("board context exposes metadata needed by settings tabs", async () => {
 
   const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id, slug, name, repo_url, system_path, default_branch, project_notes, ai_enabled FROM boards LIMIT 1").get();
+  db.close();
   const port = await freePort();
   const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
@@ -248,6 +293,58 @@ test("board context exposes metadata needed by settings tabs", async () => {
 
     const archiveResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(context.board.id)}/archive`);
     assert.equal(archiveResponse.status, 200);
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("board settings PATCH renames display name without changing canonical slug", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  const db = new DatabaseSync(boardDbPath(h));
+  const board = db.prepare("SELECT id, name, slug, project_notes FROM boards LIMIT 1").get();
+  db.close();
+  const port = await freePort();
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child, /Starscape Orbit listening/);
+    const blankResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(board.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "   " })
+    });
+    assert.equal(blankResponse.status, 400);
+
+    const patchResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(board.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Renamed Orbit", project_notes: "notes still save" })
+    });
+    assert.equal(patchResponse.status, 200);
+    const patched = await patchResponse.json();
+    assert.equal(patched.name, "Renamed Orbit");
+    assert.equal(patched.slug, board.slug);
+    assert.equal(patched.project_notes, "notes still save");
+
+    const contextResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(board.id)}/context`);
+    assert.equal(contextResponse.status, 200);
+    const context = await contextResponse.json();
+    assert.equal(context.board.name, "Renamed Orbit");
+    assert.equal(context.board.slug, board.slug);
+    assert.equal(context.board.project_notes, "notes still save");
+
+    const bootstrapResponse = await fetch(`http://127.0.0.1:${port}/api/bootstrap`);
+    assert.equal(bootstrapResponse.status, 200);
+    const bootstrap = await bootstrapResponse.json();
+    const bootstrapBoard = bootstrap.boards.find((item) => item.id === board.id);
+    assert.equal(bootstrapBoard?.name, "Renamed Orbit");
+    assert.equal(bootstrapBoard?.slug, board.slug);
   } finally {
     child.kill("SIGTERM");
   }

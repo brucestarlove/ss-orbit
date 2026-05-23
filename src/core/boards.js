@@ -222,7 +222,7 @@ export function updateBoard(boardId, body, ctx) {
   for (const field of allowed) {
     if (body[field] !== undefined) {
       sets.push(`${field} = ?`);
-      values.push(String(body[field] ?? ""));
+      values.push(field === "name" ? requiredString(body[field], "name") : String(body[field] ?? ""));
     }
   }
 

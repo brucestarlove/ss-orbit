@@ -5,7 +5,7 @@
 // "active board" state.
 
 import { createOrbitClient } from "./mcp/orbit-client.js";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   archivedTicketsForBoard,
@@ -507,7 +507,7 @@ const TOOL_DEFS = [
   {
     name: "board_update_settings",
     description:
-      "PATCH-equivalent for board settings: name, repo_url, system_path, default_branch, agent_instructions (project-level agent context), and project_notes (Notes For You). Same fields as PATCH /api/boards/:id.",
+      "PATCH-equivalent for board settings: name (display rename only; slug/canonical URLs stay unchanged), repo_url, system_path, default_branch, agent_instructions (project-level agent context), and project_notes (Notes For You).",
     inputSchema: {
       type: "object",
       properties: {

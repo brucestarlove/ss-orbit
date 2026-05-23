@@ -377,6 +377,8 @@ function renderProjectRepositoryTab(context) {
   return `
     ${repoMeta}
 
+    ${features.multiBoard ? renderBoardRenameSection(project) : ""}
+
     <div class="section">
       <h3>Board Snapshot</h3>
       <div class="deployment-actions">
@@ -389,6 +391,22 @@ function renderProjectRepositoryTab(context) {
     </div>
 
     ${features.multiBoard ? renderDeleteBoardSection(project) : ""}
+  `;
+}
+
+function renderBoardRenameSection(project) {
+  return `
+    <div class="section board-rename-section">
+      <h3>Board Name</h3>
+      <p class="description">Rename the board display name only. The canonical URL slug stays <strong>${escapeHtml(project.slug || "")}</strong>, so existing board links keep working.</p>
+      <form id="boardRenameForm" class="field-form">
+        <label>
+          <span>Display name</span>
+          <input name="name" value="${escapeHtml(project.name || "")}" maxlength="120" required />
+        </label>
+        <button type="submit">Rename Board</button>
+      </form>
+    </div>
   `;
 }
 
@@ -578,6 +596,20 @@ function bindProjectTabHandlers(context, tab) {
 
     $("#exportProject")?.addEventListener("click", async () => {
       await exportSnapshot();
+    });
+
+    $("#boardRenameForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const nextName = String(form.get("name") || "").trim();
+      if (!nextName || nextName === project.name) return;
+      await api(`/api/boards/${encodeURIComponent(project.id)}`, {
+        method: "PATCH",
+        body: { name: nextName }
+      });
+      await load();
+      state.detailMode = "settings";
+      toast.success(`Renamed board to ${nextName}. Canonical slug unchanged: ${project.slug}`);
     });
 
     $("#importSnapshotFile")?.addEventListener("change", async (event) => {

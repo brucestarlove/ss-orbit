@@ -464,7 +464,6 @@ async function handleBoardPatch(boardId, body) {
     const board = await reqPromise(stores.boards.get(BOARD_ID));
     const ALLOWED = [
       "name",
-      "slug",
       "repo_url",
       "system_path",
       "default_branch",
@@ -472,7 +471,16 @@ async function handleBoardPatch(boardId, body) {
       "agent_instructions",
       "ai_enabled"
     ];
-    for (const k of ALLOWED) if (k in body) board[k] = body[k];
+    for (const k of ALLOWED) {
+      if (!(k in body)) continue;
+      if (k === "name") {
+        const name = String(body[k] || "").trim();
+        if (!name) throw err(400, "missing_name");
+        board[k] = name;
+      } else {
+        board[k] = body[k];
+      }
+    }
     board.updated_at = nowIso();
     stores.boards.put(board);
     recordEvent(stores, "board_updated", null, { fields: Object.keys(body) });
