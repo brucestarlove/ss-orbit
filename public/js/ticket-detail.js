@@ -26,6 +26,7 @@ import { toast } from "./toast.js";
 import { load } from "./app.js";
 import { renderProjectDetail } from "./settings.js";
 import { unreadCount, markRead } from "./unread.js";
+import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
 
 /**
  * PATCH a ticket then reload + re-render the drawer in ticket mode. Lives
@@ -242,11 +243,13 @@ export async function renderDetail() {
     return;
   }
 
-  const [context, statusHistory] = await Promise.all([
+  const [context, statusHistory, commentPack] = await Promise.all([
     api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/context?depth=1`)),
-    api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/history`))
+    api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/history`)),
+    api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/comments`))
   ]);
   const ticket = context.ticket;
+  const comments = Array.isArray(commentPack?.comments) ? commentPack.comments : [];
   // Acknowledge the read receipt: clear the unread dot on this card.
   // Also wipe the dot from the already-rendered card in the board so the
   // user doesn't see it lingering until the next full re-render.
@@ -376,7 +379,7 @@ export async function renderDetail() {
 
     <div class="section">
       <h3>Comments</h3>
-      ${context.comments.map(renderComment).join("") || `<p class="description">No comments yet.</p>`}
+      ${comments.map(renderComment).join("") || `<p class="description">No comments yet.</p>`}
       <form class="comment-form" id="detailCommentForm">
         <textarea name="body" placeholder="Add a comment, decision, or instruction..." required></textarea>
         <button type="submit">Comment</button>
@@ -613,13 +616,13 @@ function renderStatusHistory(history) {
       const body = event.body;
       const from = body.from ? escapeHtml(body.from) : "?";
       const to = escapeHtml(body.to || body.state || body.next_state || "?");
-      const actorType = body.actor_type || "human";
-      const actorName = escapeHtml(event.actor);
-      const actorId = body.actor_id && body.actor_id !== event.actor ? escapeHtml(body.actor_id) : null;
-      const byLine =
-        actorType === "agent"
-          ? `agent · ${actorId ? `${actorName} (${actorId})` : actorName}`
-          : `you`;
+      const byLine = escapeHtml(
+        formatActorLabel({
+          actor: event.actor,
+          actorType: body.actor_type || "human",
+          actorId: body.actor_id
+        })
+      );
       return `<div class="comment status-change">
         <div class="comment-meta">
           <span class="status-route">${from} → ${to}</span>
@@ -634,7 +637,7 @@ function renderComment(comment) {
   return `
     <div class="comment ${comment.kind === "checkpoint" ? "checkpoint" : ""}">
       <div class="comment-meta">
-        <strong>${escapeHtml(comment.author)}</strong>
+        <strong>${escapeHtml(formatCommentAuthor(comment))}</strong>
         <span>${comment.kind === "human_comment" ? "" : `${escapeHtml(comment.kind)} - `}${formatDate(comment.created_at)}</span>
       </div>
       <div class="comment-body">${escapeHtml(comment.body)}</div>

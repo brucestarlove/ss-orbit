@@ -53,6 +53,15 @@ test("ticket descriptions use markdown rendering in the board and detail pane", 
   assert.doesNotMatch(detailSource, /escapeHtml\(ticket\.description \|\| "No description yet\."\)/);
 });
 
+test("ticket detail fetches comments from the dedicated endpoint", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+
+  assert.match(detailSource, /\/api\/tickets\/\$\{state\.selectedTicketId\}\/comments/);
+  assert.match(detailSource, /const comments = Array\.isArray\(commentPack\?\.comments\)/);
+  assert.match(detailSource, /comments\.map\(renderComment\)/);
+  assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
+});
+
 test("ticket detail moves state, type, and priority controls into header badge dropdowns", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
   const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
@@ -70,6 +79,8 @@ test("ticket detail moves state, type, and priority controls into header badge d
   assert.match(detailSource, /drawer\.querySelectorAll\("\.meta-select\[data-meta-field\]"\)/);
   assert.match(stylesSource, /\.detail-meta-badge/);
   assert.match(stylesSource, /\.detail-state-badge/);
+  assert.match(stylesSource, /\.detail-priority-badge\.priority-pill-med\s*\{[\s\S]*background-color:\s*rgba\(var\(--amber-rgb\), 0\.16\);/);
+  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-priority-badge\.priority-pill-high\s*\{[\s\S]*background-color:\s*rgba\(var\(--coral-rgb\), 0\.2\);/);
 });
 
 test("ticket title editor is explicit, keyboard friendly, and exits edit mode on outside clicks", () => {

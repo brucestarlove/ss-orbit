@@ -20,6 +20,42 @@ export function localAgentActor() {
   };
 }
 
+function headerValue(req, name) {
+  const value = req?.headers?.[name.toLowerCase()];
+  if (Array.isArray(value)) return value[0] || "";
+  return String(value || "");
+}
+
+function cleanActorField(value, fallback) {
+  const clean = String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+  return clean || fallback;
+}
+
+function actorIdFromName(name) {
+  return String(name || "agent")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "agent";
+}
+
+export function actorFromHttpRequest(req) {
+  const actorType = headerValue(req, "x-orbit-actor-type").trim().toLowerCase();
+  const agentName = headerValue(req, "x-orbit-agent-name");
+  if (actorType !== "agent" && !agentName.trim()) return localOwnerActor();
+
+  const name = cleanActorField(headerValue(req, "x-orbit-actor-name") || agentName, "agent");
+  const id = cleanActorField(headerValue(req, "x-orbit-actor-id"), actorIdFromName(name));
+  return {
+    ...localAgentActor(),
+    id,
+    name
+  };
+}
+
 export function authenticate() {
   return localOwnerActor();
 }

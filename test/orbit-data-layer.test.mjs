@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { openConnection, createBoardSchema, tx } from "../src/core/db.js";
-import { localOwnerActor } from "../src/core/auth.js";
+import { localAgentActor, localOwnerActor } from "../src/core/auth.js";
 import {
   createTicket,
   updateTicket,
@@ -96,6 +96,26 @@ test("comment is reindexed into FTS", () => {
     .prepare("SELECT 1 FROM ticket_fts WHERE ticket_id = ? AND comments LIKE '%searchable-needle%'")
     .get(a.id);
   assert.ok(hit, "comment body searchable");
+});
+
+test("named agent actor is stored on comments and status history", () => {
+  const { db, ctx, done } = makeBoard();
+  ctx.actor = { ...localAgentActor(), id: "codex-cli", name: "Codex" };
+  const a = createTicket({ title: "Agent attribution" }, ctx);
+  const comment = createComment(a.id, { body: "agent note" }, ctx);
+  updateTicket(a.id, { state_id: done }, ctx);
+
+  assert.equal(comment.author, "Codex");
+  assert.equal(comment.kind, "agent_note");
+
+  const event = db.prepare("SELECT actor, body_json FROM events WHERE ticket_id = ? AND type = 'state_changed'").get(a.id);
+  assert.equal(event.actor, "Codex");
+  assert.deepEqual(JSON.parse(event.body_json), {
+    from: "Todo",
+    to: "Done",
+    actor_type: "agent",
+    actor_id: "codex-cli"
+  });
 });
 
 test("default agent context omits ticket and related comments", () => {

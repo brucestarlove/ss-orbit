@@ -5,7 +5,7 @@
 // board, it is rejected with 400 board_id_required rather than silently
 // inheriting some other caller's recent state.
 
-import { localOwnerActor } from "./auth.js";
+import { actorFromHttpRequest } from "./auth.js";
 import { scheduleAutomaticBoardBackup } from "./backups.js";
 import { readJson, sendJson, setCors } from "./http.js";
 import {
@@ -105,7 +105,7 @@ export async function handleApi(req, res, url) {
     return;
   }
 
-  const actor = localOwnerActor();
+  const actor = actorFromHttpRequest(req);
 
   // Bootstrap: read-only registry + one chosen board. No global state mutated.
   if (req.method === "GET" && url.pathname === "/api/bootstrap") {

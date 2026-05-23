@@ -6,7 +6,10 @@ import { httpError } from "./util.js";
 export function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Authorization,X-Orbit-Actor-Type,X-Orbit-Actor-Name,X-Orbit-Actor-Id,X-Orbit-Agent-Name"
+  );
 }
 
 export function sendJson(res, status, body) {
