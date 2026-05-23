@@ -1,4 +1,4 @@
-import { existsSync, rmSync, unlinkSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { removeOrbitAgentsSection } from "./agents-md.js";
 import { requireBoardAccess } from "./auth.js";
@@ -45,6 +45,40 @@ function repoArtifactTargets(boardRow) {
   };
 }
 
+function removeOptions(recursive = false) {
+  const options = { force: true };
+  if (recursive) options.recursive = true;
+  if (process.platform === "win32") {
+    options.maxRetries = 10;
+    options.retryDelay = 100;
+  }
+  return options;
+}
+
+function isBusyFilesystemError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    ["EBUSY", "EPERM", "ENOTEMPTY"].includes(error?.code) ||
+    (error?.code === "ERR_SQLITE_ERROR" && (message.includes("locked") || message.includes("busy")))
+  );
+}
+
+function boardFilesBusyError(error, boardRow) {
+  if (!isBusyFilesystemError(error)) return error;
+  const wrapped = new Error(
+    [
+      `Orbit could not remove local board files for "${boardRow.slug}".`,
+      "On Windows this usually means an Orbit web server, MCP helper, AI client, editor, or terminal still has .orbit/board.db open.",
+      "Close those processes, then retry the delete from Settings or run orbit reset --cwd <repo>.",
+      `Original error: ${error.message}`
+    ].join("\n")
+  );
+  wrapped.status = 409;
+  wrapped.code = "board_files_busy";
+  wrapped.cause = error;
+  return wrapped;
+}
+
 export function deleteRegisteredBoard(boardRow, body, actor) {
   requireBoardAccess(actor, { slug: boardRow.slug });
 
@@ -61,19 +95,31 @@ export function deleteRegisteredBoard(boardRow, body, actor) {
     : [];
   const artifactResults = [];
   cancelAutomaticBoardBackup(boardRow.id);
-  if (deleteFiles) backupBoardDatabase(boardRow, openBoardDb(boardRow), "pre-board-delete");
+  if (deleteFiles) {
+    try {
+      backupBoardDatabase(boardRow, openBoardDb(boardRow), "pre-board-delete");
+    } catch (error) {
+      throw boardFilesBusyError(error, boardRow);
+    } finally {
+      closeConnection(boardRow.db_path);
+    }
+  }
   backupRegistry("pre-board-delete");
   closeConnection(boardRow.db_path);
 
-  for (const target of targets) {
-    if (existsSync(target)) {
-      rmSync(target, { recursive: true, force: true });
-      artifactResults.push({ path: target, removed: true });
+  try {
+    for (const target of targets) {
+      if (existsSync(target)) {
+        rmSync(target, removeOptions(true));
+        artifactResults.push({ path: target, removed: true });
+      }
     }
-  }
-  if (repoArtifacts?.skillMd && existsSync(repoArtifacts.skillMd)) {
-    unlinkSync(repoArtifacts.skillMd);
-    artifactResults.push({ path: repoArtifacts.skillMd, removed: true });
+    if (repoArtifacts?.skillMd && existsSync(repoArtifacts.skillMd)) {
+      rmSync(repoArtifacts.skillMd, removeOptions(false));
+      artifactResults.push({ path: repoArtifacts.skillMd, removed: true });
+    }
+  } catch (error) {
+    throw boardFilesBusyError(error, boardRow);
   }
   if (removeRepoArtifacts) {
     const agentsCleanup = removeOrbitAgentsSection(boardRow.repo_path);

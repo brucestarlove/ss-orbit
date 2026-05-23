@@ -5,7 +5,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { removeOrbitAgentsSection, syncAgentsMd } from "../core/agents-md.js";
@@ -14,13 +14,15 @@ const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", ".."
 
 function printUsage() {
   console.log(`Usage:
+  orbit -v, --version      Print the Orbit CLI version
   orbit init  [options]    Provision .orbit/board.db + SKILL-ORBIT.md + AGENTS.md
   orbit reset [options]    Delete .orbit/ + SKILL-ORBIT.md + registry row
   orbit serve [options]    Start the Orbit web app + HTTP API
   orbit docker [options]   Build/run Orbit's web app in Docker
   orbit mcp   [options]    Start the stdio MCP server (for agent clients)
+  orbit dispatch [options] Dispatch a Hermes profile on a ticket
 
-Options (init / reset / serve / docker / mcp):
+Options (init / reset / serve / docker / mcp / dispatch):
   --cwd <dir>           Project root (default: process.cwd())
 
 Options (init only):
@@ -31,6 +33,22 @@ Options (init only):
 Options (serve / docker):
   --port <n>            HTTP port (default: 3337, or $PORT)
 
+Options (dispatch):
+  --board <slug-or-id>  Board to dispatch against (default: board for --cwd)
+  --ticket <number-id>  Ticket number or id to dispatch
+  --profile <name>      Hermes profile to run (default: nova)
+  --policy <name>       Autonomous policy wrappers to apply (default: nova-safe; use none to disable)
+  --server-url <url>    Orbit server URL to include in the handoff
+  --worktree            Create and preserve a git worktree for review/testing
+  --worktree-path <dir> Worktree path when --worktree is used
+  --branch <name>       Branch name for the preserved worktree
+  --hermes-bin <cmd>    Hermes executable (default: hermes)
+  --no-spawn            Prepare card/worktree/run record but do not start Hermes
+  --no-yolo             Do not pass --yolo to Hermes (default dispatch passes --yolo)
+  --foreground          Attach spawned Hermes process to this terminal
+  --keep-handoff-file   Keep duplicate handoff file under .orbit/dispatch-runs
+  --force               Dispatch even when blockers exist
+
 Options (docker only):
   --image <name>        Docker image tag (default: starscape-orbit:local)
   --data-dir <dir>      Docker registry/export data dir (default: <cwd>/.orbit/docker-data)
@@ -39,6 +57,11 @@ Options (docker only):
   --foreground          Run attached in the foreground
   --no-build            Skip docker build and run an existing image
   --dry-run             Print docker commands without running them`);
+}
+
+function printVersion() {
+  const packageJson = JSON.parse(readFileSync(resolve(PACKAGE_ROOT, "package.json"), "utf8"));
+  console.log(packageJson.version);
 }
 
 function shellQuote(value) {
@@ -59,7 +82,7 @@ async function loadCliCore() {
   const [
     { disableAiCollaboration, enableAiCollaboration },
     { backupBoardDatabase, backupRegistry },
-    { createRegistrySchema, openConnection },
+    { closeConnection, createRegistrySchema, openConnection },
     { DATA_DIR, ROOT_DIR },
     { provisionRepoBoard },
     { deleteBoard, getBoardByRepoPath },
@@ -79,6 +102,7 @@ async function loadCliCore() {
     ROOT_DIR,
     backupBoardDatabase,
     backupRegistry,
+    closeConnection,
     createRegistrySchema,
     deleteBoard,
     disableAiCollaboration,
@@ -107,6 +131,31 @@ function disableAiIfRequested(options, registryRow, core) {
   console.log("AI collaboration disabled for this board.");
 }
 
+function isBusyFilesystemError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    ["EBUSY", "EPERM", "ENOTEMPTY"].includes(error?.code) ||
+    (error?.code === "ERR_SQLITE_ERROR" && (message.includes("locked") || message.includes("busy")))
+  );
+}
+
+function resetBusyError(error, projectRoot) {
+  if (!isBusyFilesystemError(error)) return error;
+  const message = [
+    `Orbit could not remove local board files under ${projectRoot}.`,
+    "",
+    "On Windows this usually means an Orbit web server, MCP helper, editor, or terminal still has .orbit/board.db open.",
+    "Close Orbit server terminals and restart any AI client with Orbit MCP enabled, then rerun:",
+    `  orbit reset --cwd ${shellQuote(projectRoot)}`,
+    "",
+    `Original error: ${error.message}`
+  ].join("\n");
+  const wrapped = new Error(message);
+  wrapped.code = error.code;
+  wrapped.cause = error;
+  return wrapped;
+}
+
 function parseArgs(argv) {
   const args = {
     command: null,
@@ -121,11 +170,29 @@ function parseArgs(argv) {
     containerName: null,
     buildImage: true,
     detach: true,
-    dryRun: false
+    dryRun: false,
+    board: null,
+    ticket: null,
+    profile: "nova",
+    policy: "nova-safe",
+    serverUrl: null,
+    worktree: false,
+    worktreePath: null,
+    branch: null,
+    hermesBin: "hermes",
+    noSpawn: false,
+    yolo: true,
+    keepHandoffFile: false,
+    force: false,
+    foreground: false
   };
   const rest = argv.slice(2);
   if (rest.length === 0 || rest[0] === "-h" || rest[0] === "--help") {
     args.command = "help";
+    return args;
+  }
+  if (rest[0] === "-v" || rest[0] === "--version") {
+    args.command = "version";
     return args;
   }
   args.command = rest[0];
@@ -144,6 +211,50 @@ function parseArgs(argv) {
       args.port = rest[++i];
     } else if (a.startsWith("--port=")) {
       args.port = a.slice("--port=".length);
+    } else if (a === "--board" && rest[i + 1]) {
+      args.board = rest[++i];
+    } else if (a.startsWith("--board=")) {
+      args.board = a.slice("--board=".length);
+    } else if (a === "--ticket" && rest[i + 1]) {
+      args.ticket = rest[++i];
+    } else if (a.startsWith("--ticket=")) {
+      args.ticket = a.slice("--ticket=".length);
+    } else if (a === "--profile" && rest[i + 1]) {
+      args.profile = rest[++i];
+    } else if (a.startsWith("--profile=")) {
+      args.profile = a.slice("--profile=".length);
+    } else if (a === "--policy" && rest[i + 1]) {
+      args.policy = rest[++i];
+    } else if (a.startsWith("--policy=")) {
+      args.policy = a.slice("--policy=".length);
+    } else if (a === "--server-url" && rest[i + 1]) {
+      args.serverUrl = rest[++i];
+    } else if (a.startsWith("--server-url=")) {
+      args.serverUrl = a.slice("--server-url=".length);
+    } else if (a === "--worktree") {
+      args.worktree = true;
+    } else if (a === "--worktree-path" && rest[i + 1]) {
+      args.worktreePath = resolve(rest[++i]);
+    } else if (a.startsWith("--worktree-path=")) {
+      args.worktreePath = resolve(a.slice("--worktree-path=".length));
+    } else if (a === "--branch" && rest[i + 1]) {
+      args.branch = rest[++i];
+    } else if (a.startsWith("--branch=")) {
+      args.branch = a.slice("--branch=".length);
+    } else if (a === "--hermes-bin" && rest[i + 1]) {
+      args.hermesBin = rest[++i];
+    } else if (a.startsWith("--hermes-bin=")) {
+      args.hermesBin = a.slice("--hermes-bin=".length);
+    } else if (a === "--no-spawn") {
+      args.noSpawn = true;
+    } else if (a === "--no-yolo") {
+      args.yolo = false;
+    } else if (a === "--yolo") {
+      args.yolo = true;
+    } else if (a === "--keep-handoff-file") {
+      args.keepHandoffFile = true;
+    } else if (a === "--force") {
+      args.force = true;
     } else if (a === "--image" && rest[i + 1]) {
       args.image = rest[++i];
     } else if (a.startsWith("--image=")) {
@@ -162,6 +273,7 @@ function parseArgs(argv) {
       args.detach = true;
     } else if (a === "--foreground") {
       args.detach = false;
+      args.foreground = true;
     } else if (a === "--dry-run") {
       args.dryRun = true;
     } else {
@@ -231,6 +343,7 @@ async function runReset(options) {
     DATA_DIR,
     backupBoardDatabase,
     backupRegistry,
+    closeConnection,
     createRegistrySchema,
     deleteBoard,
     getBoardByRepoPath,
@@ -247,23 +360,34 @@ async function runReset(options) {
   const registryRow = getBoardByRepoPath(projectRoot);
 
   if (registryRow && existsSync(registryRow.db_path)) {
-    backupBoardDatabase(registryRow, openConnection(registryRow.db_path), "pre-cli-reset");
+    const db = openConnection(registryRow.db_path);
+    try {
+      backupBoardDatabase(registryRow, db, "pre-cli-reset");
+    } catch (error) {
+      throw resetBusyError(error, projectRoot);
+    } finally {
+      closeConnection(registryRow.db_path);
+    }
   }
   if (registryRow) backupRegistry("pre-cli-reset");
 
-  if (existsSync(orbitDir)) {
-    rmSync(orbitDir, { recursive: true, force: true });
-    removed.push(orbitDir);
-  }
-  if (existsSync(skillMd)) {
-    unlinkSync(skillMd);
-    removed.push(skillMd);
-  }
-  const agentsCleanup = removeOrbitAgentsSection(projectRoot);
-  if (agentsCleanup.removed) {
-    removed.push(`${agentsCleanup.path} Orbit section`);
-  } else if (!agentsCleanup.ok) {
-    console.warn(`Warning: skipped AGENTS.md cleanup (${agentsCleanup.reason}) in ${agentsCleanup.path}`);
+  try {
+    if (existsSync(orbitDir)) {
+      rmSync(orbitDir, { recursive: true, force: true });
+      removed.push(orbitDir);
+    }
+    if (existsSync(skillMd)) {
+      unlinkSync(skillMd);
+      removed.push(skillMd);
+    }
+    const agentsCleanup = removeOrbitAgentsSection(projectRoot);
+    if (agentsCleanup.removed) {
+      removed.push(`${agentsCleanup.path} Orbit section`);
+    } else if (!agentsCleanup.ok) {
+      console.warn(`Warning: skipped AGENTS.md cleanup (${agentsCleanup.reason}) in ${agentsCleanup.path}`);
+    }
+  } catch (error) {
+    throw resetBusyError(error, projectRoot);
   }
 
   if (registryRow) {
@@ -385,6 +509,22 @@ async function runMcp(options) {
   await import("../mcp-server.js");
 }
 
+async function runDispatch(options) {
+  process.env.PROJECT_ROOT = resolve(options.cwd);
+  const { dispatchTicket } = await import("../core/dispatch.js");
+  const result = dispatchTicket(options);
+  console.log(`Dispatch ${result.spawned ? "started" : "prepared"}: ${result.run_id}`);
+  console.log(`Board: ${result.board.slug}`);
+  console.log(`Ticket: #${result.ticket.number} ${result.ticket.title}`);
+  console.log(`Profile: ${result.profile}`);
+  console.log(`Policy: ${result.policy}`);
+  console.log(`Worktree: ${result.worktree_path}`);
+  if (result.branch) console.log(`Branch: ${result.branch}`);
+  if (result.pid) console.log(`PID: ${result.pid}`);
+  console.log("AI Written-Plan updated with the generated handoff.");
+  console.log("Run record comment added to the ticket.");
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   try {
@@ -398,6 +538,10 @@ async function main() {
       await runDocker(args);
     } else if (args.command === "mcp") {
       await runMcp(args);
+    } else if (args.command === "dispatch") {
+      await runDispatch(args);
+    } else if (args.command === "version") {
+      printVersion();
     } else {
       printUsage();
       process.exitCode = args.command === "help" ? 0 : 1;

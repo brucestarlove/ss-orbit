@@ -43,6 +43,8 @@ Typical use:
 
 Running the MCP server starts a small local helper process. It reads and updates the same local board data as the web app, does not publish the board to the internet, and can be removed from your AI app's MCP settings whenever you want.
 
+On Windows, that helper process can keep `.orbit/board.db` and its WAL/SHM sidecar files locked while the AI client is running. Before deleting or recloning a repo that has an Orbit board, close or restart the AI client, stop any `orbit serve` terminal, and prefer `orbit reset --cwd <repo>` for cleanup.
+
 The MCP server is only the bridge. Your AI app is still the part that decides what to do, and that app may send ticket context to its AI provider when you ask it to work on cards. Only connect AI apps you trust with this project.
 
 Important:

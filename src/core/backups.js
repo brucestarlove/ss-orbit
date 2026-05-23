@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { getRegistry } from "./db.js";
-import { BACKUP_DIR } from "./paths.js";
+import { closeConnection, getRegistry, hasConnection, openConnection } from "./db.js";
+import { BACKUP_DIR, REGISTRY_DB_PATH } from "./paths.js";
 import { now } from "./util.js";
 
 const DEFAULT_RETENTION = 30;
@@ -100,11 +100,17 @@ export function scheduleAutomaticBoardBackup(boardRow, db) {
 
   const timer = setTimeout(() => {
     scheduledBoardBackups.delete(boardRow.id);
+    const hadBoardConnection = hasConnection(boardRow.db_path);
+    const hadRegistryConnection = hasConnection(REGISTRY_DB_PATH);
+    const backupDb = openConnection(boardRow.db_path);
     try {
-      backupBoardDatabase(boardRow, db, "auto-write");
+      backupBoardDatabase(boardRow, backupDb, "auto-write");
       backupRegistry("auto-write");
     } catch (error) {
       console.warn(`[orbit] Automatic write backup failed for "${boardRow.slug}": ${error.message}`);
+    } finally {
+      if (!hadBoardConnection) closeConnection(boardRow.db_path);
+      if (!hadRegistryConnection) closeConnection(REGISTRY_DB_PATH);
     }
   }, automaticDelayMs());
   timer.unref?.();

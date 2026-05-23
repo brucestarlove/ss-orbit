@@ -6,6 +6,7 @@ data/
 node_modules/
 .pnpm-store/
 dist/
+.worktrees/
 .tmp/
 .orbit/
 .tmp/

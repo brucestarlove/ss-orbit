@@ -8,7 +8,7 @@ These are separate concerns; mixing them causes confusion:
 
 - **Where Orbit is installed** — Your MCP client stores an **absolute path** to Orbit's `src/mcp-server.js` (the generated snippet under **Settings → AI**). Claude Code / Codex / Cursor keep that registration. Starting your agent **from another folder** does not change that path.
 
-- **Which board MCP tools use** — The MCP helper uses the explicit project root passed by `orbit mcp --cwd <repo>` or `PROJECT_ROOT`; without either, it falls back to the process current working directory and walks upward until it finds a repo with `.orbit/board.db` (details in [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md)). Prefer explicit `--cwd` / `PROJECT_ROOT` in persistent MCP configs so the right board attaches even when the agent launches elsewhere.
+- **Which board MCP tools use** — Orbit can target either a local board discovered from a repo path or a hosted board by remote URL. For local boards, the MCP helper uses the explicit project root passed by `orbit mcp --cwd <repo>` or `PROJECT_ROOT`; without either, it falls back to the process current working directory and walks upward until it finds a repo with `.orbit/board.db` (details in [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md)). For remote/hosted boards, use the explicit board/server URL from the prompt or environment, then `board_list` + `board_set_active` before mutations; repo cwd remains code context, not planning-state authority. Prefer explicit `--cwd` / `PROJECT_ROOT` or explicit remote URL in persistent MCP configs so the right board attaches even when the agent launches elsewhere.
 
 - **This file** — Coding agents resolve `SKILL-ORBIT.md` through normal **filesystem / workspace search**, not through MCP tools. Keep a copy **in each repo** where you run an agent against that board—usually the repo that contains `.orbit/board.db`. If you edit in a multi-root workspace with more than one `SKILL-ORBIT.md`, name the repo or path explicitly in your prompt.
 
@@ -19,6 +19,27 @@ These are separate concerns; mixing them causes confusion:
 - Use comments for discussion and breadcrumbs.
 - Use ticket fields for durable implementation records: `ai_plan`, `implementation_summary`, `implementation_updates`.
 - Add a project entry when the context should outlive one ticket.
+
+## Dispatching Agents
+
+`orbit dispatch --board <slug> --ticket <number-or-id> --profile <name> --worktree` is the preferred human/orchestrator entrypoint for starting a Hermes agent on a specific card.
+
+Dispatch responsibilities:
+- Generate the handoff and store the canonical copy in the card's `ai_plan` / AI Written-Plan field.
+- Move the card to In Progress.
+- Preserve a git worktree/branch for human testing when `--worktree` is used.
+- Add a run-record comment with profile, policy, branch, worktree, pid, and command.
+- Apply the default safe PATH policy wrappers unless `--policy none` is explicit.
+
+Agent completion responsibilities remain unchanged:
+- Write final work notes to `implementation_summary`.
+- Write pitfalls, remediation, and reusable future guidance to `implementation_updates`.
+- Add comments for transient breadcrumbs/run events.
+- Move the card to Review unless the human explicitly asked for Done.
+
+## Human CLI Checks
+
+- `orbit -v` / `orbit --version`: print the installed Orbit CLI version for support, bug reports, and reproducibility notes.
 
 ## Historical Backfill
 

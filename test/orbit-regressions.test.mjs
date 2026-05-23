@@ -350,6 +350,14 @@ test("board delete removes registry row and local board database after slug conf
   }
 });
 
+test("board delete reports busy Windows board files with a retryable conflict", () => {
+  const source = readFileSync(join(repoRoot, "src", "core", "delete-board.js"), "utf8");
+
+  assert.match(source, /board_files_busy/);
+  assert.match(source, /maxRetries\s*=\s*10/);
+  assert.match(source, /retry the delete from Settings/);
+});
+
 test("snapshot import after delete and re-init restores into the new board id", async () => {
   const h = makeHarness();
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);

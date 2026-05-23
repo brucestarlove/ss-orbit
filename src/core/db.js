@@ -30,8 +30,32 @@ export function openConnection(dbPath) {
 export function closeConnection(dbPath) {
   const conn = connections.get(dbPath);
   if (!conn) return;
-  conn.close();
-  connections.delete(dbPath);
+  try {
+    conn.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+  } catch {
+    // Another process may still be attached; closing this connection is enough
+    // to release our file handle.
+  }
+  try {
+    conn.close();
+  } finally {
+    connections.delete(dbPath);
+  }
+}
+
+export function hasConnection(dbPath) {
+  return connections.has(dbPath);
+}
+
+export function closeAllConnections() {
+  for (const dbPath of [...connections.keys()]) {
+    try {
+      closeConnection(dbPath);
+    } catch {
+      // Shutdown cleanup should release every handle it can without masking
+      // the original exit path.
+    }
+  }
 }
 
 // Reentrancy depth per connection. Only the outermost tx() issues

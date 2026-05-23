@@ -72,7 +72,7 @@ orbit docker --no-build      # reuse an existing starscape-orbit:local image
 
 `orbit docker` mounts the selected project into the container. Board data still lives in `.orbit/board.db`; Docker-only registry, exports, and backups live under `<repo>/.orbit/docker-data` by default.
 
-Wipe a single board and start over with `orbit reset` (deletes `.orbit/`, `SKILL-ORBIT.md`, and the registry row), then `orbit init` again.
+Wipe a single board and start over with `orbit reset` (deletes `.orbit/`, `SKILL-ORBIT.md`, and the registry row), then `orbit init` again. On Windows, close `orbit serve` terminals and restart any AI client using Orbit MCP before deleting or recloning a repo; those helper processes keep SQLite handles open while they are running.
 
 ## Use with AI
 
@@ -85,6 +85,23 @@ Orbit ships with everything an agent needs to claim work, read tickets, and writ
 5. **Point the agent at a ticket.** From inside the repo, ask the agent to read `SKILL-ORBIT.md` and then work on a ticket via the Orbit MCP — e.g., *"Use the Orbit MCP to claim the next AI-ready card and start work."* It pulls a focused context pack, claims the ticket, and updates the board as it goes.
 
 If you initialized with `--example`, ticket #12 (`Try Orbit MCP on this ticket`) is a good first exercise once MCP is connected.
+
+### Dispatch a Hermes agent from Orbit
+
+For a first-class handoff to a named Hermes profile, use `orbit dispatch` instead of writing an ad-hoc prompt file:
+
+```bash
+orbit dispatch \
+  --board ss-starlog \
+  --ticket 4 \
+  --profile nova \
+  --worktree \
+  --server-url http://localhost:3337
+```
+
+Dispatch writes the generated handoff into the ticket's **AI Written-Plan**, moves the ticket to **In Progress**, optionally preserves a git worktree/branch for review, starts Hermes unless `--no-spawn` is used, and comments a run record back onto the card. The default `nova-safe` policy allows local inspection, edits, tests, and commits while blocking Docker, pushes, deploys, package installs, destructive git commands, and common network/cloud escape hatches.
+
+Full operator/user guide: [docs/ORBIT_DISPATCH.md](docs/ORBIT_DISPATCH.md).
 
 ## Vocabulary
 
@@ -196,6 +213,7 @@ BOARD_NAME="My App" BOARD_SLUG=my-app REPO_URL=https://github.com/you/my-app orb
 - **UI loads but lanes are blank** — usually a cached `app.js`. Hard-refresh the page (Ctrl+Shift+R) and check the browser console.
 - **`node:sqlite` is not a known module** — you're on Node < 22. Upgrade to Node 22+.
 - **Port 3337 already in use** — run `orbit serve --port 3340` or `orbit docker --port 3340`.
+- **Windows says `.orbit/board.db` is busy during cleanup** - an Orbit web server, MCP helper, editor, or terminal still has the SQLite file open. Stop `orbit serve`, close or restart AI clients with Orbit MCP enabled, then retry delete from Settings or run `orbit reset --cwd <repo>` before recloning or deleting the folder.
 
 ## Data
 

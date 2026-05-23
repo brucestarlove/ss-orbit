@@ -1,5 +1,5 @@
 import { spawnSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -8,12 +8,14 @@ import { DatabaseSync } from "node:sqlite";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const orbitCli = join(repoRoot, "src", "cli", "orbit.js");
+const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
 
 function makeHarness() {
   const root = mkdtempSync(join(tmpdir(), "orbit-cli-test-"));
   const projectRoot = join(root, "project");
   const dataDir = join(root, "data");
-  spawnSync("mkdir", ["-p", projectRoot, dataDir], { encoding: "utf8" });
+  mkdirSync(projectRoot, { recursive: true });
+  mkdirSync(dataDir, { recursive: true });
   writeFileSync(join(projectRoot, "package.json"), JSON.stringify({ name: "test-project" }), "utf8");
   return { root, projectRoot, dataDir };
 }
@@ -43,6 +45,90 @@ function openBoard(projectRoot) {
   const db = new DatabaseSync(join(projectRoot, ".orbit", "board.db"));
   return db;
 }
+
+function runGit(args, cwd) {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  if (result.status !== 0) {
+    throw new Error(`git ${args.join(" ")} failed
+STDOUT:
+${result.stdout}
+STDERR:
+${result.stderr}`);
+  }
+  return result.stdout;
+}
+
+function initGitRepo(projectRoot) {
+  runGit(["init"], projectRoot);
+  runGit(["config", "user.name", "Orbit Test"], projectRoot);
+  runGit(["config", "user.email", "orbit-test@example.invalid"], projectRoot);
+  runGit(["add", "package.json"], projectRoot);
+  runGit(["commit", "-m", "init"], projectRoot);
+}
+
+test("orbit -v and --version print the package version", () => {
+  const h = makeHarness();
+  for (const flag of ["-v", "--version"]) {
+    const result = spawnSync(process.execPath, [orbitCli, flag], {
+      cwd: repoRoot,
+      env: { ...process.env, DATA_DIR: h.dataDir },
+      encoding: "utf8"
+    });
+
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout.trim(), packageJson.version);
+    assert.equal(result.stderr, "");
+  }
+});
+
+test("orbit dispatch prepares a ticket handoff, run record, safe policy, and preserved worktree", () => {
+  const h = makeHarness();
+  initGitRepo(h.projectRoot);
+  runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
+
+  const stdout = runOrbit(["dispatch", "--cwd", h.projectRoot, "--ticket", "12", "--profile", "nova", "--worktree", "--no-spawn"], h);
+
+  assert.match(stdout, /Dispatch prepared:/);
+  assert.match(stdout, /Ticket: #12 Try Orbit MCP on this ticket/);
+  assert.match(stdout, /Profile: nova/);
+  assert.match(stdout, /Policy: nova-safe/);
+
+  const db = openBoard(h.projectRoot);
+  const ticket = db
+    .prepare(`SELECT t.ai_plan, s.name AS state_name
+              FROM tickets t JOIN states s ON s.id = t.state_id
+              WHERE t.number = 12`)
+    .get();
+  assert.equal(ticket.state_name, "In Progress");
+  assert.match(ticket.ai_plan, /# Orbit Agent Handoff/);
+  assert.match(ticket.ai_plan, /Autonomous policy: nova-safe/);
+  assert.match(ticket.ai_plan, /AI Implementation Summary/);
+
+  const comment = db
+    .prepare("SELECT body FROM comments WHERE author = 'orbit dispatch' ORDER BY created_at DESC LIMIT 1")
+    .get();
+  assert.ok(comment);
+  assert.match(comment.body, /run_id: orbit-12-nova-/);
+  assert.match(comment.body, /pid: not spawned/);
+  assert.match(comment.body, /policy_bin:/);
+
+  const worktreeLine = stdout.split("\n").find((line) => line.startsWith("Worktree: "));
+  const worktreePath = worktreeLine.replace("Worktree: ", "").trim();
+  assert.equal(existsSync(join(worktreePath, "package.json")), true);
+
+  const policyLine = comment.body.split("\n").find((line) => line.includes("policy_bin:"));
+  const policyBin = policyLine.replace("- policy_bin: ", "").trim();
+  const docker = spawnSync(join(policyBin, "docker"), ["ps"], { encoding: "utf8" });
+  assert.equal(docker.status, 126);
+  assert.match(docker.stderr, /Docker requires explicit human approval/);
+  const gitPush = spawnSync(join(policyBin, "git"), ["push", "origin", "HEAD"], { encoding: "utf8" });
+  assert.equal(gitPush.status, 126);
+  assert.match(gitPush.stderr, /Blocked by Orbit nova-safe policy: git push/);
+  const npmInstall = spawnSync(join(policyBin, "npm"), ["install"], { encoding: "utf8" });
+  assert.equal(npmInstall.status, 126);
+  assert.match(npmInstall.stderr, /allowed package commands: test/);
+  db.close();
+});
 
 test("orbit init creates AGENTS.md with Orbit instructions when missing", () => {
   const h = makeHarness();
@@ -176,6 +262,29 @@ test("orbit init enables AI on an existing non-AI board", () => {
   assert.match(stdout, /AI collaboration enabled/);
   assert.equal(board.ai_enabled, 1);
   assert.deepEqual(lanes.map((lane) => lane.name), ["Backlog", "Todo", "AI Ready", "In Progress", "Review", "Done", "Cancelled"]);
+});
+
+test("orbit reset removes board artifacts after backing up the board", () => {
+  const h = makeHarness();
+  runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
+  const db = openBoard(h.projectRoot);
+  const board = db.prepare("SELECT id FROM boards LIMIT 1").get();
+  db.close();
+
+  const stdout = runOrbit(["reset", "--cwd", h.projectRoot], h);
+
+  assert.match(stdout, /Removed .*\.orbit/);
+  assert.equal(existsSync(join(h.projectRoot, ".orbit")), false);
+  assert.equal(existsSync(join(h.projectRoot, "SKILL-ORBIT.md")), false);
+  const agents = readFileSync(join(h.projectRoot, "AGENTS.md"), "utf8");
+  assert.doesNotMatch(agents, /ORBIT:AGENTS-START/);
+
+  const registry = new DatabaseSync(join(h.dataDir, "registry.db"));
+  assert.equal(registry.prepare("SELECT COUNT(*) AS count FROM boards").get().count, 0);
+  registry.close();
+
+  const backupDir = join(h.dataDir, "backups", "boards", board.id);
+  assert.ok(readdirSync(backupDir).some((name) => name.includes("pre-cli-reset") && name.endsWith(".board.db")));
 });
 
 test("orbit docker --dry-run prints build and isolated container run commands", () => {

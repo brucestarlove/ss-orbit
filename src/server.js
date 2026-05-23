@@ -8,6 +8,7 @@ import {
   startSSEStream,
   startupSummary
 } from "./core/board.js";
+import { closeAllConnections } from "./core/db.js";
 
 const server = createServer(async (req, res) => {
   try {
@@ -46,3 +47,22 @@ server.listen(boardRuntime.port, () => {
   console.log(`Boards (${summary.boardCount}):`);
   for (const path of summary.boardPaths) console.log(`  - ${path}`);
 });
+
+let shuttingDown = false;
+
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  server.close(() => {
+    closeAllConnections();
+    process.exit(0);
+  });
+  setTimeout(() => {
+    closeAllConnections();
+    process.exit(0);
+  }, 1500).unref();
+}
+
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);
+process.once("exit", () => closeAllConnections());
