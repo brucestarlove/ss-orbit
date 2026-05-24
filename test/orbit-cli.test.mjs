@@ -1,7 +1,7 @@
 import { spawnSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -49,13 +49,17 @@ function commandArgRegex(value) {
   return `(?:'${escaped}'|${escaped})`;
 }
 
-function openBoard(projectRoot) {
-  const db = new DatabaseSync(join(projectRoot, ".orbit", "board.db"));
-  return db;
+/** Open the board database via the registry (central storage). */
+function openBoard(harness) {
+  const reg = new DatabaseSync(join(harness.dataDir, "registry.db"));
+  const row = reg.prepare("SELECT db_path FROM boards ORDER BY created_at LIMIT 1").get();
+  reg.close();
+  if (!row) throw new Error("No board found in registry");
+  return new DatabaseSync(row.db_path);
 }
 
-function createCliTicket(projectRoot, title = "Dispatch me", stateRole = null) {
-  const db = openBoard(projectRoot);
+function createCliTicket(harness, title = "Dispatch me", stateRole = null) {
+  const db = openBoard(harness);
   const board = db.prepare("SELECT * FROM boards LIMIT 1").get();
   const state = stateRole
     ? db.prepare("SELECT * FROM states WHERE board_id = ? AND role = ?").get(board.id, stateRole)
@@ -72,8 +76,8 @@ function createCliTicket(projectRoot, title = "Dispatch me", stateRole = null) {
   return { board, id: ticketId, number, title };
 }
 
-function readCliTicket(projectRoot, ticketId) {
-  const db = openBoard(projectRoot);
+function readCliTicket(harness, ticketId) {
+  const db = openBoard(harness);
   const ticket = db
     .prepare(
       `SELECT t.*, s.name AS state_name, s.role AS state_role
@@ -145,7 +149,7 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.match(stdout, /Profile: nova/);
   assert.match(stdout, /Policy: nova-safe/);
 
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const ticket = db
     .prepare(`SELECT t.ai_plan, s.name AS state_name
               FROM tickets t JOIN states s ON s.id = t.state_id
@@ -214,12 +218,12 @@ test("orbit dispatch validates board and ticket before writes", () => {
   assert.match(missingBoard.stderr, /Board not found: nope/);
 
   runOrbit(["init", "--cwd", h.projectRoot], h);
-  const ticket = createCliTicket(h.projectRoot);
+  const ticket = createCliTicket(h);
   const missingTicket = runOrbitResult(["dispatch", "--board", ticket.board.slug, "--ticket", "99", "--no-spawn"], h);
 
   assert.notEqual(missingTicket.status, 0);
   assert.match(missingTicket.stderr, /Ticket not found/);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   assert.equal(db.prepare("SELECT COUNT(*) AS count FROM comments").get().count, 0);
   assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
   db.close();
@@ -228,9 +232,9 @@ test("orbit dispatch validates board and ticket before writes", () => {
 test("orbit dispatch refuses blocked tickets before writes", () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
-  const blocked = createCliTicket(h.projectRoot, "Blocked dispatch target");
-  const blocker = createCliTicket(h.projectRoot, "Blocking ticket");
-  const db = openBoard(h.projectRoot);
+  const blocked = createCliTicket(h, "Blocked dispatch target");
+  const blocker = createCliTicket(h, "Blocking ticket");
+  const db = openBoard(h);
   db.prepare("INSERT INTO relations (id, source_ticket_id, target_ticket_id, type, created_at) VALUES (?, ?, ?, 'blocked_by', ?)")
     .run("relation-blocks-dispatch", blocked.id, blocker.id, new Date().toISOString());
   db.close();
@@ -239,7 +243,7 @@ test("orbit dispatch refuses blocked tickets before writes", () => {
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Ticket #1 is blocked/);
-  const after = readCliTicket(h.projectRoot, blocked.id);
+  const after = readCliTicket(h, blocked.id);
   assert.equal(after.comments.length, 0);
   assert.equal(after.ticket.ai_plan, "");
   assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
@@ -248,7 +252,7 @@ test("orbit dispatch refuses blocked tickets before writes", () => {
 test("orbit dispatch preflights missing Hermes before ticket mutation", () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
-  const ticket = createCliTicket(h.projectRoot);
+  const ticket = createCliTicket(h);
 
   const result = runOrbitResult(
     ["dispatch", "--board", ticket.board.slug, "--ticket", String(ticket.number), "--hermes-bin", join(h.root, "missing-hermes")],
@@ -258,7 +262,7 @@ test("orbit dispatch preflights missing Hermes before ticket mutation", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Hermes binary not found/);
   assert.match(result.stderr, /--no-spawn/);
-  const after = readCliTicket(h.projectRoot, ticket.id);
+  const after = readCliTicket(h, ticket.id);
   assert.equal(after.ticket.state_name, "Todo");
   assert.equal(after.ticket.ai_plan, "");
   assert.equal(after.comments.length, 0);
@@ -269,14 +273,14 @@ test("orbit dispatch --dry-run previews without mutating the ticket", () => {
   const h = makeHarness();
   initGitRepo(h.projectRoot);
   runOrbit(["init", "--cwd", h.projectRoot], h);
-  const ticket = createCliTicket(h.projectRoot);
+  const ticket = createCliTicket(h);
 
   const result = runOrbitResult(["dispatch", "--board", ticket.board.slug, "--ticket", String(ticket.number), "--worktree", "--dry-run"], h);
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Dry run: would dispatch ticket/);
   assert.match(result.stdout, /No files, worktrees, ticket fields, comments, or agents were changed/);
-  const after = readCliTicket(h.projectRoot, ticket.id);
+  const after = readCliTicket(h, ticket.id);
   assert.equal(after.ticket.ai_plan, "");
   assert.equal(after.comments.length, 0);
   assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
@@ -286,7 +290,7 @@ test("orbit dispatch --dry-run previews without mutating the ticket", () => {
 test("orbit dispatch with a valid Hermes preflight writes run record and moves In Progress", () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
-  const ticket = createCliTicket(h.projectRoot);
+  const ticket = createCliTicket(h);
   const hermes = createFakeHermesBin(h.root);
 
   const result = runOrbitResult(
@@ -296,7 +300,7 @@ test("orbit dispatch with a valid Hermes preflight writes run record and moves I
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Dispatch started:/);
-  const after = readCliTicket(h.projectRoot, ticket.id);
+  const after = readCliTicket(h, ticket.id);
   assert.equal(after.ticket.state_name, "In Progress");
   assert.match(after.ticket.ai_plan, /# Orbit Agent Handoff/);
   assert.equal(after.comments.length, 1);
@@ -346,7 +350,7 @@ test("orbit init appends Orbit instructions to existing AGENTS.md once", () => {
 test("orbit init creates an empty board by default", () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const ticketCount = db.prepare("SELECT COUNT(*) AS count FROM tickets").get().count;
   const board = db.prepare("SELECT ai_enabled, agent_instructions FROM boards LIMIT 1").get();
   const lanes = db.prepare("SELECT name, role FROM states ORDER BY position").all();
@@ -361,7 +365,7 @@ test("orbit init creates an empty board by default", () => {
 test("orbit init --example creates onboarding tickets", () => {
   const h = makeHarness();
   const stdout = runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const tickets = db
     .prepare(`SELECT t.number, t.title, s.name AS state_name
               FROM tickets t JOIN states s ON s.id = t.state_id
@@ -389,7 +393,7 @@ test("orbit --example is rejected because init is required", () => {
 test("orbit init enables AI collaboration and creates AI Ready lane without examples", () => {
   const h = makeHarness();
   const stdout = runOrbit(["init", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
   const lane = db.prepare("SELECT id, role, position FROM states WHERE name = 'AI Ready'").get();
   const ticketCount = db.prepare("SELECT COUNT(*) AS count FROM tickets").get().count;
@@ -404,7 +408,7 @@ test("orbit init enables AI collaboration and creates AI Ready lane without exam
 test("orbit init --no-ai creates a board without the AI Ready lane", () => {
   const h = makeHarness();
   const stdout = runOrbit(["init", "--no-ai", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
   const lanes = db.prepare("SELECT name FROM states ORDER BY position").all();
 
@@ -417,7 +421,7 @@ test("orbit init --no-ai disables AI on an existing board", () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
   const stdout = runOrbit(["init", "--no-ai", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
   const aiReady = db.prepare("SELECT name, position FROM states WHERE role = 'ai_ready'").get();
 
@@ -431,7 +435,7 @@ test("orbit init enables AI on an existing non-AI board", () => {
   const h = makeHarness();
   runOrbit(["init", "--no-ai", "--cwd", h.projectRoot], h);
   const stdout = runOrbit(["init", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
   const lanes = db.prepare("SELECT name FROM states ORDER BY position").all();
 
@@ -443,13 +447,21 @@ test("orbit init enables AI on an existing non-AI board", () => {
 test("orbit reset removes board artifacts after backing up the board", () => {
   const h = makeHarness();
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const board = db.prepare("SELECT id FROM boards LIMIT 1").get();
   db.close();
 
+  // Capture the central db path before reset so we can verify it's gone.
+  const reg0 = new DatabaseSync(join(h.dataDir, "registry.db"));
+  const { db_path: boardDbPath } = reg0.prepare("SELECT db_path FROM boards LIMIT 1").get();
+  const boardDir = dirname(boardDbPath);
+  reg0.close();
+
   const stdout = runOrbit(["reset", "--cwd", h.projectRoot], h);
 
-  assert.match(stdout, /Removed .*\.orbit/);
+  assert.match(stdout, /Removed/);
+  assert.equal(existsSync(boardDbPath), false, "central board db should be deleted");
+  assert.equal(existsSync(boardDir), false, "central board dir should be deleted");
   assert.equal(existsSync(join(h.projectRoot, ".orbit")), false);
   assert.equal(existsSync(join(h.projectRoot, "SKILL-ORBIT.md")), false);
   const agents = readFileSync(join(h.projectRoot, "AGENTS.md"), "utf8");
@@ -504,7 +516,7 @@ test("orbit docker --foreground runs attached", () => {
 test("orbit init --example enables AI collaboration, creates AI Ready lane, and stages ticket 12", () => {
   const h = makeHarness();
   const stdout = runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const board = db.prepare("SELECT ai_enabled FROM boards LIMIT 1").get();
   const lane = db.prepare("SELECT id, role FROM states WHERE name = 'AI Ready'").get();
   const ticket = db
@@ -545,7 +557,7 @@ test("orbit mcp --cwd selects the requested project root instead of process cwd"
   child.kill("SIGTERM");
 
   assert.match(stderr, new RegExp(escapeRegex(h.projectRoot), "i"));
-  assert.match(stderr, /\.orbit\/board\.db|\.orbit\\board\.db/);
+  assert.match(stderr, /board\.db/);
 });
 
 function waitForLine(child, timeoutMs = 2000) {
@@ -668,7 +680,7 @@ test("orbit mcp exposes board_create_ticket and creates cards through core API",
   assert.equal(created.title, "MCP-created task");
   assert.equal(created.type, "task");
 
-  const db = openBoard(h.projectRoot);
+  const db = openBoard(h);
   const ticket = db.prepare("SELECT id, title, type, created_by FROM tickets WHERE title = ?").get("MCP-created task");
   assert.ok(ticket);
   assert.equal(ticket.id, created.id);

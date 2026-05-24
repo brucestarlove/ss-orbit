@@ -18,6 +18,7 @@ import { createBoardSchema, createRegistrySchema } from "./db.js";
 import { reindexAllTickets } from "./tickets.js";
 import { deleteBoard, listBoards, openBoardDb, syncRegistryFromBoardDb } from "./registry.js";
 import { provisionRepoBoard } from "./provision-repo-board.js";
+import { migrateInRepoBoards } from "./migrate.js";
 import { id, slugify } from "./util.js";
 import {
   DATA_DIR,
@@ -59,6 +60,10 @@ function ensureSchemaForEveryBoard() {
 }
 
 ensureWorkspace();
+// Move any per-board SQLite files that still live in in-repo .orbit/ directories
+// into the central DATA_DIR/boards/<slug>/ store. Must run before
+// ensureSchemaForEveryBoard so all connections open against the canonical paths.
+migrateInRepoBoards();
 // Reconcile the registry against disk *before* deciding whether to bootstrap a
 // first board — otherwise a stale row from a deleted .orbit/ folder makes
 // listBoards() non-empty and we never re-seed.

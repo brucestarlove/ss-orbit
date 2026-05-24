@@ -4,9 +4,10 @@
 // the board that owns a given ticket / state / entry / relation. Callers
 // receive `{ board, db }` and pass it down via `ctx`.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createBoardSchema, getRegistry, openConnection } from "./db.js";
+import { BOARDS_DIR } from "./paths.js";
 import { now, slugify } from "./util.js";
 
 export function listBoards() {
@@ -92,14 +93,16 @@ export function updateBoardMeta(boardId, patch) {
     .run(...vals);
 }
 
-/** Where a new board.db should live: flat .orbit/board.db for a repo's first
- *  board, or .orbit/boards/<slug>/board.db for additional boards on the same
- *  repo. */
-export function computeNewBoardDbPath(repoPathNorm, slug) {
-  const reg = getRegistry();
-  const count = reg.prepare("SELECT COUNT(*) AS c FROM boards WHERE repo_path = ?").get(repoPathNorm).c;
-  if (count === 0) return join(repoPathNorm, ".orbit", "board.db");
-  return join(repoPathNorm, ".orbit", "boards", slug, "board.db");
+/** Where a new board.db should live: always in the central DATA_DIR/boards/<slug>/ directory.
+ *  Falls back to a numeric suffix if the canonical path already exists on disk (orphaned file). */
+export function computeNewBoardDbPath(_repoPathNorm, slug) {
+  const preferred = join(BOARDS_DIR, slug, "board.db");
+  if (!existsSync(preferred)) return preferred;
+  for (let i = 2; i < 1000; i++) {
+    const alt = join(BOARDS_DIR, `${slug}-${i}`, "board.db");
+    if (!existsSync(alt)) return alt;
+  }
+  return preferred; // callers will handle any existing file
 }
 
 /** Create the directory + file and apply the per-board schema. Returns the

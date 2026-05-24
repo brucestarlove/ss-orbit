@@ -16,10 +16,16 @@ export const PROJECT_ROOT = process.env.PROJECT_ROOT ? resolve(process.env.PROJE
 export const DATA_DIR = process.env.DATA_DIR || join(homedir(), ".orbit");
 /** Central registry of all boards (metadata + paths to per-board SQLite files). */
 export const REGISTRY_DB_PATH = join(DATA_DIR, "registry.db");
+/** Central directory where every board's SQLite file lives: DATA_DIR/boards/<slug>/board.db */
+export const BOARDS_DIR = join(DATA_DIR, "boards");
 export const EXPORT_DIR = join(DATA_DIR, "exports");
 export const BACKUP_DIR = join(DATA_DIR, "backups");
+/** Central directory for dispatch run artifacts: DATA_DIR/dispatch-runs/<board-slug>/<run-id>/ */
+export const DISPATCH_RUNS_DIR = join(DATA_DIR, "dispatch-runs");
 export const PORT = Number(process.env.PORT || 3337);
 
 mkdirSync(DATA_DIR, { recursive: true });
+mkdirSync(BOARDS_DIR, { recursive: true });
 mkdirSync(EXPORT_DIR, { recursive: true });
 mkdirSync(BACKUP_DIR, { recursive: true });
+mkdirSync(DISPATCH_RUNS_DIR, { recursive: true });

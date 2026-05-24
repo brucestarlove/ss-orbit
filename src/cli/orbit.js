@@ -6,7 +6,7 @@
 
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { removeOrbitAgentsSection, syncAgentsMd } from "../core/agents-md.js";
 
@@ -47,7 +47,7 @@ Options (dispatch):
   --no-spawn            Prepare card/worktree/run record but do not start Hermes or move In Progress
   --no-yolo             Do not pass --yolo to Hermes (default dispatch passes --yolo)
   --foreground          Attach spawned Hermes process to this terminal
-  --keep-handoff-file   Keep duplicate handoff file under .orbit/dispatch-runs
+  --keep-handoff-file   Keep duplicate handoff file under DATA_DIR/dispatch-runs/<board>
   --force               Dispatch even when blockers exist
   --dry-run             Preview only; no files, worktrees, ticket fields, comments, or agents change
 
@@ -327,7 +327,7 @@ async function runInit(options) {
   if (result.message && result.status === "skipped") {
     console.log(result.message);
   } else if (result.status === "created") {
-    console.log(`Initialized Orbit board at ${resolve(projectRoot, ".orbit", "board.db")}`);
+    console.log(`Initialized Orbit board at ${result.registryRow?.db_path ?? "(unknown path)"}`);
   } else if (result.status === "repaired") {
     console.log(result.message || "Linked existing board database to the registry.");
   }
@@ -383,6 +383,25 @@ async function runReset(options) {
   if (registryRow) backupRegistry("pre-cli-reset");
 
   try {
+    // Remove the board database. With central storage the db lives outside the
+    // project directory; with legacy in-repo storage it is inside orbitDir below.
+    const isCentralDb = registryRow && !registryRow.db_path.startsWith(projectRoot + "/");
+    if (isCentralDb && existsSync(registryRow.db_path)) {
+      const boardDir = dirname(registryRow.db_path);
+      rmSync(boardDir, { recursive: true, force: true });
+      removed.push(boardDir);
+    }
+
+    // Remove central dispatch-runs for this board.
+    if (registryRow) {
+      const dispatchRunsDir = join(DATA_DIR, "dispatch-runs", registryRow.slug);
+      if (existsSync(dispatchRunsDir)) {
+        rmSync(dispatchRunsDir, { recursive: true, force: true });
+        removed.push(dispatchRunsDir);
+      }
+    }
+
+    // Remove the in-repo .orbit/ directory (covers legacy db, residual dispatch-runs, etc.).
     if (existsSync(orbitDir)) {
       rmSync(orbitDir, { recursive: true, force: true });
       removed.push(orbitDir);

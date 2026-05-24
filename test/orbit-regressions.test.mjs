@@ -2,7 +2,7 @@ import { spawnSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -73,6 +73,15 @@ function runOrbit(args, harness) {
     throw new Error(`orbit ${args.join(" ")} failed\nSTDOUT:\n${result.stdout}\nSTDERR:\n${result.stderr}`);
   }
   return result.stdout;
+}
+
+/** Look up the board's db_path via the central registry. */
+function boardDbPath(harness) {
+  const reg = new DatabaseSync(join(harness.dataDir, "registry.db"));
+  const row = reg.prepare("SELECT db_path FROM boards ORDER BY created_at LIMIT 1").get();
+  reg.close();
+  if (!row) throw new Error("No board found in registry");
+  return row.db_path;
 }
 
 function freePort() {
@@ -196,7 +205,7 @@ test("board context exposes metadata needed by settings tabs", async () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
-  const db = new DatabaseSync(join(h.projectRoot, ".orbit", "board.db"));
+  const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id, slug, name, repo_url, system_path, default_branch, project_notes, ai_enabled FROM boards LIMIT 1").get();
   const port = await freePort();
   const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
@@ -296,8 +305,9 @@ test("board delete removes registry row and local board database after slug conf
   const h = makeHarness();
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
 
-  const dbPath = join(h.projectRoot, ".orbit", "board.db");
-  const orbitDir = join(h.projectRoot, ".orbit");
+  // With central storage, the db lives in DATA_DIR/boards/<slug>/; find it via registry.
+  const dbPath = boardDbPath(h);
+  const boardDir = dirname(dbPath);
   const skillPath = join(h.projectRoot, "SKILL-ORBIT.md");
   const agentsPath = join(h.projectRoot, "AGENTS.md");
   const db = new DatabaseSync(dbPath);
@@ -328,8 +338,9 @@ test("board delete removes registry row and local board database after slug conf
       body: JSON.stringify({ confirm_slug: board.slug, delete_files: true })
     });
     assert.equal(deleted.status, 200);
-    assert.equal(existsSync(dbPath), false);
-    assert.equal(existsSync(orbitDir), false);
+    assert.equal(existsSync(dbPath), false, "central board db should be gone");
+    assert.equal(existsSync(boardDir), false, "central board dir should be gone");
+    assert.equal(existsSync(join(h.projectRoot, ".orbit")), false);
     assert.equal(existsSync(skillPath), false);
     const agentsContent = readFileSync(agentsPath, "utf8");
     assert.doesNotMatch(agentsContent, /ORBIT:AGENTS-START/);
@@ -362,8 +373,9 @@ test("snapshot import after delete and re-init restores into the new board id", 
   const h = makeHarness();
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
 
-  const dbPath = join(h.projectRoot, ".orbit", "board.db");
-  const originalDb = new DatabaseSync(dbPath);
+  // Find the original board db via registry (central storage).
+  const originalDbPath = boardDbPath(h);
+  const originalDb = new DatabaseSync(originalDbPath);
   const originalBoard = originalDb.prepare("SELECT id, slug FROM boards LIMIT 1").get();
   originalDb.close();
 
@@ -389,7 +401,9 @@ test("snapshot import after delete and re-init restores into the new board id", 
     assert.equal(deleted.status, 200);
 
     runOrbit(["init", "--cwd", h.projectRoot], h);
-    const replacementDb = new DatabaseSync(dbPath);
+    // Find the replacement board via registry (a new board was created).
+    const replacementDbPath = boardDbPath(h);
+    const replacementDb = new DatabaseSync(replacementDbPath);
     const replacementBoard = replacementDb.prepare("SELECT id, slug FROM boards LIMIT 1").get();
     replacementDb.close();
     assert.notEqual(replacementBoard.id, originalBoard.id);
@@ -402,7 +416,7 @@ test("snapshot import after delete and re-init restores into the new board id", 
     assert.equal(imported.status, 201);
     assert.equal((await imported.json()).imported_board_id, replacementBoard.id);
 
-    const restoredDb = new DatabaseSync(dbPath);
+    const restoredDb = new DatabaseSync(replacementDbPath);
     assert.equal(restoredDb.prepare("SELECT id FROM boards LIMIT 1").get().id, replacementBoard.id);
     assert.deepEqual(restoredDb.prepare("SELECT number FROM tickets ORDER BY number").all().map((row) => row.number), [1, 2, 3, 12]);
     restoredDb.close();
@@ -415,7 +429,7 @@ test("successful writes schedule a debounced automatic board backup", async () =
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
-  const db = new DatabaseSync(join(h.projectRoot, ".orbit", "board.db"));
+  const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id, slug FROM boards LIMIT 1").get();
   db.close();
 
@@ -452,7 +466,7 @@ test("SSE replay with Last-Event-ID does not crash the Orbit server", async () =
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
-  const db = new DatabaseSync(join(h.projectRoot, ".orbit", "board.db"));
+  const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id FROM boards LIMIT 1").get();
   const anchorEventId = "evt-anchor";
   db.prepare(
@@ -487,7 +501,7 @@ test("SSE streams events written by another Orbit process", async () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
-  const db = new DatabaseSync(join(h.projectRoot, ".orbit", "board.db"));
+  const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id FROM boards LIMIT 1").get();
   const port = await freePort();
   const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
@@ -521,7 +535,7 @@ test("SSE external event polling uses insertion order when timestamps tie", asyn
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
-  const db = new DatabaseSync(join(h.projectRoot, ".orbit", "board.db"));
+  const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id FROM boards LIMIT 1").get();
   const tiedTimestamp = "2026-01-01T00:00:00.000Z";
   db.prepare(

@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { localOwnerActor } from "./auth.js";
+import { DISPATCH_RUNS_DIR } from "./paths.js";
 import { getContextPack } from "./agent.js";
 import { openBoardDb, getBoardByRegistryId, getBoardByRepoPath, getBoardBySlug, touchBoardActive } from "./registry.js";
 import { stateByName, stateByRole, ticketById, ticketByNumber, unresolvedBlockers } from "./queries.js";
@@ -375,8 +376,8 @@ export function dispatchTicket(options) {
 
   const hermesExecutable = options.noSpawn ? null : preflightHermes(options, profile);
   const runId = `orbit-${ticket.number}-${profile}-${shortId()}`;
-  const runDir = join(repoRoot, ".orbit", "dispatch-runs", runId);
-  const serverUrl = "";
+  const runDir = join(DISPATCH_RUNS_DIR, boardRow.slug, runId);
+  const serverUrl = options.serverUrl || process.env.ORBIT_SERVER_URL || "";
   let branchName = options.branch || "";
   let worktreePath = "";
 

@@ -100,45 +100,58 @@ export async function createLocalOrbitClient(env = process.env) {
   const seed = await import("../core/seed.js");
   const util = await import("../core/util.js");
 
+  const provision = await import("../core/provision-repo-board.js");
   let sessionBoardRow = null;
   const setSessionBoard = (row) => { sessionBoardRow = row; if (row) registry.touchBoardActive(row.id); };
   const getSessionBoard = () => sessionBoardRow;
   const walkUp = (startDir, predicate) => { let dir = startDir; while (true) { if (predicate(dir)) return dir; const parent = dirname(dir); if (parent === dir) return null; dir = parent; } };
-  const createBoardAtRoot = (root) => {
-    const dbPath = join(root, ".orbit", "board.db");
-    mkdirSync(dirname(dbPath), { recursive: true });
-    const db = dbMod.openConnection(dbPath);
-    dbMod.createBoardSchema(db);
-    const seeded = seed.seedIfEmpty(db, root);
-    if (seeded) {
-      const t = util.now();
-      registry.insertBoard({ id: seeded.id, slug: seeded.slug, name: seeded.name, repo_path: root, db_path: dbPath, repo_url: seeded.repo_url || "", default_branch: seeded.default_branch || "main", last_active_at: t, created_at: t, updated_at: t });
-    }
-    const fresh = registry.getBoardByRepoPath(root);
-    if (fresh) { registry.syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
-  };
 
   const start = util.normalizePath(env.PROJECT_ROOT ? resolve(env.PROJECT_ROOT) : process.cwd());
-  const boardRoot = walkUp(start, (dir) => existsSync(join(dir, ".orbit", "board.db")));
-  if (boardRoot) {
-    const root = util.normalizePath(boardRoot);
-    const existing = registry.getBoardByRepoPath(root);
-    if (existing) setSessionBoard(existing);
-    else {
-      const dbPath = join(boardRoot, ".orbit", "board.db");
-      const db = dbMod.openConnection(dbPath);
-      dbMod.createBoardSchema(db);
-      const seeded = seed.seedIfEmpty(db, root);
-      if (seeded) {
-        const t = util.now();
-        registry.insertBoard({ id: seeded.id, slug: seeded.slug, name: seeded.name, repo_path: root, db_path: dbPath, repo_url: seeded.repo_url || "", default_branch: seeded.default_branch || "main", last_active_at: t, created_at: t, updated_at: t });
-      }
-      const fresh = registry.getBoardByRepoPath(root);
-      if (fresh) { registry.syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
+
+  // Find repo root (walk up for .git, fall back to start).
+  const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
+  const repoRoot = util.normalizePath(gitRoot || start);
+
+  // 1. Registry-first lookup: walk upward from start so we find boards regardless
+  //    of whether they were registered at the git root, at PROJECT_ROOT, or at any
+  //    ancestor (handles boards originally created from a subdirectory).
+  let foundByRegistry = false;
+  {
+    let dir = start;
+    while (true) {
+      const row = registry.getBoardByRepoPath(dir);
+      if (row && existsSync(row.db_path)) { setSessionBoard(row); foundByRegistry = true; break; }
+      const parent = util.normalizePath(dirname(dir));
+      if (parent === dir) break; // filesystem root
+      dir = parent;
     }
-  } else {
-    const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
-    createBoardAtRoot(util.normalizePath(gitRoot || start));
+  }
+  if (!foundByRegistry) {
+    // 2. Legacy fallback: walk up for an existing in-repo .orbit/board.db.
+    const boardRoot = walkUp(start, (dir) => existsSync(join(dir, ".orbit", "board.db")));
+    if (boardRoot) {
+      const root = util.normalizePath(boardRoot);
+      const existing = registry.getBoardByRepoPath(root);
+      if (existing) {
+        setSessionBoard(existing);
+      } else {
+        const dbPath = join(boardRoot, ".orbit", "board.db");
+        const db = dbMod.openConnection(dbPath);
+        dbMod.createBoardSchema(db);
+        const seeded = seed.seedIfEmpty(db, root);
+        if (seeded) {
+          const t = util.now();
+          registry.insertBoard({ id: seeded.id, slug: seeded.slug, name: seeded.name, repo_path: root, db_path: dbPath, repo_url: seeded.repo_url || "", default_branch: seeded.default_branch || "main", last_active_at: t, created_at: t, updated_at: t });
+        }
+        const fresh = registry.getBoardByRepoPath(root);
+        if (fresh) { registry.syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
+      }
+    } else {
+      // 3. No board found — auto-create one (goes to central DATA_DIR/boards/).
+      provision.provisionRepoBoard(repoRoot, { enableAi: true });
+      const fresh = registry.getBoardByRepoPath(repoRoot);
+      if (fresh) setSessionBoard(fresh);
+    }
   }
 
   const ctxFor = (row, actor) => {
@@ -153,7 +166,10 @@ export async function createLocalOrbitClient(env = process.env) {
 
   return {
     mode: "local",
-    sessionLabel: () => getSessionBoard()?.db_path || "(none)",
+    sessionLabel: () => {
+      const b = getSessionBoard();
+      return b ? `${b.repo_path}  db: ${b.db_path}` : "(none)";
+    },
     boardContext: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getBoardContext(ctx.board.id, ctx, { includeStruck: Boolean(args.include_struck) }); },
     boardList: () => ({ boards: registry.listBoards().map((row) => ({ id: row.id, slug: row.slug, name: row.name, repo_path: row.repo_path })) }),
     boardSetActive: (args = {}) => { const slug = String(args.slug || "").trim(); if (!slug) throw rpcError(-32602, "slug is required."); const row = registry.getBoardBySlug(slug); if (!row) throw rpcError(-32004, `Board slug not found: ${slug}`); setSessionBoard(row); return { ok: true, board_id: row.id, slug: row.slug, name: row.name, db_path: row.db_path }; },

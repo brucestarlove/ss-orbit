@@ -42,6 +42,7 @@ import {
   touchBoardActive
 } from "./core/registry.js";
 import { scheduleAutomaticBoardBackup } from "./core/backups.js";
+import { provisionRepoBoard } from "./core/provision-repo-board.js";
 import { seedIfEmpty } from "./core/seed.js";
 import { now, normalizePath } from "./core/util.js";
 
@@ -81,17 +82,34 @@ function walkUp(startDir, predicate) {
 
 /**
  * Initialise the MCP session board. Resolution order:
- *   1. Walk up from PROJECT_ROOT (cwd unless `orbit mcp --cwd` or env overrides it)
- *      for an existing `.orbit/board.db` — finds the board even when the agent
- *      is launched from a subdirectory or MCP config uses an absolute command.
- *   2. Walk up from PROJECT_ROOT for a `.git/` directory — auto-creates a board at
- *      the git root on first launch.
- *   3. Fall back to PROJECT_ROOT itself — supports non-git projects and global installs.
+ *   1. Walk up from PROJECT_ROOT for a .git root (or fall back to PROJECT_ROOT)
+ *      then check the registry by repo_path — finds centrally-stored boards.
+ *   2. Walk up for a legacy in-repo `.orbit/board.db` — backwards compatibility
+ *      for boards that were not yet migrated to central storage.
+ *   3. No board found — auto-create one at the repo root via provisionRepoBoard.
  */
 function initMcpSessionBoard() {
   const start = normalizePath(process.env.PROJECT_ROOT ? resolve(process.env.PROJECT_ROOT) : process.cwd());
 
-  // 1. Walk up for an existing board db.
+  // Find the repository root (git root or fall back to the start directory).
+  const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
+  const repoRoot = normalizePath(gitRoot || start);
+
+  // 1. Registry-first lookup: walk upward from start so we find boards regardless
+  //    of whether they were registered at the git root, at PROJECT_ROOT itself, or
+  //    at any ancestor (handles boards that were originally created from a subdir).
+  {
+    let dir = start;
+    while (true) {
+      const row = getBoardByRepoPath(dir);
+      if (row && existsSync(row.db_path)) { setSessionBoard(row); return; }
+      const parent = normalizePath(dirname(dir));
+      if (parent === dir) break; // filesystem root
+      dir = parent;
+    }
+  }
+
+  // 2. Legacy fallback: walk up for an existing in-repo .orbit/board.db.
   const boardRoot = walkUp(start, (dir) => existsSync(join(dir, ".orbit", "board.db")));
   if (boardRoot) {
     const root = normalizePath(boardRoot);
@@ -111,23 +129,15 @@ function initMcpSessionBoard() {
     return;
   }
 
-  // 2. Walk up for a git root; fall back to cwd for non-git projects.
-  const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
-  createBoardAtRoot(normalizePath(gitRoot || start));
+  // 3. No board found — auto-create one at the repo root.
+  createBoardAtRoot(repoRoot);
 }
 
 function createBoardAtRoot(root) {
-  const dbPath = join(root, ".orbit", "board.db");
-  mkdirSync(dirname(dbPath), { recursive: true });
-  const db = openConnection(dbPath);
-  createBoardSchema(db);
-  const seeded = seedIfEmpty(db, root);
-  if (seeded) {
-    const t = now();
-    insertBoard({ id: seeded.id, slug: seeded.slug, name: seeded.name, repo_path: root, db_path: dbPath, repo_url: seeded.repo_url || "", default_branch: seeded.default_branch || "main", last_active_at: t, created_at: t, updated_at: t });
-  }
+  // provisionRepoBoard uses computeNewBoardDbPath → stores db in central DATA_DIR/boards/.
+  provisionRepoBoard(root, { enableAi: true });
   const fresh = getBoardByRepoPath(root);
-  if (fresh) { syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
+  if (fresh) setSessionBoard(fresh);
 }
 
 initMcpSessionBoard();
@@ -715,5 +725,7 @@ process.once("SIGTERM", () => shutdown(0));
 process.once("exit", () => closeAllConnections());
 
 if (process.env.MAB_MCP_STDERR_LOG === "1") {
-  console.error(`Starscape Orbit MCP ready. Mode: ${orbitClient.mode}. Target: ${typeof orbitClient.sessionLabel === "function" ? orbitClient.sessionLabel() : orbitClient.sessionLabel}`);
+  const sb = getSessionBoard();
+  const target = sb ? `${sb.repo_path}  db: ${sb.db_path}` : "(none)";
+  console.error(`Starscape Orbit MCP ready. Mode: ${orbitClient.mode}. Target: ${target}`);
 }

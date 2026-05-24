@@ -4,6 +4,7 @@ import { removeOrbitAgentsSection } from "./agents-md.js";
 import { requireBoardAccess } from "./auth.js";
 import { backupBoardDatabase, backupRegistry, cancelAutomaticBoardBackup } from "./backups.js";
 import { closeConnection } from "./db.js";
+import { BOARDS_DIR, DATA_DIR, DISPATCH_RUNS_DIR } from "./paths.js";
 import { deleteBoard, listBoards, openBoardDb } from "./registry.js";
 import { httpError, normalizePath } from "./util.js";
 
@@ -13,17 +14,31 @@ function isInside(parent, child) {
 }
 
 function boardDbDeleteTargets(boardRow) {
-  const repoRoot = normalizePath(boardRow.repo_path || "");
   const dbPath = normalizePath(boardRow.db_path || "");
-  const orbitRoot = normalizePath(join(repoRoot, ".orbit"));
-  if (!repoRoot || !dbPath || !isInside(orbitRoot, dbPath) || basename(dbPath) !== "board.db") {
+  if (!dbPath || basename(dbPath) !== "board.db") {
     throw httpError(409, "unsafe_board_db_path");
   }
 
+  // Central storage: db lives inside DATA_DIR/boards/<slug>/board.db
+  const boardsDirNorm = normalizePath(BOARDS_DIR);
+  if (dbPath.startsWith(boardsDirNorm + "/")) {
+    const boardDir = dirname(dbPath);
+    // Safety: boardDir must be exactly one level below BOARDS_DIR
+    if (normalizePath(dirname(boardDir)) !== boardsDirNorm) {
+      throw httpError(409, "unsafe_board_db_path");
+    }
+    return [boardDir];
+  }
+
+  // Legacy in-repo storage: db lives inside <repo>/.orbit/
+  const repoRoot = normalizePath(boardRow.repo_path || "");
+  const orbitRoot = normalizePath(join(repoRoot, ".orbit"));
+  if (!repoRoot || !isInside(orbitRoot, dbPath)) {
+    throw httpError(409, "unsafe_board_db_path");
+  }
   const boardDir = dirname(dbPath);
   const boardsRoot = normalizePath(join(orbitRoot, "boards"));
-  const removeBoardDir = isInside(boardsRoot, boardDir);
-  if (removeBoardDir) return [boardDir];
+  if (isInside(boardsRoot, boardDir)) return [boardDir];
   return [dbPath, `${dbPath}-wal`, `${dbPath}-shm`, `${dbPath}-journal`];
 }
 
@@ -35,12 +50,11 @@ function isLastBoardForRepo(boardRow) {
 function repoArtifactTargets(boardRow) {
   const repoRoot = normalizePath(boardRow.repo_path || "");
   const dbPath = normalizePath(boardRow.db_path || "");
-  const orbitRoot = normalizePath(join(repoRoot, ".orbit"));
-  if (!repoRoot || !dbPath || !isInside(orbitRoot, dbPath) || basename(dbPath) !== "board.db") {
+  if (!repoRoot || !dbPath || basename(dbPath) !== "board.db") {
     throw httpError(409, "unsafe_board_db_path");
   }
   return {
-    orbitRoot,
+    orbitRoot: normalizePath(join(repoRoot, ".orbit")),
     skillMd: join(repoRoot, "SKILL-ORBIT.md")
   };
 }
@@ -88,10 +102,16 @@ export function deleteRegisteredBoard(boardRow, body, actor) {
   const deleteFiles = body?.delete_files !== false;
   const removeRepoArtifacts = deleteFiles && isLastBoardForRepo(boardRow);
   const repoArtifacts = removeRepoArtifacts ? repoArtifactTargets(boardRow) : null;
+  // Always delete the board's own db files/directory; when it is the last board
+  // for a repo also sweep in-repo artifacts (.orbit/, SKILL-ORBIT.md, AGENTS.md).
+  // Also remove the board's central dispatch-runs directory.
+  const dispatchRunsDir = join(DISPATCH_RUNS_DIR, boardRow.slug);
   const targets = deleteFiles
-    ? removeRepoArtifacts
-      ? [repoArtifacts.orbitRoot]
-      : boardDbDeleteTargets(boardRow)
+    ? [
+        ...boardDbDeleteTargets(boardRow),
+        ...(repoArtifacts ? [repoArtifacts.orbitRoot] : []),
+        ...(existsSync(dispatchRunsDir) ? [dispatchRunsDir] : [])
+      ]
     : [];
   const artifactResults = [];
   cancelAutomaticBoardBackup(boardRow.id);
