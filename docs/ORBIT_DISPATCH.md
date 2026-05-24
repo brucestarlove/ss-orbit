@@ -1,62 +1,87 @@
 # Orbit Dispatch
 
-`orbit dispatch` is the first-class Orbit-to-Hermes handoff command. It turns an Orbit ticket into a bounded agent run without relying on a temporary prompt file as the source of truth.
+`orbit dispatch` is the local Orbit-to-Hermes handoff command. It turns a local Orbit ticket into a bounded agent run without relying on a temporary prompt file as the source of truth.
 
 The design intent is simple:
 
 - Git remains canonical for code.
 - Orbit remains canonical for planning, handoff, run records, and implementation notes.
-- The ticket becomes the shared communication surface between the human, orchestrator, and the dispatched agent.
+- The ticket becomes the shared communication surface between the human, orchestrator, and dispatched agent.
+
+## Current remote-board contract
+
+`orbit dispatch` is intentionally local-board only right now. It resolves boards through the local Orbit registry and mutates the local SQLite board file.
+
+Because of that, `--server-url` and `--remote` are refused before side effects. They do not silently target a hosted board.
+
+For hosted/remote boards, use remote MCP/manual orchestration or run `orbit dispatch` on the board host without `--server-url`/`--remote`.
 
 ## Basic use
 
-From the code repository you are working in, target the Orbit board explicitly. For hosted boards, pass the board/server URL so the handoff points back to the right cockpit:
+From the code repository you are working in, target the local Orbit board explicitly:
 
 ```bash
 orbit dispatch \
-  --board ss-starlog \
-  --ticket 4 \
-  --profile agent \
-  --worktree \
-  --server-url http://localhost:3337
+  --board my-app \
+  --ticket 12 \
+  --profile nova \
+  --worktree
 ```
 
 Common variants:
 
 ```bash
-# Prepare the handoff, card updates, run record, branch, and worktree without starting Hermes.
-orbit dispatch --board ss-starlog --ticket 4 --profile agent --worktree --no-spawn
+# Preview only. No files, worktrees, ticket fields, comments, or agents change.
+orbit dispatch --board my-app --ticket 12 --dry-run
+
+# Prepare the handoff/comment/worktree, but do not spawn Hermes and do not move the card to In Progress.
+orbit dispatch --board my-app --ticket 12 --profile nova --worktree --no-spawn
 
 # Attach the Hermes child process to the current terminal instead of detaching it.
-orbit dispatch --board ss-starlog --ticket 4 --profile agent --worktree --foreground
+orbit dispatch --board my-app --ticket 12 --profile nova --worktree --foreground
 
 # Use an explicit branch/worktree name.
-orbit dispatch --board ss-starlog --ticket 4 --profile agent --worktree \
-  --branch orbit/ss-starlog-4-search \
-  --worktree-path .worktrees/ss-starlog-4-search
+orbit dispatch --board my-app --ticket 12 --profile nova --worktree \
+  --branch orbit/my-app-12-search \
+  --worktree-path .worktrees/my-app-12-search
 ```
+
+## Preflight order
+
+Before any filesystem writes, worktree creation, ticket mutation, or agent spawn, dispatch now:
+
+1. Refuses `--server-url` / `--remote`.
+2. Resolves the local board from `--board` or from `--cwd` / the current repo.
+3. Resolves the ticket from `--ticket` by number or id.
+4. Refuses archived tickets.
+5. Refuses blocked tickets unless `--force` is passed.
+6. For spawn mode, checks that the Hermes binary exists and the requested profile is plausible.
+7. Handles `--dry-run` as a true no-write preview.
+
+Only after those checks does dispatch create run artifacts/worktrees, write the handoff/comment, move the ticket, or spawn Hermes.
 
 ## What dispatch does
 
-1. Resolves the board from `--board` or from `--cwd` / the current repo.
-2. Resolves the ticket from `--ticket` by number or id.
-3. Refuses archived or blocked tickets unless `--force` is passed.
-4. Builds a run id such as `orbit-4-agent-abc123def0`.
-5. Creates `.orbit/dispatch-runs/<run-id>/` for run metadata and policy wrappers.
-6. Creates and preserves a git worktree/branch when `--worktree` is used.
-7. Generates a full agent handoff and writes the canonical copy to the ticket's **AI Written-Plan** (`ai_plan`) field.
-8. Moves the ticket to **In Progress**.
-9. Starts Hermes unless `--no-spawn` is passed.
-10. Comments a run record back onto the ticket.
+In normal spawn mode:
 
-The run record includes profile, policy, ticket, branch, worktree, policy-bin path, child process id, and command. This makes the card the visible cockpit for the run.
+1. Builds a run id such as `orbit-12-nova-abc123def0`.
+2. Creates `.orbit/dispatch-runs/<run-id>/` for run metadata and policy wrappers.
+3. Creates and preserves a git worktree/branch when `--worktree` is used.
+4. Generates a full agent handoff and writes the canonical copy to the ticket's **AI Written-Plan** (`ai_plan`) field.
+5. Moves the ticket to **In Progress**.
+6. Starts Hermes.
+7. Comments a run record back onto the ticket.
+
+In `--no-spawn` mode, dispatch writes the handoff and run-record comment but leaves the ticket in its current lane.
+
+The run record includes profile, policy, ticket, branch, worktree, policy-bin path, child process id, command, and mode. This makes the card the visible cockpit for the run.
 
 ## The AI Written-Plan handoff
 
 Dispatch stores the generated handoff in the ticket's AI Written-Plan field. It includes:
 
 - mission and ticket metadata
-- repository root, worktree, branch, run id, and optional Orbit server URL
+- repository root, worktree, branch, and run id
 - required reading order: `AGENTS.md`, `SKILL-ORBIT.md`, then the handoff
 - ticket description
 - board-level agent instructions and notes
@@ -136,10 +161,8 @@ Then from a project repo with an Orbit board:
 
 ```bash
 orbit init            # if the repo does not have a board yet
-orbit dispatch --ticket 12 --profile agent --worktree --no-spawn
+orbit dispatch --board my-app --ticket 12 --profile nova --worktree --no-spawn
 ```
-
-If your board is served elsewhere, pass `--server-url` so the generated handoff contains the cockpit URL.
 
 For support, bug reports, and reproducibility notes, human users can print the installed CLI version with either form:
 
@@ -150,8 +173,9 @@ orbit --version
 
 ## Operator notes for orchestrators
 
-- Prefer `orbit dispatch` over writing a temporary handoff prompt file.
-- Use `--no-spawn` when you want to inspect the generated handoff before starting the agent.
+- Prefer `orbit dispatch` over writing a temporary handoff prompt file when targeting a local board.
+- Use `--dry-run` when you want proof of what would happen without any side effects.
+- Use `--no-spawn` when you want to inspect the generated handoff/worktree/comment before starting an agent.
 - Use `--worktree` for code edits so the human can test before cleanup.
 - Treat the ticket fields as durable surfaces:
   - AI Written-Plan: generated handoff

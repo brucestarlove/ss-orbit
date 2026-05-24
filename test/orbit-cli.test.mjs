@@ -32,6 +32,14 @@ function runOrbit(args, harness, options = {}) {
   return result.stdout;
 }
 
+function runOrbitResult(args, harness, options = {}) {
+  return spawnSync(process.execPath, [orbitCli, ...args], {
+    cwd: options.cwd || repoRoot,
+    env: { ...process.env, DATA_DIR: harness.dataDir, ...(options.env || {}) },
+    encoding: "utf8"
+  });
+}
+
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -44,6 +52,50 @@ function commandArgRegex(value) {
 function openBoard(projectRoot) {
   const db = new DatabaseSync(join(projectRoot, ".orbit", "board.db"));
   return db;
+}
+
+function createCliTicket(projectRoot, title = "Dispatch me", stateRole = null) {
+  const db = openBoard(projectRoot);
+  const board = db.prepare("SELECT * FROM boards LIMIT 1").get();
+  const state = stateRole
+    ? db.prepare("SELECT * FROM states WHERE board_id = ? AND role = ?").get(board.id, stateRole)
+    : db.prepare("SELECT * FROM states WHERE board_id = ? AND is_default = 1").get(board.id);
+  const time = new Date().toISOString();
+  const number = db.prepare("SELECT COALESCE(MAX(number), 0) + 1 AS number FROM tickets WHERE board_id = ?").get(board.id).number;
+  const ticketId = `ticket-${number}-${Math.random().toString(16).slice(2)}`;
+  db.prepare(
+    `INSERT INTO tickets (id, board_id, number, title, description, type, ai_plan, implementation_summary,
+                          implementation_updates, state_id, priority, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, '', 'task', '', '', '', ?, 0, 'test', ?, ?)`
+  ).run(ticketId, board.id, number, title, state.id, time, time);
+  db.close();
+  return { board, id: ticketId, number, title };
+}
+
+function readCliTicket(projectRoot, ticketId) {
+  const db = openBoard(projectRoot);
+  const ticket = db
+    .prepare(
+      `SELECT t.*, s.name AS state_name, s.role AS state_role
+       FROM tickets t JOIN states s ON s.id = t.state_id
+       WHERE t.id = ?`
+    )
+    .get(ticketId);
+  const comments = db.prepare("SELECT * FROM comments WHERE ticket_id = ? ORDER BY created_at").all(ticketId);
+  db.close();
+  return { ticket, comments };
+}
+
+function createFakeHermesBin(root, { exitCode = 0 } = {}) {
+  const binDir = join(root, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const bin = join(binDir, "hermes");
+  writeFileSync(
+    bin,
+    `#!/usr/bin/env node\nconst fs = require('fs');\nfs.appendFileSync(${JSON.stringify(join(root, "hermes.log"))}, process.argv.slice(2).join(' ') + '\\n');\nprocess.exit(${exitCode});\n`,
+    { mode: 0o755 }
+  );
+  return bin;
 }
 
 function runGit(args, cwd) {
@@ -99,7 +151,7 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
               FROM tickets t JOIN states s ON s.id = t.state_id
               WHERE t.number = 12`)
     .get();
-  assert.equal(ticket.state_name, "In Progress");
+  assert.equal(ticket.state_name, "AI Ready");
   assert.match(ticket.ai_plan, /# Orbit Agent Handoff/);
   assert.match(ticket.ai_plan, /Autonomous policy: nova-safe/);
   assert.match(ticket.ai_plan, /AI Implementation Summary/);
@@ -110,6 +162,8 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.ok(comment);
   assert.match(comment.body, /run_id: orbit-12-nova-/);
   assert.match(comment.body, /pid: not spawned/);
+  assert.match(comment.body, /mode: prepare-only/);
+  assert.match(comment.body, /ticket state left unchanged/);
   assert.match(comment.body, /policy_bin:/);
 
   const worktreeLine = stdout.split("\n").find((line) => line.startsWith("Worktree: "));
@@ -128,6 +182,128 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.equal(npmInstall.status, 126);
   assert.match(npmInstall.stderr, /allowed package commands: test/);
   db.close();
+});
+
+test("orbit dispatch --help prints usage without an unknown argument warning", () => {
+  const h = makeHarness();
+  const result = runOrbitResult(["dispatch", "--help"], h);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /orbit dispatch \[options\]/);
+  assert.doesNotMatch(result.stderr + result.stdout, /Unknown argument/);
+});
+
+test("orbit dispatch refuses remote server-url before creating local artifacts", () => {
+  const h = makeHarness();
+  const beforeRootEntries = readdirSync(h.root);
+  const result = runOrbitResult(
+    ["dispatch", "--board", "missing", "--ticket", "1", "--server-url", "https://orbit.example.test"],
+    h
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Remote dispatch is not supported/i);
+  assert.deepEqual(readdirSync(h.root), beforeRootEntries);
+});
+
+test("orbit dispatch validates board and ticket before writes", () => {
+  const h = makeHarness();
+  const missingBoard = runOrbitResult(["dispatch", "--board", "nope", "--ticket", "1"], h);
+
+  assert.notEqual(missingBoard.status, 0);
+  assert.match(missingBoard.stderr, /Board not found: nope/);
+
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const ticket = createCliTicket(h.projectRoot);
+  const missingTicket = runOrbitResult(["dispatch", "--board", ticket.board.slug, "--ticket", "99", "--no-spawn"], h);
+
+  assert.notEqual(missingTicket.status, 0);
+  assert.match(missingTicket.stderr, /Ticket not found/);
+  const db = openBoard(h.projectRoot);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM comments").get().count, 0);
+  assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
+  db.close();
+});
+
+test("orbit dispatch refuses blocked tickets before writes", () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const blocked = createCliTicket(h.projectRoot, "Blocked dispatch target");
+  const blocker = createCliTicket(h.projectRoot, "Blocking ticket");
+  const db = openBoard(h.projectRoot);
+  db.prepare("INSERT INTO relations (id, source_ticket_id, target_ticket_id, type, created_at) VALUES (?, ?, ?, 'blocked_by', ?)")
+    .run("relation-blocks-dispatch", blocked.id, blocker.id, new Date().toISOString());
+  db.close();
+
+  const result = runOrbitResult(["dispatch", "--board", blocked.board.slug, "--ticket", String(blocked.number), "--no-spawn"], h);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Ticket #1 is blocked/);
+  const after = readCliTicket(h.projectRoot, blocked.id);
+  assert.equal(after.comments.length, 0);
+  assert.equal(after.ticket.ai_plan, "");
+  assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
+});
+
+test("orbit dispatch preflights missing Hermes before ticket mutation", () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const ticket = createCliTicket(h.projectRoot);
+
+  const result = runOrbitResult(
+    ["dispatch", "--board", ticket.board.slug, "--ticket", String(ticket.number), "--hermes-bin", join(h.root, "missing-hermes")],
+    h
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Hermes binary not found/);
+  assert.match(result.stderr, /--no-spawn/);
+  const after = readCliTicket(h.projectRoot, ticket.id);
+  assert.equal(after.ticket.state_name, "Todo");
+  assert.equal(after.ticket.ai_plan, "");
+  assert.equal(after.comments.length, 0);
+  assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
+});
+
+test("orbit dispatch --dry-run previews without mutating the ticket", () => {
+  const h = makeHarness();
+  initGitRepo(h.projectRoot);
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const ticket = createCliTicket(h.projectRoot);
+
+  const result = runOrbitResult(["dispatch", "--board", ticket.board.slug, "--ticket", String(ticket.number), "--worktree", "--dry-run"], h);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Dry run: would dispatch ticket/);
+  assert.match(result.stdout, /No files, worktrees, ticket fields, comments, or agents were changed/);
+  const after = readCliTicket(h.projectRoot, ticket.id);
+  assert.equal(after.ticket.ai_plan, "");
+  assert.equal(after.comments.length, 0);
+  assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
+  assert.equal(existsSync(join(h.projectRoot, ".worktrees")), false);
+});
+
+test("orbit dispatch with a valid Hermes preflight writes run record and moves In Progress", () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const ticket = createCliTicket(h.projectRoot);
+  const hermes = createFakeHermesBin(h.root);
+
+  const result = runOrbitResult(
+    ["dispatch", "--board", ticket.board.slug, "--ticket", String(ticket.number), "--profile", "nova", "--hermes-bin", hermes],
+    h
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Dispatch started:/);
+  const after = readCliTicket(h.projectRoot, ticket.id);
+  assert.equal(after.ticket.state_name, "In Progress");
+  assert.match(after.ticket.ai_plan, /# Orbit Agent Handoff/);
+  assert.equal(after.comments.length, 1);
+  assert.match(after.comments[0].body, /mode: spawned/);
+  assert.match(after.comments[0].body, /pid: \d+/);
+  const hermesLog = readFileSync(join(h.root, "hermes.log"), "utf8");
+  assert.match(hermesLog, /-p nova --help/);
 });
 
 test("orbit init creates AGENTS.md with Orbit instructions when missing", () => {

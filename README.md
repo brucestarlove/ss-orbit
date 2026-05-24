@@ -86,22 +86,19 @@ Orbit ships with everything an agent needs to claim work, read tickets, and writ
 
 If you initialized with `--example`, ticket #12 (`Try Orbit MCP on this ticket`) is a good first exercise once MCP is connected.
 
-### Dispatch a Hermes agent from Orbit
+### Dispatch a local Hermes run
 
-For a first-class handoff to a named Hermes profile, use `orbit dispatch` instead of writing an ad-hoc prompt file:
+For a first-class handoff to a named Hermes profile on a local board, use `orbit dispatch` instead of writing an ad-hoc prompt file:
 
 ```bash
-orbit dispatch \
-  --board ss-starlog \
-  --ticket 4 \
-  --profile nova \
-  --worktree \
-  --server-url http://localhost:3337
+orbit dispatch --board my-app --ticket 12 --profile nova --worktree
+orbit dispatch --board my-app --ticket 12 --dry-run    # preview only; no writes or spawn
+orbit dispatch --board my-app --ticket 12 --no-spawn   # prepare handoff/comment; leave lane unchanged
 ```
 
-Dispatch writes the generated handoff into the ticket's **AI Written-Plan**, moves the ticket to **In Progress**, optionally preserves a git worktree/branch for review, starts Hermes unless `--no-spawn` is used, and comments a run record back onto the card. The default `nova-safe` policy allows local inspection, edits, tests, and commits while blocking Docker, pushes, deploys, package installs, destructive git commands, and common network/cloud escape hatches.
+Dispatch validates the local board, ticket, blockers, and Hermes availability before mutating a ticket. Normal spawn mode writes the generated handoff into the ticket's **AI Written-Plan**, moves the ticket to **In Progress**, optionally preserves a git worktree/branch for review, starts Hermes, and comments a run record back onto the card. `--no-spawn` writes the handoff/comment but does not move the ticket to In Progress. The default `nova-safe` policy allows local inspection, edits, tests, and commits while blocking Docker, pushes, deploys, package installs, destructive git commands, and common network/cloud escape hatches.
 
-Full operator/user guide: [docs/ORBIT_DISPATCH.md](docs/ORBIT_DISPATCH.md).
+`orbit dispatch` is intentionally not a hosted-board client yet: `--server-url` and `--remote` are refused before side effects. Use remote MCP tools for hosted/remote boards, or run dispatch on the board host. Full operator/user guide: [docs/ORBIT_DISPATCH.md](docs/ORBIT_DISPATCH.md).
 
 ## Vocabulary
 

@@ -34,20 +34,22 @@ Options (serve / docker):
   --port <n>            HTTP port (default: 3337, or $PORT)
 
 Options (dispatch):
-  --board <slug-or-id>  Board to dispatch against (default: board for --cwd)
+  --board <slug-or-id>  Local board to dispatch against (default: board for --cwd)
   --ticket <number-id>  Ticket number or id to dispatch
   --profile <name>      Hermes profile to run (default: nova)
   --policy <name>       Autonomous policy wrappers to apply (default: nova-safe; use none to disable)
-  --server-url <url>    Orbit server URL to include in the handoff
+  --server-url <url>    Refused for now; dispatch is local-board only
+  --remote              Refused for now; use remote MCP/manual orchestration for hosted boards
   --worktree            Create and preserve a git worktree for review/testing
   --worktree-path <dir> Worktree path when --worktree is used
   --branch <name>       Branch name for the preserved worktree
   --hermes-bin <cmd>    Hermes executable (default: hermes)
-  --no-spawn            Prepare card/worktree/run record but do not start Hermes
+  --no-spawn            Prepare card/worktree/run record but do not start Hermes or move In Progress
   --no-yolo             Do not pass --yolo to Hermes (default dispatch passes --yolo)
   --foreground          Attach spawned Hermes process to this terminal
   --keep-handoff-file   Keep duplicate handoff file under .orbit/dispatch-runs
   --force               Dispatch even when blockers exist
+  --dry-run             Preview only; no files, worktrees, ticket fields, comments, or agents change
 
 Options (docker only):
   --image <name>        Docker image tag (default: starscape-orbit:local)
@@ -184,7 +186,9 @@ function parseArgs(argv) {
     yolo: true,
     keepHandoffFile: false,
     force: false,
-    foreground: false
+    foreground: false,
+    remote: false,
+    help: false
   };
   const rest = argv.slice(2);
   if (rest.length === 0 || rest[0] === "-h" || rest[0] === "--help") {
@@ -193,6 +197,11 @@ function parseArgs(argv) {
   }
   if (rest[0] === "-v" || rest[0] === "--version") {
     args.command = "version";
+    return args;
+  }
+  if (rest[0] === "dispatch" && (rest[1] === "-h" || rest[1] === "--help")) {
+    args.command = "dispatch";
+    args.help = true;
     return args;
   }
   args.command = rest[0];
@@ -231,6 +240,8 @@ function parseArgs(argv) {
       args.serverUrl = rest[++i];
     } else if (a.startsWith("--server-url=")) {
       args.serverUrl = a.slice("--server-url=".length);
+    } else if (a === "--remote") {
+      args.remote = true;
     } else if (a === "--worktree") {
       args.worktree = true;
     } else if (a === "--worktree-path" && rest[i + 1]) {
@@ -510,9 +521,21 @@ async function runMcp(options) {
 }
 
 async function runDispatch(options) {
+  if (options.help) {
+    printUsage();
+    return;
+  }
   process.env.PROJECT_ROOT = resolve(options.cwd);
   const { dispatchTicket } = await import("../core/dispatch.js");
   const result = dispatchTicket(options);
+  if (result.dry_run) {
+    console.log(`Dry run: would dispatch ticket #${result.ticket.number} ${result.ticket.title}`);
+    console.log(`Board: ${result.board.slug}`);
+    console.log(`Profile: ${result.profile}`);
+    console.log(`Mode: ${result.no_spawn ? "prepare-only" : "spawn"}`);
+    console.log("No files, worktrees, ticket fields, comments, or agents were changed.");
+    return;
+  }
   console.log(`Dispatch ${result.spawned ? "started" : "prepared"}: ${result.run_id}`);
   console.log(`Board: ${result.board.slug}`);
   console.log(`Ticket: #${result.ticket.number} ${result.ticket.title}`);
@@ -523,6 +546,7 @@ async function runDispatch(options) {
   if (result.pid) console.log(`PID: ${result.pid}`);
   console.log("AI Written-Plan updated with the generated handoff.");
   console.log("Run record comment added to the ticket.");
+  if (result.no_spawn) console.log("No agent spawned; ticket state left unchanged.");
 }
 
 async function main() {

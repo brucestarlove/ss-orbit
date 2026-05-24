@@ -5,6 +5,7 @@ import { localOwnerActor } from "./auth.js";
 import { getContextPack } from "./agent.js";
 import { openBoardDb, getBoardByRegistryId, getBoardByRepoPath, getBoardBySlug, touchBoardActive } from "./registry.js";
 import { stateByName, stateByRole, ticketById, ticketByNumber, unresolvedBlockers } from "./queries.js";
+import { createRegistrySchema } from "./db.js";
 import { createComment, updateTicket } from "./tickets.js";
 import { id, normalizePath, slugify } from "./util.js";
 
@@ -41,6 +42,45 @@ function resolveTicket(db, boardId, ticketRef) {
   if (!ticket || ticket.board_id !== boardId) throw new Error(`Ticket not found on board: ${ticketRef}`);
   if (ticket.archived_at) throw new Error(`Ticket #${ticket.number} is archived and cannot be dispatched.`);
   return ticket;
+}
+
+function remoteDispatchError(options) {
+  if (!options.remote && !options.serverUrl) return null;
+  const target = options.serverUrl ? ` (${options.serverUrl})` : "";
+  return [
+    `Remote dispatch is not supported by the local CLI path yet${target}.`,
+    "`orbit dispatch` currently mutates a board through the local registry and SQLite board file only.",
+    "Run it on the board host without --server-url/--remote, or use remote MCP/manual orchestration for hosted boards."
+  ].join("\n");
+}
+
+function resolveExecutable(command) {
+  const executable = command || "hermes";
+  if (executable.includes("/") && existsSync(executable)) return executable;
+  const result = spawnSync("sh", ["-lc", `command -v ${q(executable)}`], { encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : "";
+}
+
+function preflightHermes(options, profile) {
+  const hermes = resolveExecutable(options.hermesBin || "hermes");
+  if (!hermes) {
+    throw new Error(
+      `Hermes binary not found: ${options.hermesBin || "hermes"}. Install Hermes or pass --hermes-bin <path>. ` +
+        "For prepare-only handoff without spawning, rerun with --no-spawn."
+    );
+  }
+  const result = spawnSync(hermes, ["-p", profile, "--help"], { encoding: "utf8" });
+  if (result.error) {
+    throw new Error(`Hermes preflight failed for profile ${profile}: ${result.error.message}. Try --no-spawn for prepare-only.`);
+  }
+  if (result.status !== 0) {
+    const detail = (result.stderr || result.stdout || "").trim();
+    throw new Error(
+      `Hermes preflight failed for profile ${profile}${detail ? `: ${detail}` : ""}. ` +
+        "Check the profile name or rerun with --no-spawn for prepare-only."
+    );
+  }
+  return hermes;
 }
 
 function resolveRepoRoot(options, boardRow) {
@@ -291,13 +331,16 @@ function ensureWorktree({ repoRoot, boardSlug, ticketNumber, profile, branchName
 }
 
 export function dispatchTicket(options) {
+  const remoteError = remoteDispatchError(options);
+  if (remoteError) throw new Error(remoteError);
+
   const profile = options.profile || "nova";
   const policyName = options.policy === undefined ? DEFAULT_POLICY : options.policy;
+  createRegistrySchema();
   const actor = localOwnerActor();
   const boardRow = resolveBoard(options);
   const db = openBoardDb(boardRow);
   const ctx = { actor, board: boardRow, db };
-  touchBoardActive(boardRow.id);
 
   const ticket = resolveTicket(db, boardRow.id, options.ticket);
   const blockers = unresolvedBlockers(db, ticket.id);
@@ -306,9 +349,34 @@ export function dispatchTicket(options) {
   }
 
   const repoRoot = resolveRepoRoot(options, boardRow);
+  const inProgress = stateByRole(db, boardRow.id, "in_progress") || stateByName(db, boardRow.id, "In Progress");
+  if (!options.noSpawn && !options.dryRun && !inProgress) throw new Error("Board is missing an In Progress state.");
+
+  if (options.dryRun) {
+    return {
+      dry_run: true,
+      no_spawn: Boolean(options.noSpawn),
+      run_id: null,
+      board: { id: boardRow.id, slug: boardRow.slug, name: boardRow.name },
+      ticket: { id: ticket.id, number: ticket.number, title: ticket.title },
+      profile,
+      policy: policyName || "none",
+      repo_root: repoRoot,
+      worktree_path: repoRoot,
+      branch: options.branch || "",
+      handoff_path: null,
+      policy_bin: null,
+      pid: null,
+      spawned: false,
+      prompt: "",
+      run_record: ""
+    };
+  }
+
+  const hermesExecutable = options.noSpawn ? null : preflightHermes(options, profile);
   const runId = `orbit-${ticket.number}-${profile}-${shortId()}`;
   const runDir = join(repoRoot, ".orbit", "dispatch-runs", runId);
-  const serverUrl = options.serverUrl || process.env.ORBIT_SERVER_URL || "";
+  const serverUrl = "";
   let branchName = options.branch || "";
   let worktreePath = "";
 
@@ -343,10 +411,10 @@ export function dispatchTicket(options) {
   const handoffPath = join(runDir, "handoff.md");
   writeFileSync(handoffPath, handoff, "utf8");
 
-  const inProgress = stateByRole(db, boardRow.id, "in_progress") || stateByName(db, boardRow.id, "In Progress");
-  if (!inProgress) throw new Error("Board is missing an In Progress state.");
-
-  if (!options.dryRun) {
+  touchBoardActive(boardRow.id);
+  if (options.noSpawn) {
+    updateTicket(ticket.id, { ai_plan: handoff }, ctx);
+  } else {
     updateTicket(ticket.id, { ai_plan: handoff, state_id: inProgress.id }, ctx);
   }
 
@@ -363,13 +431,12 @@ export function dispatchTicket(options) {
     ORBIT_TICKET_ID: ticket.id,
     ORBIT_HANDOFF_PATH: handoffPath,
     ORBIT_AUTONOMOUS_POLICY: policyName || "none",
-    ...(serverUrl ? { ORBIT_SERVER_URL: serverUrl } : {}),
     ...(policyBin ? { PATH: `${policyBin}:${process.env.PATH || ""}` } : {})
   };
 
   let child = null;
-  if (!options.dryRun && !options.noSpawn) {
-    child = spawn(options.hermesBin || "hermes", hermesArgs, {
+  if (!options.noSpawn) {
+    child = spawn(hermesExecutable, hermesArgs, {
       cwd,
       env,
       detached: !options.foreground,
@@ -389,27 +456,21 @@ export function dispatchTicket(options) {
     `- handoff: AI Written-Plan field${options.keepHandoffFile ? ` and ${handoffPath}` : ""}`,
     `- policy_bin: ${policyBin || "none"}`,
     `- pid: ${child?.pid || "not spawned"}`,
-    `- command: hermes ${hermesArgs.map((arg) => (arg.includes(" ") ? q(arg) : arg)).join(" ")}`
+    `- command: ${options.hermesBin || "hermes"} ${hermesArgs.map((arg) => (arg.includes(" ") ? q(arg) : arg)).join(" ")}`,
+    options.noSpawn ? "- mode: prepare-only; no agent spawned and ticket state left unchanged" : "- mode: spawned; ticket moved to In Progress"
   ].join("\n");
 
-  if (!options.dryRun) {
-    createComment(ticket.id, { author: "orbit dispatch", kind: "agent_note", body: runRecord }, ctx);
-  }
+  createComment(ticket.id, { author: "orbit dispatch", kind: "agent_note", body: runRecord }, ctx);
 
-  if (!options.keepHandoffFile && !options.dryRun) {
+  if (!options.keepHandoffFile) {
     // The canonical copy is the ticket's AI Written-Plan. Keep run metadata and
-    // policy wrappers, but remove the duplicate handoff file when the agent is
-    // expected to read from Orbit.
-    try {
-      // Do not remove when no server URL was supplied; local-only agents may need
-      // ORBIT_HANDOFF_PATH as a bootstrap hint before they can read the card.
-      if (serverUrl) writeFileSync(handoffPath, "Handoff moved to ticket AI Written-Plan.\n", "utf8");
-    } catch {
-      // Non-critical cleanup.
-    }
+    // policy wrappers. Local-only agents may still use ORBIT_HANDOFF_PATH as a
+    // bootstrap hint before they read the card, so leave the file in place.
   }
 
   return {
+    dry_run: false,
+    no_spawn: Boolean(options.noSpawn),
     run_id: runId,
     board: { id: boardRow.id, slug: boardRow.slug, name: boardRow.name },
     ticket: { id: ticket.id, number: ticket.number, title: ticket.title },
