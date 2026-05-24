@@ -138,7 +138,7 @@ function wireTicketDetailEditors(ticket) {
     });
   }
 
-  drawerInner.querySelectorAll(".meta-select[data-meta-field]").forEach((select) => {
+  drawer.querySelectorAll(".meta-select[data-meta-field]").forEach((select) => {
     select.addEventListener("change", async () => {
       const field = select.dataset.metaField;
       if (field === "type") {
@@ -261,14 +261,19 @@ export async function renderDetail() {
   const datalistOptions = catalogNames.map((name) => `<option value="${escapeHtml(name)}"></option>`).join("");
 
   const detailCanonicalType = canonicalTicketType(ticket.type);
-  const detailTypeText = typeLabel(ticket.type).toUpperCase();
+  const priorityKey = priorityKeyFor(ticket.priority);
+  const currentState = states.find((s) => s.id === ticket.state_id);
+  const stateClass = String(currentState?.role || currentState?.name || "state")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "state";
   const detailSubtitleHtml = `
     <span class="ticket-number">${escapeHtml(ticketLabel(ticket))}</span>
-    <div class="card-type-id type-pill-${escapeHtml(detailCanonicalType)}">
-      ${renderTypeIcon(ticket.type)}
-      <span class="card-type-label">${escapeHtml(detailTypeText)}</span>
+    <div class="detail-meta-badge-row" aria-label="Ticket metadata controls">
+      <select class="detail-meta-badge detail-state-badge state-pill-${escapeHtml(stateClass)} meta-select" data-meta-field="state_id" aria-label="Ticket state">${stateOptions}</select>
+      <select class="detail-meta-badge detail-type-badge type-pill-${escapeHtml(detailCanonicalType)} meta-select" data-meta-field="type" aria-label="Ticket type">${typeOptions}</select>
+      <select class="detail-meta-badge detail-priority-badge priority-pill priority-pill-${escapeHtml(priorityKey)} meta-select" data-meta-field="priority" aria-label="Ticket priority">${priorityOptions}</select>
     </div>
-    ${renderPriorityPill(ticket.priority)}
   `;
 
   renderDrawerShell({
@@ -286,18 +291,6 @@ export async function renderDetail() {
       <p class="detail-updated" title="Last saved change">Updated ${escapeHtml(formatDateDetail(ticket.updated_at))}</p>
       <div class="description markdown-body editable-field ${ticket.description ? "" : "is-placeholder"}" data-edit-field="description" tabindex="0" title="Click to edit">${ticket.description ? renderMarkdown(ticket.description) : escapeHtml("No description yet.")}</div>
       <dl class="ticket-meta" id="ticketMetaGrid" data-ticket-id="${escapeHtml(ticket.id)}">
-        <div class="ticket-meta-row">
-          <dt>State</dt>
-          <dd><select class="meta-select meta-inline" data-meta-field="state_id" aria-label="Lane / state">${stateOptions}</select></dd>
-        </div>
-        <div class="ticket-meta-row">
-          <dt>Type</dt>
-          <dd><select class="meta-select meta-inline" data-meta-field="type" aria-label="Ticket type">${typeOptions}</select></dd>
-        </div>
-        <div class="ticket-meta-row">
-          <dt>Priority</dt>
-          <dd><select class="meta-select meta-inline" data-meta-field="priority" aria-label="Priority">${priorityOptions}</select></dd>
-        </div>
         <div class="ticket-meta-row ticket-meta-row--stack">
           <dt>Labels</dt>
           <dd>

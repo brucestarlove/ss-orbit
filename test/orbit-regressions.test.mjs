@@ -53,6 +53,25 @@ test("ticket descriptions use markdown rendering in the board and detail pane", 
   assert.doesNotMatch(detailSource, /escapeHtml\(ticket\.description \|\| "No description yet\."\)/);
 });
 
+test("ticket detail moves state, type, and priority controls into header badge dropdowns", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.match(detailSource, /detail-meta-badge-row/);
+  assert.match(detailSource, /class=\"detail-meta-badge detail-state-badge/);
+  assert.match(detailSource, /data-meta-field=\"state_id\"/);
+  assert.match(detailSource, /class=\"detail-meta-badge detail-type-badge/);
+  assert.match(detailSource, /data-meta-field=\"type\"/);
+  assert.match(detailSource, /class=\"detail-meta-badge detail-priority-badge/);
+  assert.match(detailSource, /data-meta-field=\"priority\"/);
+  assert.doesNotMatch(detailSource, /<dt>State<\/dt>/);
+  assert.doesNotMatch(detailSource, /<dt>Type<\/dt>/);
+  assert.doesNotMatch(detailSource, /<dt>Priority<\/dt>/);
+  assert.match(detailSource, /drawer\.querySelectorAll\("\.meta-select\[data-meta-field\]"\)/);
+  assert.match(stylesSource, /\.detail-meta-badge/);
+  assert.match(stylesSource, /\.detail-state-badge/);
+});
+
 function makeHarness() {
   const root = mkdtempSync(join(tmpdir(), "orbit-regression-test-"));
   const projectRoot = join(root, "project");
