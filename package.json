@@ -1,7 +1,7 @@
 {
   "name": "@starlove/orbit",
-  "version": "1.0.16",
-  "description": "Starscape Orbit — zero-dependency, pretty, human-ai-first kanban system.",
+  "version": "1.0.17",
+  "description": "Starscape Orbit ??? zero-dependency, pretty, human-ai-first kanban system.",
   "license": "AGPL-3.0",
   "type": "module",
   "packageManager": "pnpm@10.20.0",

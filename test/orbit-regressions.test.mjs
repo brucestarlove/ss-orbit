@@ -74,6 +74,33 @@ test("ticket detail fetches comments from the dedicated endpoint", () => {
   assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
 });
 
+test("ticket search renders state badges with shared state pill classes", () => {
+  const searchSource = readFileSync(join(repoRoot, "public", "js", "search.js"), "utf8");
+  const formatSource = readFileSync(join(repoRoot, "public", "js", "format.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.match(formatSource, /export function stateClassFor/);
+  assert.match(searchSource, /stateClassFor\(ticket\)/);
+  assert.match(searchSource, /search-hit-state state-pill-/);
+  assert.match(searchSource, /search-hit-title/);
+  assert.match(stylesSource, /\.search-hit\s*\{[\s\S]*display:\s*flex;/);
+  assert.match(stylesSource, /\.search-hit-title\s*\{[\s\S]*text-overflow:\s*ellipsis;/);
+  assert.match(stylesSource, /\.search-hit-state\.state-pill-in-progress/);
+  assert.match(stylesSource, /\[data-theme="dark"\] \.search-hit-state\.state-pill-in-progress/);
+});
+
+test("ticket detail preview cards render state badges with shared state pill classes", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.match(detailSource, /stateClassFor\(ticket\)/);
+  assert.match(detailSource, /detail-card-state state-pill-/);
+  assert.match(detailSource, /ticket\.state_name \|\| "State"/);
+  assert.match(stylesSource, /\.detail-card-state\s*\{/);
+  assert.match(stylesSource, /\.detail-card-state\.state-pill-in-progress/);
+  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-card-state\.state-pill-in-progress/);
+});
+
 test("ticket detail moves state, type, and priority controls into header badge dropdowns", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
   const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");

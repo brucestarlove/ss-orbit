@@ -171,6 +171,18 @@ test("search matches hash-prefixed ticket numbers", () => {
   assert.equal(result.results[0]?.id, target.id);
 });
 
+test("search results include stable state role metadata", () => {
+  const { ctx, done } = makeBoard();
+  const target = createTicket({ title: "Comet" }, ctx);
+  updateTicket(target.id, { state_id: done }, ctx);
+
+  const result = searchTickets({ q: "Comet" }, ctx);
+
+  assert.equal(result.results[0]?.id, target.id);
+  assert.equal(result.results[0]?.state_name, "Done");
+  assert.equal(result.results[0]?.state_role, "done");
+});
+
 test("duplicate relation is rejected instead of silently returning", () => {
   const { ctx } = makeBoard();
   const a = createTicket({ title: "Alpha" }, ctx);

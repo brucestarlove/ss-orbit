@@ -16,7 +16,8 @@ import {
   typeLabelLong,
   priorityLabel,
   priorityKeyFor,
-  renderMarkdown
+  renderMarkdown,
+  stateClassFor
 } from "./format.js";
 import { renderTypeIcon, renderPriorityPill, renderBoard } from "./kanban.js";
 import { renderDrawerShell, openDrawer, closeDrawer } from "./drawer.js";
@@ -329,10 +330,7 @@ export async function renderDetail(options = {}) {
   const detailCanonicalType = canonicalTicketType(ticket.type);
   const priorityKey = priorityKeyFor(ticket.priority);
   const currentState = states.find((s) => s.id === ticket.state_id);
-  const stateClass = String(currentState?.role || currentState?.name || "state")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") || "state";
+  const stateClass = stateClassFor(currentState);
   const detailSubtitleHtml = `
     <span class="ticket-number">${escapeHtml(ticketLabel(ticket))}</span>
     <div class="detail-meta-badge-row" aria-label="Ticket metadata controls">
@@ -911,6 +909,7 @@ function renderParentEpicSection(ticket, context) {
 export function renderDetailCard(ticket, options = {}) {
   const canonicalType = canonicalTicketType(ticket.type);
   const priorityKey = priorityKeyFor(ticket.priority);
+  const stateClass = stateClassFor(ticket);
   const typeText = typeLabel(ticket.type).toUpperCase();
   const eyebrow = options.eyebrow
     ? `<span class="card-eyebrow">${escapeHtml(options.eyebrow)}</span>`
@@ -961,6 +960,7 @@ export function renderDetailCard(ticket, options = {}) {
             ${renderTypeIcon(ticket.type)}
             <span class="card-type-label">${escapeHtml(typeText)}</span>
           </div>
+          <span class="detail-card-state state-pill-${escapeHtml(stateClass)}">${escapeHtml(ticket.state_name || "State")}</span>
           ${state.showPriority ? renderPriorityPill(ticket.priority) : ""}
         </div>
       </div>

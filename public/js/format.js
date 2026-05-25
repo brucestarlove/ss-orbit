@@ -179,6 +179,15 @@ export function ticketLabel(ticket) {
   return `#${ticket.number}`;
 }
 
+export function stateClassFor(ticketOrState) {
+  const source =
+    ticketOrState?.state_role || ticketOrState?.role || ticketOrState?.state_name || ticketOrState?.name || "state";
+  return String(source)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "state";
+}
+
 export function canonicalTicketType(type) {
   if (type === "epic" || type === "feature" || type === "bug" || type === "task") return type;
   return "task";

@@ -6,7 +6,7 @@ import { searchInput, searchResults } from "./dom.js";
 import { state, currentBoard } from "./state.js";
 import { api } from "./api.js";
 import { navigate } from "./router.js";
-import { escapeHtml, ticketLabel } from "./format.js";
+import { escapeHtml, stateClassFor, ticketLabel } from "./format.js";
 import { closeCreateFlyout } from "./create-card.js";
 
 export async function runSearch() {
@@ -28,8 +28,11 @@ export async function runSearch() {
     .map(
       (ticket) => `
         <div class="search-hit" data-ticket-id="${ticket.id}">
-          <strong>${escapeHtml(ticketLabel(ticket))}</strong>
-          ${escapeHtml(ticket.title)}
+          <span class="search-hit-main">
+            <strong>${escapeHtml(ticketLabel(ticket))}</strong>
+            <span class="search-hit-title">${escapeHtml(ticket.title)}</span>
+          </span>
+          <span class="search-hit-state state-pill-${escapeHtml(stateClassFor(ticket))}">${escapeHtml(ticket.state_name || "State")}</span>
         </div>
       `
     )

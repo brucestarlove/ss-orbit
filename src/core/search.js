@@ -23,7 +23,7 @@ export function searchTickets(args, ctx) {
   if (ticketNumber !== null) {
     rows = db
       .prepare(
-        `SELECT t.*, s.name AS state_name, b.slug AS board_slug, -1 AS rank
+        `SELECT t.*, s.name AS state_name, s.role AS state_role, b.slug AS board_slug, -1 AS rank
          FROM tickets t
          JOIN states s ON s.id = t.state_id
          JOIN boards b ON b.id = t.board_id
@@ -37,7 +37,7 @@ export function searchTickets(args, ctx) {
     rows = rows.concat(
       db
         .prepare(
-          `SELECT t.*, s.name AS state_name, b.slug AS board_slug,
+          `SELECT t.*, s.name AS state_name, s.role AS state_role, b.slug AS board_slug,
                   bm25(ticket_fts) AS rank
            FROM ticket_fts
            JOIN tickets t ON t.id = ticket_fts.ticket_id
@@ -61,7 +61,7 @@ export function searchTickets(args, ctx) {
     rows = rows.concat(
       db
         .prepare(
-          `SELECT DISTINCT t.*, s.name AS state_name, b.slug AS board_slug, ${numberRank} AS rank
+          `SELECT DISTINCT t.*, s.name AS state_name, s.role AS state_role, b.slug AS board_slug, ${numberRank} AS rank
            FROM tickets t
            JOIN states s ON s.id = t.state_id
            JOIN boards b ON b.id = t.board_id

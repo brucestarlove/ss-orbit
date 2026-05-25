@@ -1124,9 +1124,43 @@ h1 {
 }
 
 .search-hit {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   padding: 0.85rem;
   border-bottom: 1px solid var(--line);
   cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.search-hit-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.search-hit-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-hit-state {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 999px;
+  color: #3657c8;
+  background-color: rgba(96, 165, 250, 0.12);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  white-space: nowrap;
 }
 
 .search-hit:hover {
@@ -2342,25 +2376,33 @@ select.detail-meta-badge::-ms-expand {
   width: 6.55rem;
 }
 
-.detail-state-badge.state-pill-ai-ready {
+.detail-state-badge.state-pill-ai-ready,
+.search-hit-state.state-pill-ai-ready,
+.detail-card-state.state-pill-ai-ready {
   color: #7c3aed;
   background-color: rgba(var(--purple-rgb), 0.12);
   border-color: rgba(var(--purple-rgb), 0.28);
 }
 
-.detail-state-badge.state-pill-in-progress {
+.detail-state-badge.state-pill-in-progress,
+.search-hit-state.state-pill-in-progress,
+.detail-card-state.state-pill-in-progress {
   color: #0369a1;
   background-color: rgba(14, 165, 233, 0.13);
   border-color: rgba(14, 165, 233, 0.28);
 }
 
-.detail-state-badge.state-pill-review {
+.detail-state-badge.state-pill-review,
+.search-hit-state.state-pill-review,
+.detail-card-state.state-pill-review {
   color: #a4550f;
   background-color: rgba(var(--amber-rgb), 0.16);
   border-color: rgba(var(--amber-rgb), 0.32);
 }
 
-.detail-state-badge.state-pill-done {
+.detail-state-badge.state-pill-done,
+.search-hit-state.state-pill-done,
+.detail-card-state.state-pill-done {
   color: #1e6f5c;
   background-color: rgba(var(--accent-rgb), 0.14);
   border-color: rgba(var(--accent-rgb), 0.28);
@@ -2434,31 +2476,41 @@ select.detail-meta-badge::-ms-expand {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-[data-theme="dark"] .detail-state-badge {
+[data-theme="dark"] .detail-state-badge,
+[data-theme="dark"] .search-hit-state,
+[data-theme="dark"] .detail-card-state {
   color: #93c5fd;
   background-color: rgba(96, 165, 250, 0.15);
   border-color: rgba(147, 197, 253, 0.3);
 }
 
-[data-theme="dark"] .detail-state-badge.state-pill-ai-ready {
+[data-theme="dark"] .detail-state-badge.state-pill-ai-ready,
+[data-theme="dark"] .search-hit-state.state-pill-ai-ready,
+[data-theme="dark"] .detail-card-state.state-pill-ai-ready {
   color: #c084fc;
   background-color: rgba(var(--purple-rgb), 0.16);
   border-color: rgba(var(--purple-rgb), 0.35);
 }
 
-[data-theme="dark"] .detail-state-badge.state-pill-in-progress {
+[data-theme="dark"] .detail-state-badge.state-pill-in-progress,
+[data-theme="dark"] .search-hit-state.state-pill-in-progress,
+[data-theme="dark"] .detail-card-state.state-pill-in-progress {
   color: #67e8f9;
   background-color: rgba(14, 165, 233, 0.16);
   border-color: rgba(103, 232, 249, 0.32);
 }
 
-[data-theme="dark"] .detail-state-badge.state-pill-review {
+[data-theme="dark"] .detail-state-badge.state-pill-review,
+[data-theme="dark"] .search-hit-state.state-pill-review,
+[data-theme="dark"] .detail-card-state.state-pill-review {
   color: #fbbf24;
   background-color: rgba(251, 191, 36, 0.18);
   border-color: rgba(251, 191, 36, 0.35);
 }
 
-[data-theme="dark"] .detail-state-badge.state-pill-done {
+[data-theme="dark"] .detail-state-badge.state-pill-done,
+[data-theme="dark"] .search-hit-state.state-pill-done,
+[data-theme="dark"] .detail-card-state.state-pill-done {
   color: #4ade80;
   background-color: rgba(74, 222, 128, 0.15);
   border-color: rgba(74, 222, 128, 0.32);
@@ -4572,6 +4624,30 @@ button:disabled,
    so a 2-card grid lines up its bottom rows even if titles wrap differently. */
 .card--detail .card-meta {
   margin-top: auto;
+}
+
+.card--detail .card-expand-trigger--static {
+  flex-wrap: wrap;
+  row-gap: 0.4rem;
+}
+
+.detail-card-state {
+  display: inline-block;
+  flex: 0 0 auto;
+  max-width: min(9rem, 100%);
+  overflow: hidden;
+  padding: 0.14rem 0.48rem;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 999px;
+  color: #3657c8;
+  background-color: rgba(96, 165, 250, 0.12);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .card-eyebrow {
