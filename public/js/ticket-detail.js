@@ -4,7 +4,7 @@
 // related cards. Also owns the small render helpers (status history,
 // comments, detail-card) that are only used inside the drawer.
 
-import { state, ticketsForProject, selectableStatesForProject, boardLabelCatalog, currentBoard } from "./state.js";
+import { state, ticketsForProject, selectableStatesForProject, boardLabelCatalog, currentBoard, upsertTicket } from "./state.js";
 import { drawerInner, drawer, $ } from "./dom.js";
 import {
   escapeHtml,
@@ -18,26 +18,44 @@ import {
   priorityKeyFor,
   renderMarkdown
 } from "./format.js";
-import { renderTypeIcon, renderPriorityPill } from "./kanban.js";
+import { renderTypeIcon, renderPriorityPill, renderBoard } from "./kanban.js";
 import { renderDrawerShell, openDrawer, closeDrawer } from "./drawer.js";
 import { navigate } from "./router.js";
 import { api, withBoardQuery } from "./api.js";
 import { toast } from "./toast.js";
-import { load } from "./app.js";
+// `load()` is intentionally not used for drawer-local mutations. Reloading
+// /api/bootstrap rebuilds the whole app; these helpers patch the local ticket
+// cache and refresh only the surfaces that actually changed.
 import { renderProjectDetail } from "./settings.js";
 import { unreadCount, markRead } from "./unread.js";
 import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
 
 /**
- * PATCH a ticket then reload + re-render the drawer in ticket mode. Lives
- * here because every caller is a drawer interaction; api.js stays I/O-only.
+ * Refresh the open drawer from the focused ticket context endpoint. When the
+ * board card itself changed, also rebuild the board from the patched local
+ * cache; otherwise leave the board DOM alone.
+ */
+async function refreshTicketDetail(ticketId, { renderBoardAfter = false } = {}) {
+  state.selectedTicketId = ticketId;
+  state.detailMode = "ticket";
+  const [context, statusHistory, commentsResult] = await Promise.all([
+    api(withBoardQuery(`/api/tickets/${ticketId}/context?depth=1`)),
+    api(withBoardQuery(`/api/tickets/${ticketId}/history`)),
+    api(withBoardQuery(`/api/tickets/${ticketId}/comments`))
+  ]);
+  upsertTicket(context.ticket);
+  if (renderBoardAfter) renderBoard();
+  await renderDetail({ context, statusHistory, comments: commentsResult.comments || [] });
+}
+
+/**
+ * PATCH a ticket then refresh only the board/detail surfaces that depend on
+ * the changed ticket. This avoids the previous full /api/bootstrap reload for
+ * every drawer edit.
  */
 async function patchTicket(ticketId, body) {
   await api(withBoardQuery(`/api/tickets/${ticketId}`), { method: "PATCH", body });
-  await load();
-  state.selectedTicketId = ticketId;
-  state.detailMode = "ticket";
-  await renderDetail();
+  await refreshTicketDetail(ticketId, { renderBoardAfter: true });
 }
 
 /**
@@ -231,7 +249,7 @@ function wireTicketDetailEditors(ticket) {
   });
 }
 
-export async function renderDetail() {
+export async function renderDetail(options = {}) {
   if (state.detailMode === "settings") {
     await renderProjectDetail();
     openDrawer();
@@ -243,13 +261,14 @@ export async function renderDetail() {
     return;
   }
 
-  const [context, statusHistory, commentPack] = await Promise.all([
-    api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/context?depth=1`)),
-    api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/history`)),
-    api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/comments`))
-  ]);
+  const [context, statusHistory, comments] = options.context && options.statusHistory && options.comments
+    ? [options.context, options.statusHistory, options.comments]
+    : await Promise.all([
+      api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/context?depth=1`)),
+      api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/history`)),
+      api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/comments`)).then((result) => result.comments || [])
+    ]);
   const ticket = context.ticket;
-  const comments = Array.isArray(commentPack?.comments) ? commentPack.comments : [];
   // Acknowledge the read receipt: clear the unread dot on this card.
   // Also wipe the dot from the already-rendered card in the board so the
   // user doesn't see it lingering until the next full re-render.
@@ -401,10 +420,7 @@ export async function renderDetail() {
         implementation_updates: form.get("implementation_updates")
       }
     });
-    await load();
-    state.selectedTicketId = ticket.id;
-    state.detailMode = "ticket";
-    await renderDetail();
+    await refreshTicketDetail(ticket.id);
     toast.success("AI fields saved");
   });
 
@@ -416,10 +432,7 @@ export async function renderDetail() {
       method: "POST",
       body: { body }
     });
-    await load();
-    state.selectedTicketId = ticket.id;
-    state.detailMode = "ticket";
-    await renderDetail();
+    await refreshTicketDetail(ticket.id);
   });
 
   drawerInner.querySelectorAll("[data-open-ticket]").forEach((card) => {
@@ -446,10 +459,7 @@ export async function renderDetail() {
         toast.error(err.message || "Failed to remove child");
         return;
       }
-      await load();
-      state.selectedTicketId = ticket.id;
-      state.detailMode = "ticket";
-      await renderDetail();
+      await refreshTicketDetail(ticket.id, { renderBoardAfter: true });
       toast.success("Removed from epic");
     });
   });
@@ -466,10 +476,7 @@ export async function renderDetail() {
         toast.error(err.message || "Failed to remove parent");
         return;
       }
-      await load();
-      state.selectedTicketId = ticket.id;
-      state.detailMode = "ticket";
-      await renderDetail();
+      await refreshTicketDetail(ticket.id, { renderBoardAfter: true });
       toast.success("Parent epic removed");
     });
   });
@@ -484,10 +491,7 @@ export async function renderDetail() {
         toast.error(err.message || "Failed to remove relation");
         return;
       }
-      await load();
-      state.selectedTicketId = ticket.id;
-      state.detailMode = "ticket";
-      await renderDetail();
+      await refreshTicketDetail(ticket.id);
       toast.success("Relation removed");
     });
   });
@@ -538,10 +542,7 @@ export async function renderDetail() {
         toast.error(err.message || "Failed to set parent epic");
         return;
       }
-      await load();
-      state.selectedTicketId = ticket.id;
-      state.detailMode = "ticket";
-      await renderDetail();
+      await refreshTicketDetail(ticket.id, { renderBoardAfter: true });
       toast.success("Parent epic set");
     });
   }
@@ -580,10 +581,7 @@ export async function renderDetail() {
         toast.error(err.message || "Failed to add relation");
         return;
       }
-      await load();
-      state.selectedTicketId = ticket.id;
-      state.detailMode = "ticket";
-      await renderDetail();
+      await refreshTicketDetail(ticket.id);
     });
   }
 

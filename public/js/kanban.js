@@ -115,6 +115,14 @@ export function renderBoard() {
   });
 }
 
+export function renderBoardSelection() {
+  kanban.querySelectorAll(".card.selected").forEach((card) => card.classList.remove("selected"));
+  if (!state.selectedTicketId) return;
+  kanban
+    .querySelectorAll(`.card[data-ticket-id="${CSS.escape(state.selectedTicketId)}"]`)
+    .forEach((card) => card.classList.add("selected"));
+}
+
 function renderEmptyState(columnName) {
   const name = columnName.toLowerCase();
   let flair = {

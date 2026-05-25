@@ -81,7 +81,7 @@ export function syncUrlFromState({ replace = false } = {}) {
 }
 
 export async function applyRoute() {
-  const { load, render } = await import("./app.js");
+  const { load, renderDetailOnly } = await import("./app.js");
   const r = currentRoute();
   const urlHadRoute = hasRoute(location);
   const prevBoardId = state.boardId;
@@ -124,8 +124,9 @@ export async function applyRoute() {
 
   if (state.boardId && state.boardId !== prevBoardId) {
     await load();
+    return;
   }
-  await render();
+  await renderDetailOnly();
 }
 
 window.addEventListener("popstate", () => {

@@ -57,7 +57,7 @@ test("ticket detail fetches comments from the dedicated endpoint", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
 
   assert.match(detailSource, /\/api\/tickets\/\$\{state\.selectedTicketId\}\/comments/);
-  assert.match(detailSource, /const comments = Array\.isArray\(commentPack\?\.comments\)/);
+  assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{state\.selectedTicketId\}\/comments`\)\)\.then\(\(result\) => result\.comments \|\| \[\]\)/);
   assert.match(detailSource, /comments\.map\(renderComment\)/);
   assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
 });
@@ -834,6 +834,34 @@ test("router reloads board switches from the app module that exports load", () =
   assert.match(appSource, /export async function load\(/);
   assert.match(routerSource, /await import\("\.\/app\.js"\)/);
   assert.doesNotMatch(routerSource, /await import\("\.\/main\.js"\)/);
+});
+
+test("same-board ticket routes use a detail-only render path", () => {
+  const routerSource = readFileSync(join(repoRoot, "public", "js", "router.js"), "utf8");
+  const appSource = readFileSync(join(repoRoot, "public", "js", "app.js"), "utf8");
+  const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
+
+  assert.match(appSource, /export async function renderDetailOnly\(\)/);
+  assert.match(appSource, /renderBoardSelection\(\)/);
+  assert.match(kanbanSource, /export function renderBoardSelection\(\)/);
+  assert.match(routerSource, /const \{ load, renderDetailOnly \} = await import\("\.\/app\.js"\)/);
+  assert.match(routerSource, /if \(state\.boardId && state\.boardId !== prevBoardId\) \{[\s\S]*await load\(\);[\s\S]*return;[\s\S]*\}\n  await renderDetailOnly\(\);/);
+  assert.doesNotMatch(routerSource, /await render\(\);/);
+});
+
+test("ticket detail mutations avoid full bootstrap reloads", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const stateSource = readFileSync(join(repoRoot, "public", "js", "state.js"), "utf8");
+
+  assert.match(stateSource, /export function upsertTicket\(/);
+  assert.match(detailSource, /async function refreshTicketDetail\(/);
+  assert.match(detailSource, /\/api\/tickets\/\$\{ticketId\}\/context\?depth=1/);
+  assert.match(detailSource, /\/api\/tickets\/\$\{ticketId\}\/comments/);
+  assert.match(detailSource, /upsertTicket\(context\.ticket\)/);
+  assert.match(detailSource, /comments\.map\(renderComment\)/);
+  assert.match(detailSource, /if \(renderBoardAfter\) renderBoard\(\);/);
+  assert.doesNotMatch(detailSource, /from "\.\/app\.js"/);
+  assert.doesNotMatch(detailSource, /await load\(\);/);
 });
 
 test("browser routes build hash URLs with board slugs", () => {

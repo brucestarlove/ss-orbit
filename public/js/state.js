@@ -77,3 +77,53 @@ export function selectableStatesForProject(currentStateId = "") {
 export function ticketsForProject() {
   return state.data.tickets.filter((item) => item.board_id === state.boardId);
 }
+
+function compactTicketForBoard(ticket) {
+  if (!ticket) return null;
+  return {
+    id: ticket.id,
+    board_id: ticket.board_id,
+    board_slug: ticket.board_slug,
+    number: ticket.number,
+    title: ticket.title,
+    type: ticket.type,
+    state_name: ticket.state_name,
+    state_role: ticket.state_role,
+    priority: ticket.priority
+  };
+}
+
+function refreshBoardTicketDerivatives(boardId) {
+  if (!state.data?.tickets) return;
+  const boardTickets = state.data.tickets.filter((ticket) => ticket.board_id === boardId && !ticket.archived_at);
+  const ticketById = new Map(boardTickets.map((ticket) => [ticket.id, ticket]));
+  const childCountByParent = new Map();
+  for (const ticket of boardTickets) {
+    if (!ticket.parent_ticket_id) continue;
+    childCountByParent.set(ticket.parent_ticket_id, (childCountByParent.get(ticket.parent_ticket_id) || 0) + 1);
+  }
+  for (const ticket of boardTickets) {
+    ticket.parent_ticket = ticket.parent_ticket_id ? compactTicketForBoard(ticketById.get(ticket.parent_ticket_id)) : null;
+    ticket.child_count = childCountByParent.get(ticket.id) || 0;
+  }
+}
+
+/** Merge a ticket returned by a mutation/context endpoint into the bootstrap cache.
+ * Keeps drawer edits responsive without paying for a full /api/bootstrap reload. */
+export function upsertTicket(updatedTicket) {
+  if (!state.data?.tickets || !updatedTicket?.id) return;
+  const index = state.data.tickets.findIndex((ticket) => ticket.id === updatedTicket.id);
+  const previous = index >= 0 ? state.data.tickets[index] : {};
+  const merged = {
+    ...previous,
+    ...updatedTicket,
+    labels: updatedTicket.labels || previous.labels || [],
+    comment_count: updatedTicket.comment_count ?? previous.comment_count ?? 0,
+    child_count: updatedTicket.child_count ?? previous.child_count ?? 0,
+    parent_ticket: updatedTicket.parent_ticket || previous.parent_ticket || null
+  };
+  if (index >= 0) state.data.tickets.splice(index, 1, merged);
+  else state.data.tickets.push(merged);
+  state.data.tickets.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")) || String(a.id).localeCompare(String(b.id)));
+  refreshBoardTicketDerivatives(merged.board_id || state.boardId);
+}

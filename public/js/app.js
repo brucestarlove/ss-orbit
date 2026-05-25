@@ -4,7 +4,7 @@
 
 import { state, syncBoardSelection } from "./state.js";
 import { api, bootstrapPath } from "./api.js";
-import { renderBoard } from "./kanban.js";
+import { renderBoard, renderBoardSelection } from "./kanban.js";
 import { renderDetail } from "./ticket-detail.js";
 import { closeMenuFlyouts, updateTopbarChips } from "./board-menu.js";
 import { connectEventStream } from "./sse.js";
@@ -31,5 +31,12 @@ export async function render() {
   syncBoardSelection();
   updateTopbarChips();
   renderBoard();
+  await renderDetail();
+}
+
+export async function renderDetailOnly() {
+  syncBoardSelection();
+  updateTopbarChips();
+  renderBoardSelection();
   await renderDetail();
 }
