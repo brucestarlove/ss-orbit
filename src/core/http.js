@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import { extname, resolve as resolvePath } from "node:path";
 import { PUBLIC_DIR } from "./paths.js";
 import { httpError } from "./util.js";
@@ -8,7 +9,7 @@ export function setCors(res) {
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type,Authorization,X-Orbit-Actor-Type,X-Orbit-Actor-Name,X-Orbit-Actor-Id,X-Orbit-Agent-Name"
+    "Content-Type,Authorization,X-Orbit-Actor-Type,X-Orbit-Actor-Name,X-Orbit-Actor-Id,X-Orbit-Agent-Name,X-File-Name"
   );
 }
 
@@ -24,22 +25,38 @@ export function sendEmpty(res, status) {
   res.end();
 }
 
-export async function readJson(req) {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += chunk.length;
-    if (size > 1024 * 1024) throw httpError(413, "payload_too_large");
-    chunks.push(chunk);
-  }
-  if (chunks.length === 0) return {};
-  const text = Buffer.concat(chunks).toString("utf8");
+export const MAX_JSON_BODY_BYTES = 100 * 1024 * 1024;
+
+export async function readJson(req, maxBytes = MAX_JSON_BODY_BYTES) {
+  const buffer = await readRaw(req, maxBytes);
+  if (buffer.length === 0) return {};
+  const text = buffer.toString("utf8");
   if (!text.trim()) return {};
   try {
     return JSON.parse(text);
   } catch {
     throw httpError(400, "invalid_json");
   }
+}
+
+export async function readRaw(req, maxBytes) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBytes) throw httpError(413, "payload_too_large");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+export function sendFile(res, filePath, mimeType) {
+  setCors(res);
+  res.writeHead(200, {
+    "Content-Type": mimeType || contentType(filePath),
+    "Cache-Control": "private, max-age=3600"
+  });
+  createReadStream(filePath).pipe(res);
 }
 
 function contentType(filePath) {

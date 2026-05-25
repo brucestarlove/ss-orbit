@@ -1,5 +1,5 @@
 import { spawnSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -7,12 +7,24 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { folderPickerCommands, pickFolder } from "../src/core/system-picker.js";
+import { readJson } from "../src/core/http.js";
 import { normalizePath } from "../src/core/util.js";
 import { renderMarkdown } from "../public/js/format.js";
 import { buildRoute, hasRoute, isCanonicalRouteUrl, parseRoute } from "../public/js/url-routes.js";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const orbitCli = join(repoRoot, "src", "cli", "orbit.js");
+
+test("JSON request reader accepts payloads above the legacy 1 MiB cap", async () => {
+  const largeText = "x".repeat(2 * 1024 * 1024);
+  async function* chunks() {
+    yield Buffer.from(JSON.stringify({ largeText }), "utf8");
+  }
+
+  const body = await readJson(chunks());
+
+  assert.equal(body.largeText.length, largeText.length);
+});
 
 
 test("ticket description markdown renders common formatting safely", () => {
@@ -125,6 +137,40 @@ test("ticket title editor is explicit, keyboard friendly, and exits edit mode on
   const settingsToolSchema = mcpServerSource.match(/name: "board_update_settings"[\s\S]*?inputSchema: \{([\s\S]*?)\n    handler:/);
   assert.ok(settingsToolSchema);
   assert.match(settingsToolSchema[1], /name: \{ type: "string" \}/);
+});
+
+test("ticket detail exposes dependency-free image attachment controls", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const configSource = readFileSync(join(repoRoot, "public", "js", "config.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.match(configSource, /attachments: edition === "full"/);
+  assert.match(detailSource, /renderAttachmentSection/);
+  assert.match(detailSource, /data-attachment-dropzone/);
+  assert.match(detailSource, /accept=\"image\/\*\" multiple/);
+  assert.match(detailSource, /event\.dataTransfer\?\.files/);
+  assert.match(detailSource, /clipboardData\?\.files/);
+  assert.match(detailSource, /openAttachmentLightbox/);
+  assert.match(detailSource, /event\.key === "Escape"/);
+  assert.match(stylesSource, /\.attachment-lightbox/);
+  assert.match(stylesSource, /\.attachment-dropzone/);
+});
+
+test("board snapshot export exposes optional image inclusion", () => {
+  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+  const mcpClientSource = readFileSync(join(repoRoot, "src", "mcp", "orbit-client.js"), "utf8");
+  const mcpServerSource = readFileSync(join(repoRoot, "src", "mcp-server.js"), "utf8");
+
+  assert.match(settingsSource, /id="exportProjectImages"/);
+  assert.match(settingsSource, /Include attached images/);
+  assert.match(settingsSource, /include_attachments=true/);
+  assert.match(settingsSource, /\.with-images\.orbit\.json/);
+  assert.match(mcpClientSource, /include_attachments: args\.include_attachments \|\| args\.include_images \? "true" : undefined/);
+  assert.match(mcpClientSource, /includeAttachments: Boolean\(args\.include_attachments \|\| args\.include_images\)/);
+  const exportToolSchema = mcpServerSource.match(/name: "board_export_board"[\s\S]*?inputSchema: \{([\s\S]*?)\n    handler:/);
+  assert.ok(exportToolSchema);
+  assert.match(exportToolSchema[1], /include_attachments: \{ type: "boolean"/);
+  assert.match(exportToolSchema[1], /include_images: \{ type: "boolean"/);
 });
 
 function makeHarness() {
@@ -668,6 +714,111 @@ test("snapshot import after delete and re-init restores into the new board id", 
     assert.equal(restoredDb.prepare("SELECT id FROM boards LIMIT 1").get().id, replacementBoard.id);
     assert.deepEqual(restoredDb.prepare("SELECT number FROM tickets ORDER BY number").all().map((row) => row.number), [1, 2, 3, 12]);
     restoredDb.close();
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("ticket image attachments upload, export, missing-file listing, and import", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  const db = new DatabaseSync(boardDbPath(h));
+  const board = db.prepare("SELECT id, slug FROM boards LIMIT 1").get();
+  db.close();
+
+  const port = await freePort();
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child, /Starscape Orbit listening/);
+    const createdResponse = await fetch(`http://127.0.0.1:${port}/api/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ board_id: board.id, title: "Attachment ticket" })
+    });
+    assert.equal(createdResponse.status, 201);
+    const ticket = await createdResponse.json();
+
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", "base64");
+    const upload = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/attachments?board_id=${encodeURIComponent(board.id)}&filename=${encodeURIComponent("tiny.png")}`, {
+      method: "POST",
+      headers: { "Content-Type": "image/png", "X-File-Name": "..\\tiny.png" },
+      body: png
+    });
+    assert.equal(upload.status, 201);
+    const attachment = await upload.json();
+    assert.equal(attachment.original_name, "..\\tiny.png");
+    assert.equal(attachment.mime_type, "image/png");
+    assert.equal(attachment.size_bytes, png.length);
+    assert.equal(attachment.missing, false);
+    assert.match(attachment.stored_path, /^tickets\//);
+    assert.doesNotMatch(attachment.stored_path, /\.\./);
+
+    const listedResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/attachments?board_id=${encodeURIComponent(board.id)}`);
+    assert.equal(listedResponse.status, 200);
+    const listed = await listedResponse.json();
+    assert.equal(listed.attachments.length, 1);
+    assert.equal(listed.attachments[0].missing, false);
+
+    const contentResponse = await fetch(`http://127.0.0.1:${port}${listed.attachments[0].content_url}?board_id=${encodeURIComponent(board.id)}`);
+    assert.equal(contentResponse.status, 200);
+    assert.equal(contentResponse.headers.get("content-type"), "image/png");
+    assert.deepEqual(Buffer.from(await contentResponse.arrayBuffer()), png);
+
+    const defaultExportResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(board.id)}/export`);
+    const defaultExport = await defaultExportResponse.json();
+    assert.equal(defaultExport.include_attachments, false);
+    assert.equal(defaultExport.attachments[0].included, false);
+    assert.equal(defaultExport.attachments[0].data_base64, null);
+
+    const includedExportResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(board.id)}/export?include_attachments=true`);
+    const includedExport = await includedExportResponse.json();
+    assert.equal(includedExport.include_attachments, true);
+    assert.equal(includedExport.attachments[0].included, true);
+    assert.equal(includedExport.attachments[0].data_base64, png.toString("base64"));
+
+    const attachmentDb = new DatabaseSync(boardDbPath(h));
+    const storedPath = attachmentDb.prepare("SELECT stored_path FROM ticket_attachments WHERE id = ?").get(attachment.id).stored_path;
+    attachmentDb.close();
+    const absoluteStoredPath = join(dirname(boardDbPath(h)), "attachments", storedPath);
+    unlinkSync(absoluteStoredPath);
+    const missingResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/attachments?board_id=${encodeURIComponent(board.id)}`);
+    const missingList = await missingResponse.json();
+    assert.equal(missingList.attachments[0].missing, true);
+    assert.equal(missingList.attachments[0].content_url, null);
+
+    const h2 = makeHarness();
+    runOrbit(["init", "--cwd", h2.projectRoot], h2);
+    const importedDb = new DatabaseSync(boardDbPath(h2));
+    const targetBoard = importedDb.prepare("SELECT id FROM boards LIMIT 1").get();
+    importedDb.close();
+    const importPort = await freePort();
+    const importChild = spawn(process.execPath, [orbitCli, "serve", "--cwd", h2.projectRoot, "--port", String(importPort)], {
+      cwd: repoRoot,
+      env: { ...process.env, DATA_DIR: h2.dataDir },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    try {
+      await waitForOutput(importChild, /Starscape Orbit listening/);
+      const imported = await fetch(`http://127.0.0.1:${importPort}/api/admin/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ board_id: targetBoard.id, replace_existing: true, snapshot: includedExport })
+      });
+      assert.equal(imported.status, 201);
+      const restoredDb = new DatabaseSync(boardDbPath(h2));
+      const restored = restoredDb.prepare("SELECT * FROM ticket_attachments WHERE id = ?").get(attachment.id);
+      restoredDb.close();
+      assert.equal(restored.mime_type, "image/png");
+      assert.equal(existsSync(join(dirname(boardDbPath(h2)), "attachments", restored.stored_path)), true);
+    } finally {
+      importChild.kill("SIGTERM");
+    }
   } finally {
     child.kill("SIGTERM");
   }

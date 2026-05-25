@@ -381,6 +381,16 @@ function renderProjectRepositoryTab(context) {
 
     <div class="section">
       <h3>Board Snapshot</h3>
+      ${features.attachments ? `
+        <label class="orbit-check">
+          <input type="checkbox" id="exportProjectImages" />
+          <span class="orbit-check-box" aria-hidden="true">
+            <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
+          </span>
+          <span>Include attached images</span>
+        </label>
+        <p class="description">Image exports are embedded in the .orbit.json snapshot and may be much larger.</p>
+      ` : ""}
       <div class="deployment-actions">
         <button type="button" class="ghost" id="exportProject">Export</button>
         <label class="import-button">
@@ -589,9 +599,11 @@ function bindProjectTabHandlers(context, tab) {
   const project = context.board;
 
   if (tab === "repository") {
-    const exportSnapshot = async () => {
-      const snapshot = await api(`/api/boards/${project.id}/export`);
-      downloadJson(`${project.slug}.orbit.json`, snapshot);
+    const exportSnapshot = async (includeAttachments = Boolean($("#exportProjectImages")?.checked)) => {
+      const suffix = includeAttachments ? "?include_attachments=true" : "";
+      const snapshot = await api(`/api/boards/${encodeURIComponent(project.id)}/export${suffix}`);
+      const filename = includeAttachments ? `${project.slug}.with-images.orbit.json` : `${project.slug}.orbit.json`;
+      downloadJson(filename, snapshot);
     };
 
     $("#exportProject")?.addEventListener("click", async () => {

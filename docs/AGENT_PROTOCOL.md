@@ -232,10 +232,10 @@ Content-Type: application/json
 ### Export Board Snapshot
 
 ```http
-GET /api/boards/:board_id/export
+GET /api/boards/:board_id/export?include_attachments=true
 ```
 
-Returns a JSON snapshot of the board, states, tickets, comments, relations, board entries, and relevant event history.
+Returns a JSON snapshot of the board, states, tickets, comments, relations, image attachment metadata, board entries, and relevant event history. Image bytes are excluded by default; pass `include_attachments=true` (or `include_images=true`) to embed present attachment files as base64. Missing attachment files are marked in metadata instead of failing the export.
 
 ### Import Board Snapshot
 

@@ -22,6 +22,7 @@ import { renderTypeIcon, renderPriorityPill, renderBoard } from "./kanban.js";
 import { renderDrawerShell, openDrawer, closeDrawer } from "./drawer.js";
 import { navigate } from "./router.js";
 import { api, withBoardQuery } from "./api.js";
+import { features } from "./config.js";
 import { toast } from "./toast.js";
 // `load()` is intentionally not used for drawer-local mutations. Reloading
 // /api/bootstrap rebuilds the whole app; these helpers patch the local ticket
@@ -261,13 +262,23 @@ export async function renderDetail(options = {}) {
     return;
   }
 
-  const [context, statusHistory, comments] = options.context && options.statusHistory && options.comments
-    ? [options.context, options.statusHistory, options.comments]
-    : await Promise.all([
-      api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/context?depth=1`)),
-      api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/history`)),
-      api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/comments`)).then((result) => result.comments || [])
-    ]);
+  const hasOption = (key) => Object.prototype.hasOwnProperty.call(options, key);
+  const [context, statusHistory, comments, attachmentList] = await Promise.all([
+    hasOption("context")
+      ? Promise.resolve(options.context)
+      : api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/context?depth=1`)),
+    hasOption("statusHistory")
+      ? Promise.resolve(options.statusHistory)
+      : api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/history`)),
+    hasOption("comments")
+      ? Promise.resolve(options.comments)
+      : api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/comments`)).then((result) => result.comments || []),
+    hasOption("attachmentList")
+      ? Promise.resolve(options.attachmentList)
+      : features.attachments
+        ? api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/attachments`)).catch(() => ({ attachments: [] }))
+        : Promise.resolve({ attachments: [] })
+  ]);
   const ticket = context.ticket;
   // Acknowledge the read receipt: clear the unread dot on this card.
   // Also wipe the dot from the already-rendered card in the board so the
@@ -364,6 +375,8 @@ export async function renderDetail(options = {}) {
 
     ${renderHierarchySection(ticket, context)}
 
+    ${features.attachments ? renderAttachmentSection(ticket, attachmentList.attachments || []) : ""}
+
     ${renderParentEpicSection(ticket, context)}
 
     <div class="section">
@@ -408,6 +421,7 @@ export async function renderDetail(options = {}) {
   });
 
   wireTicketDetailEditors(ticket);
+  if (features.attachments) wireAttachmentControls(ticket);
 
   $("#aiFieldsForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -590,6 +604,172 @@ export async function renderDetail(options = {}) {
 
 function aiPlanOpen(ticketId) {
   return localStorage.getItem(`mab_ai_plan_open:${ticketId}`) === "1";
+}
+
+function renderAttachmentSection(ticket, attachments = []) {
+  const cards = attachments.length
+    ? `<div class="attachment-grid">${attachments.map((attachment) => renderAttachmentCard(ticket, attachment)).join("")}</div>`
+    : `<p class="description">No images attached yet.</p>`;
+  return `
+    <div class="section attachments-section" data-attachment-section data-ticket-id="${escapeHtml(ticket.id)}">
+      <div class="attachment-heading-row">
+        <h3>Images</h3>
+        <label class="ghost attachment-upload-button">
+          Upload
+          <input type="file" accept="image/*" multiple data-attachment-input />
+        </label>
+      </div>
+      <div class="attachment-dropzone" data-attachment-dropzone tabindex="0">
+        <strong>Paste, drag, or upload images</strong>
+        <span>PNG, JPG, GIF, WebP, SVG, BMP, or AVIF up to 10 MB each.</span>
+      </div>
+      ${cards}
+    </div>
+  `;
+}
+
+function renderAttachmentCard(ticket, attachment) {
+  const name = escapeHtml(attachment.original_name || "image");
+  const meta = `${formatBytes(attachment.size_bytes)} · ${escapeHtml(attachment.mime_type || "image")}`;
+  if (attachment.missing) {
+    return `
+      <article class="attachment-card is-missing">
+        <div class="attachment-missing-thumb">Missing</div>
+        <div class="attachment-card-meta"><strong>${name}</strong><span>${meta}</span></div>
+        <button type="button" class="attachment-delete" data-delete-attachment="${escapeHtml(attachment.id)}" aria-label="Remove missing image">×</button>
+      </article>
+    `;
+  }
+  const src = withBoardQuery(attachment.content_url || `/api/tickets/${ticket.id}/attachments/${attachment.id}/content`);
+  return `
+    <article class="attachment-card">
+      <button type="button" class="attachment-thumb-button" data-open-lightbox="${escapeHtml(src)}" data-lightbox-title="${name}">
+        <img src="${escapeHtml(src)}" alt="${name}" loading="lazy" />
+      </button>
+      <div class="attachment-card-meta"><strong>${name}</strong><span>${meta}</span></div>
+      <button type="button" class="attachment-delete" data-delete-attachment="${escapeHtml(attachment.id)}" aria-label="Remove image">×</button>
+    </article>
+  `;
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function imageFilesFromList(files) {
+  return [...(files || [])].filter((file) => file && String(file.type || "").startsWith("image/"));
+}
+
+async function uploadAttachmentFiles(ticket, files) {
+  const imageFiles = imageFilesFromList(files);
+  if (!imageFiles.length) {
+    toast.warning("No image files found");
+    return;
+  }
+  for (const file of imageFiles) {
+    const response = await fetch(withBoardQuery(`/api/tickets/${ticket.id}/attachments?filename=${encodeURIComponent(file.name || "image")}`), {
+      method: "POST",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+        "X-File-Name": file.name || "image"
+      },
+      body: file
+    });
+    if (!response.ok) {
+      let payload = {};
+      try { payload = await response.json(); } catch {}
+      throw new Error(payload.error || `Upload failed (${response.status})`);
+    }
+  }
+  await refreshTicketDetail(ticket.id);
+  toast.success(imageFiles.length === 1 ? "Image attached" : `${imageFiles.length} images attached`);
+}
+
+function wireAttachmentControls(ticket) {
+  const section = drawerInner.querySelector("[data-attachment-section]");
+  if (!section) return;
+  const input = section.querySelector("[data-attachment-input]");
+  input?.addEventListener("change", async () => {
+    try {
+      await uploadAttachmentFiles(ticket, input.files);
+      input.value = "";
+    } catch (err) {
+      toast.error(err.message || "Upload failed");
+    }
+  });
+
+  const dropzone = section.querySelector("[data-attachment-dropzone]");
+  dropzone?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    dropzone.classList.add("is-dragover");
+  });
+  dropzone?.addEventListener("dragleave", () => dropzone.classList.remove("is-dragover"));
+  dropzone?.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    dropzone.classList.remove("is-dragover");
+    try {
+      await uploadAttachmentFiles(ticket, event.dataTransfer?.files || []);
+    } catch (err) {
+      toast.error(err.message || "Upload failed");
+    }
+  });
+
+  drawerInner.onpaste = async (event) => {
+    if (event.target.closest("input, textarea, [contenteditable='true']")) return;
+    const files = imageFilesFromList(event.clipboardData?.files || []);
+    if (!files.length) return;
+    event.preventDefault();
+    try {
+      await uploadAttachmentFiles(ticket, files);
+    } catch (err) {
+      toast.error(err.message || "Paste upload failed");
+    }
+  };
+
+  section.querySelectorAll("[data-delete-attachment]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(withBoardQuery(`/api/tickets/${ticket.id}/attachments/${btn.dataset.deleteAttachment}`), { method: "DELETE" });
+        await refreshTicketDetail(ticket.id);
+        toast.success("Image removed");
+      } catch (err) {
+        toast.error(err.message || "Delete failed");
+      }
+    });
+  });
+
+  section.querySelectorAll("[data-open-lightbox]").forEach((btn) => {
+    btn.addEventListener("click", () => openAttachmentLightbox(btn.dataset.openLightbox, btn.dataset.lightboxTitle || "Image"));
+  });
+}
+
+function openAttachmentLightbox(src, title) {
+  const existing = document.querySelector(".attachment-lightbox");
+  existing?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "attachment-lightbox";
+  overlay.innerHTML = `
+    <div class="attachment-lightbox-panel" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+      <button type="button" class="attachment-lightbox-close" aria-label="Close image">×</button>
+      <img src="${escapeHtml(src)}" alt="${escapeHtml(title)}" />
+      <p>${escapeHtml(title)}</p>
+    </div>
+  `;
+  const close = () => {
+    document.removeEventListener("keydown", onKeyDown);
+    overlay.remove();
+  };
+  function onKeyDown(event) {
+    if (event.key === "Escape") close();
+  }
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay || event.target.closest(".attachment-lightbox-close")) close();
+  });
+  document.addEventListener("keydown", onKeyDown);
+  document.body.append(overlay);
 }
 
 function resolveTicketIdFromLabel(label, selfId) {

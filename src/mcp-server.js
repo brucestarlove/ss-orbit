@@ -488,7 +488,9 @@ const TOOL_DEFS = [
       type: "object",
       properties: {
         board_id: { type: "string" },
-        board_slug: { type: "string" }
+        board_slug: { type: "string" },
+        include_attachments: { type: "boolean", description: "Embed attached image bytes in the JSON snapshot." },
+        include_images: { type: "boolean", description: "Alias for include_attachments." }
       },
       additionalProperties: false
     },

@@ -7,7 +7,7 @@
 
 import { actorFromHttpRequest } from "./auth.js";
 import { scheduleAutomaticBoardBackup } from "./backups.js";
-import { readJson, sendJson, setCors } from "./http.js";
+import { readJson, readRaw, sendFile, sendJson, setCors } from "./http.js";
 import {
   findBoardForBoardEntry,
   findBoardForRelation,
@@ -54,6 +54,13 @@ import {
   getTicketRelations
 } from "./relations.js";
 import { searchTickets } from "./search.js";
+import {
+  createTicketAttachment,
+  deleteTicketAttachment,
+  getTicketAttachmentContent,
+  listTicketAttachments,
+  MAX_IMAGE_ATTACHMENT_BYTES
+} from "./attachments.js";
 import {
   checkpointTicket,
   claimNext,
@@ -185,7 +192,9 @@ export async function handleApi(req, res, url) {
       return;
     }
     if (sub === "export" && req.method === "GET") {
-      sendJson(res, 200, exportBoard(row.id, ctx));
+      sendJson(res, 200, exportBoard(row.id, ctx, {
+        includeAttachments: url.searchParams.get("include_attachments") === "true" || url.searchParams.get("include_images") === "true"
+      }));
       return;
     }
     if (sub === "states" && req.method === "POST") {
@@ -282,6 +291,31 @@ export async function handleApi(req, res, url) {
     if (sub === "comments" && req.method === "POST") {
       const body = await readJson(req);
       sendMutationJson(res, 201, createComment(ticketId, body, ctx), ctx);
+      return;
+    }
+    if (sub === "attachments" && req.method === "GET") {
+      sendJson(res, 200, listTicketAttachments(ticketId, ctx));
+      return;
+    }
+    if (sub === "attachments" && req.method === "POST") {
+      const bytes = await readRaw(req, MAX_IMAGE_ATTACHMENT_BYTES);
+      const attachment = createTicketAttachment(ticketId, {
+        bytes,
+        mime_type: req.headers["content-type"],
+        original_name: req.headers["x-file-name"] || url.searchParams.get("filename") || "image"
+      }, ctx);
+      sendMutationJson(res, 201, attachment, ctx);
+      return;
+    }
+    const attachmentContentPath = sub.match(/^attachments\/([^/]+)\/content$/);
+    if (attachmentContentPath && req.method === "GET") {
+      const result = getTicketAttachmentContent(ticketId, decodeURIComponent(attachmentContentPath[1]), ctx);
+      sendFile(res, result.filePath, result.row.mime_type);
+      return;
+    }
+    const attachmentPath = sub.match(/^attachments\/([^/]+)$/);
+    if (attachmentPath && req.method === "DELETE") {
+      sendMutationJson(res, 200, deleteTicketAttachment(ticketId, decodeURIComponent(attachmentPath[1]), ctx), ctx);
       return;
     }
     sendJson(res, 404, { error: "not_found" });

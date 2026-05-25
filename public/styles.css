@@ -5441,3 +5441,198 @@ button:disabled,
   --scrollbar-thumb: rgba(var(--starlight-rgb),0.3);
   --scrollbar-thumb-hover: rgba(var(--starlight-rgb),0.5);
 }
+
+.attachment-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+
+.attachment-heading-row h3 {
+  margin-bottom: 0;
+}
+
+.attachment-upload-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: url('cursors/live_link.cur'), pointer;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.attachment-upload-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.attachment-dropzone {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.9rem;
+  border: 1px dashed var(--accent-border);
+  border-radius: 14px;
+  background: var(--surface-dim);
+  color: var(--muted);
+  outline: none;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.attachment-dropzone strong {
+  color: var(--ink);
+}
+
+.attachment-dropzone span {
+  font-size: 0.82rem;
+}
+
+.attachment-dropzone:focus-visible,
+.attachment-dropzone.is-dragover {
+  border-color: var(--accent-focus-border);
+  background: var(--accent-hover);
+  box-shadow: var(--accent-ring);
+}
+
+.attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.attachment-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-card);
+}
+
+.attachment-thumb-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--surface-dim);
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.attachment-thumb-button img,
+.attachment-missing-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.attachment-missing-thumb {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: repeating-linear-gradient(45deg, var(--surface-dim), var(--surface-dim) 10px, var(--subtle-bg) 10px, var(--subtle-bg) 20px);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.attachment-card-meta {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.55rem 2rem 0.55rem 0.65rem;
+}
+
+.attachment-card-meta strong,
+.attachment-card-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-card-meta strong {
+  font-size: 0.82rem;
+}
+
+.attachment-card-meta span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.attachment-delete {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  display: inline-grid;
+  width: 1.45rem;
+  height: 1.45rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: url('cursors/live_link.cur'), pointer;
+}
+
+.attachment-delete:hover {
+  color: var(--danger, #d44);
+  border-color: rgba(var(--red-rgb),0.35);
+  background: rgba(var(--red-rgb),0.08);
+}
+
+.attachment-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.82);
+}
+
+.attachment-lightbox-panel {
+  position: relative;
+  display: grid;
+  gap: 0.6rem;
+  max-width: min(92vw, 72rem);
+  max-height: 92vh;
+  color: white;
+}
+
+.attachment-lightbox-panel img {
+  max-width: 100%;
+  max-height: 82vh;
+  border-radius: 16px;
+  object-fit: contain;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+}
+
+.attachment-lightbox-panel p {
+  margin: 0;
+  color: rgba(255,255,255,0.82);
+  text-align: center;
+}
+
+.attachment-lightbox-close {
+  position: absolute;
+  top: -0.75rem;
+  right: -0.75rem;
+  display: inline-grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: white;
+  font-size: 1.4rem;
+  cursor: url('cursors/live_link.cur'), pointer;
+}

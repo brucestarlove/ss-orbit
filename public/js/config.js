@@ -15,5 +15,6 @@ export const features = {
   sse: edition === "full",
   ai: edition === "full",
   multiBoard: edition === "full",
-  tokenAuth: edition === "full"
+  tokenAuth: edition === "full",
+  attachments: edition === "full"
 };

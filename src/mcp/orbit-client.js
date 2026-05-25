@@ -103,7 +103,11 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
     async restoreTicket(args = {}) { return request("POST", `/api/tickets/${encodeURIComponent(args.ticket_id)}/restore`, { query: ticketQuery(args) }); },
     async deleteTicket(args = {}) { return request("DELETE", `/api/tickets/${encodeURIComponent(args.ticket_id)}`, { query: ticketQuery(args) }); },
     async listArchive(args = {}) { return request("GET", `/api/boards/${encodeURIComponent(requireBoard(args))}/archive`); },
-    async exportBoard(args = {}) { return request("GET", `/api/boards/${encodeURIComponent(requireBoard(args))}/export`); },
+    async exportBoard(args = {}) {
+      return request("GET", `/api/boards/${encodeURIComponent(requireBoard(args))}/export`, {
+        query: { include_attachments: args.include_attachments || args.include_images ? "true" : undefined }
+      });
+    },
     async updateSettings(args = {}) { const { board_id, board_slug, board, ...patch } = args; return request("PATCH", `/api/boards/${encodeURIComponent(requireBoard(args))}`, { body: patch }); }
   };
 }
@@ -207,7 +211,12 @@ export async function createLocalOrbitClient(env = process.env) {
     restoreTicket: (args = {}) => { const ctx = sessionCtx(actor()); return backup(ctx, board.restoreTicket(args.ticket_id, ctx)); },
     deleteTicket: (args = {}) => { const ctx = sessionCtx(actor()); return backup(ctx, board.deleteTicket(args.ticket_id, ctx)); },
     listArchive: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return { tickets: board.archivedTicketsForBoard(ctx.db, ctx.board.id) }; },
-    exportBoard: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.exportBoard(ctx.board.id, ctx); },
+    exportBoard: (args = {}) => {
+      const ctx = ctxFor(rowOrSession(args), actor());
+      return board.exportBoard(ctx.board.id, ctx, {
+        includeAttachments: Boolean(args.include_attachments || args.include_images)
+      });
+    },
     updateSettings: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); const { board_id, board_slug, ...patch } = args; return backup(ctx, board.updateBoard(ctx.board.id, patch, ctx)); }
   };
 }

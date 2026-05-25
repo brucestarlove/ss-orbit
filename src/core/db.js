@@ -179,6 +179,19 @@ export function createBoardSchema(db) {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS ticket_attachments (
+      id TEXT PRIMARY KEY,
+      ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+      original_name TEXT NOT NULL,
+      stored_path TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      created_by TEXT NOT NULL DEFAULT 'human',
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS board_entries (
       id TEXT PRIMARY KEY,
       board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
@@ -238,6 +251,8 @@ export function createBoardSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_tickets_archived ON tickets(board_id, archived_at);
     CREATE INDEX IF NOT EXISTS idx_tickets_parent ON tickets(parent_ticket_id);
     CREATE INDEX IF NOT EXISTS idx_comments_ticket ON comments(ticket_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticket ON ticket_attachments(ticket_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_ticket_attachments_board ON ticket_attachments(board_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_board_entries_board ON board_entries(board_id, type, created_at);
     CREATE INDEX IF NOT EXISTS idx_relations_source ON relations(source_ticket_id);
     CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_ticket_id);
@@ -251,6 +266,7 @@ export function resetBoard(db) {
     DELETE FROM ticket_labels;
     DELETE FROM relations;
     DELETE FROM comments;
+    DELETE FROM ticket_attachments;
     DELETE FROM board_entries;
     DELETE FROM events;
     DELETE FROM tickets;

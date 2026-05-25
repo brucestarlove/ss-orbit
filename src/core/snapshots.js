@@ -13,8 +13,13 @@ import {
   requiredString
 } from "./util.js";
 import { reindexAllTickets } from "./tickets.js";
+import {
+  attachmentRowsForBoard,
+  importAttachmentRows,
+  serializeAttachmentForExport
+} from "./attachments.js";
 
-export function exportBoard(boardId, ctx) {
+export function exportBoard(boardId, ctx, options = {}) {
   const { db, board, actor } = ctx;
   if (boardId !== board.id) throw httpError(404, "board_not_found");
   const innerBoard = boardById(db, boardId);
@@ -56,17 +61,22 @@ export function exportBoard(boardId, ctx) {
        ORDER BY created_at ASC`
     )
     .all(boardId);
+  const attachments = attachmentRowsForBoard(db, boardId).map((row) =>
+    serializeAttachmentForExport(board, row, Boolean(options.includeAttachments))
+  );
 
   return {
     format: "orbit-board-export",
-    version: 5,
+    version: 6,
     exported_at: now(),
+    include_attachments: Boolean(options.includeAttachments),
     board: { ...innerBoard },
     states,
     labels,
     tickets,
     comments,
     relations,
+    attachments,
     board_entries: entries,
     events
   };
@@ -199,6 +209,8 @@ export function importBoardSnapshot(body, ctx) {
         relation.created_at || now()
       );
     }
+
+    importAttachmentRows(snapshot, ctx, targetBoardId);
 
     for (const entry of snapshot.board_entries || []) {
       db.prepare(
