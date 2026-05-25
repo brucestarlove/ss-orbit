@@ -1214,6 +1214,22 @@ test("kanban horizontal wheel gestures stay inside the board scroller", () => {
   assert.match(stylesSource, /\.kanban\s*\{[\s\S]*overscroll-behavior-x:\s*contain;/);
 });
 
+test("card action submenus render as viewport-layered panels", () => {
+  const cardActionsSource = readFileSync(join(repoRoot, "public", "js", "card-actions.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+  const menuRule = stylesSource.match(/\.card-action-menu\s*\{[\s\S]*?\n\}/)?.[0] || "";
+  const submenuRule = stylesSource.match(/\.card-action-submenu\s*\{[\s\S]*?\n\}/)?.[0] || "";
+
+  assert.match(cardActionsSource, /calculateSubmenuPosition/);
+  assert.match(cardActionsSource, /document\.addEventListener\("scroll", dismissOnScroll/);
+  assert.ok(menuRule, "card action menu CSS should exist");
+  assert.ok(submenuRule, "card action submenu CSS should exist");
+  assert.match(menuRule, /overflow:\s*visible;/);
+  assert.doesNotMatch(menuRule, /overflow-y:\s*auto;/);
+  assert.match(submenuRule, /position:\s*fixed;/);
+  assert.match(submenuRule, /overflow-y:\s*auto;/);
+});
+
 test("kanban columns use the wide width by default", () => {
   const stateSource = readFileSync(join(repoRoot, "public", "js", "state.js"), "utf8");
   const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");

@@ -19,6 +19,7 @@ import { api, withBoardQuery } from "./api.js";
 import { navigate } from "./router.js";
 import { closeCreateFlyout, openCreateFlyout } from "./create-card.js";
 import { load } from "./app.js";
+import { bindCardContextMenu, closeCardActionMenu, createCardActionHandlers, setCardActionDragInFlight } from "./card-actions.js";
 import { unreadCount } from "./unread.js";
 
 export function renderBoard() {
@@ -66,7 +67,10 @@ export function renderBoard() {
     });
   });
 
+  const cardActionHandlers = createCardActionHandlers({ navigator: navigate });
   kanban.querySelectorAll(".card").forEach((card) => {
+    const ticket = tickets.find((item) => item.id === card.dataset.ticketId);
+    if (ticket) bindCardContextMenu(card, ticket, { handlers: cardActionHandlers, onBeforeOpen: closeCreateFlyout });
     // HTML5 DnD ends with a synthetic click on the source element; ignore that
     // follow-up click so dropping a card does not also open the detail drawer.
     let suppressClickAfterDrag = false;
@@ -102,10 +106,13 @@ export function renderBoard() {
       });
     }
     card.addEventListener("dragstart", (event) => {
+      closeCardActionMenu();
+      setCardActionDragInFlight(true);
       event.dataTransfer.setData("text/plain", card.dataset.ticketId);
       event.dataTransfer.effectAllowed = "move";
     });
     card.addEventListener("dragend", () => {
+      setCardActionDragInFlight(false);
       suppressClickAfterDrag = true;
       // If no click follows (e.g. drag cancelled oddly), do not eat the next real click.
       setTimeout(() => {
