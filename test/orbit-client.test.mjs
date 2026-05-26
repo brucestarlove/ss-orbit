@@ -40,6 +40,8 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
   await client.createTicket({ title: "Remote ticket" });
   await client.readTicket({ ticket_id: "ticket-1" });
   await client.readComments({ ticket_id: "ticket-1" });
+  await client.getTicketContext({ ticket_id: "ticket-1", depth: 2, max_chars_per_field: 900 });
+  await client.getTicketContextFull({ ticket_id: "ticket-1", depth: 2, max_chars_per_field: 900 });
   await client.getAgentDispatchPacket({ ticket_id: "ticket-1", max_chars_per_field: 1200, comment_limit: 3 });
 
   assert.equal(calls[0].method, "GET");
@@ -61,6 +63,16 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
     body: null
   });
   assert.deepEqual(calls[5], {
+    url: "http://orbit.example/api-root/api/tickets/ticket-1/context?board=example-board&depth=2&max_chars_per_field=900",
+    method: "GET",
+    body: null
+  });
+  assert.deepEqual(calls[6], {
+    url: "http://orbit.example/api-root/api/tickets/ticket-1/context/full?board=example-board&depth=2&max_chars_per_field=900",
+    method: "GET",
+    body: null
+  });
+  assert.deepEqual(calls[7], {
     url: "http://orbit.example/api-root/api/tickets/ticket-1/dispatch-packet?board=example-board&max_chars_per_field=1200&comment_limit=3",
     method: "GET",
     body: null

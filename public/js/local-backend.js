@@ -726,7 +726,7 @@ async function handleTicketArchive(ticketId, archive) {
   });
 }
 
-async function handleTicketContext(ticketId) {
+async function handleTicketContext(ticketId, { includeProjectContext = false } = {}) {
   const db = await openDb();
   const snap = await readBoardSnapshot(db);
   const ticket = snap.tickets.find((t) => t.id === ticketId);
@@ -776,16 +776,26 @@ async function handleTicketContext(ticketId) {
         other_ticket: compact(other)
       };
     });
-  return {
+  const context = {
     ticket: { ...ticket, labels },
-    board: snap.board,
-    board_manual: { entries: snap.boardEntries.filter((e) => !e.struck_at) },
+    board: includeProjectContext
+      ? snap.board
+      : {
+          id: snap.board.id,
+          slug: snap.board.slug,
+          name: snap.board.name,
+          repo_path: snap.board.system_path || "",
+          system_path: snap.board.system_path || "",
+          default_branch: snap.board.default_branch || "main"
+        },
     parent_ticket: compact(parent),
     child_tickets: childTickets,
     relations,
     blockers: [],
     related_tickets: [...childTickets, ...(parent ? [parent] : [])]
   };
+  if (includeProjectContext) context.board_manual = { entries: snap.boardEntries.filter((e) => !e.struck_at) };
+  return context;
 }
 
 async function handleTicketComments(ticketId) {
@@ -955,6 +965,7 @@ const ROUTES = [
   { m: "DELETE", re: /^\/api\/tickets\/([^/]+)$/, fn: (m) => handleTicketDelete(decodeURIComponent(m[1])) },
   { m: "POST", re: /^\/api\/tickets\/([^/]+)\/archive$/, fn: (m) => handleTicketArchive(decodeURIComponent(m[1]), true) },
   { m: "POST", re: /^\/api\/tickets\/([^/]+)\/restore$/, fn: (m) => handleTicketArchive(decodeURIComponent(m[1]), false) },
+  { m: "GET", re: /^\/api\/tickets\/([^/]+)\/context\/full$/, fn: (m) => handleTicketContext(decodeURIComponent(m[1]), { includeProjectContext: true }) },
   { m: "GET", re: /^\/api\/tickets\/([^/]+)\/context$/, fn: (m) => handleTicketContext(decodeURIComponent(m[1])) },
   { m: "GET", re: /^\/api\/tickets\/([^/]+)\/comments$/, fn: (m) => handleTicketComments(decodeURIComponent(m[1])) },
   { m: "GET", re: /^\/api\/tickets\/([^/]+)\/history$/, fn: (m) => handleTicketHistory(decodeURIComponent(m[1])) },

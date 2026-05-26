@@ -67,6 +67,7 @@ import {
   completeTicket,
   getAgentDispatchPacket,
   getContextPack,
+  getContextPackFull,
   readComments,
   readTicket
 } from "./agent.js";
@@ -280,6 +281,11 @@ export async function handleApi(req, res, url) {
     if (sub === "context" && req.method === "GET") {
       const depth = Number(url.searchParams.get("depth") || 1);
       sendJson(res, 200, getContextPack(ticketId, ctx, depth, agentContextOptions(url)));
+      return;
+    }
+    if (sub === "context/full" && req.method === "GET") {
+      const depth = Number(url.searchParams.get("depth") || 1);
+      sendJson(res, 200, getContextPackFull(ticketId, ctx, depth, agentContextOptions(url)));
       return;
     }
     if ((sub === "dispatch-packet" || sub === "agent-dispatch-packet") && req.method === "GET") {

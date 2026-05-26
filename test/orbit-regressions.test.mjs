@@ -569,6 +569,25 @@ test("ticket read endpoint returns the lightweight agent ticket shape", async ()
     assert.equal(readResponse.status, 200);
     const read = await readResponse.json();
 
+    const entryResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(board.id)}/entries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "lesson", title: "Project Context Secret", body: "project-context-only" })
+    });
+    assert.equal(entryResponse.status, 201);
+
+    const contextResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/context?board=${encodeURIComponent(board.slug)}`);
+    assert.equal(contextResponse.status, 200);
+    const context = await contextResponse.json();
+
+    const fullContextResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/context/full?board=${encodeURIComponent(board.slug)}`);
+    assert.equal(fullContextResponse.status, 200);
+    const fullContext = await fullContextResponse.json();
+
+    const projectContextResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(board.id)}/context?include_struck=true`);
+    assert.equal(projectContextResponse.status, 200);
+    const projectContext = await projectContextResponse.json();
+
     assert.deepEqual(Object.keys(read).sort(), ["board_manual", "ticket"]);
     assert.equal(read.ticket.id, ticket.id);
     assert.equal(read.ticket.title, "Lightweight");
@@ -579,6 +598,24 @@ test("ticket read endpoint returns the lightweight agent ticket shape", async ()
     assert.equal(Object.hasOwn(read, "child_tickets"), false);
     assert.equal(Object.hasOwn(read, "comments"), false);
     assert.equal(JSON.stringify(read).includes("comment-only-thread"), false);
+
+    assert.equal(context.ticket.id, ticket.id);
+    assert.equal(Object.hasOwn(context, "board_manual"), false);
+    assert.deepEqual(Object.keys(context.board).sort(), ["default_branch", "id", "name", "repo_path", "slug", "system_path"]);
+    assert.equal(Object.hasOwn(context.board, "agent_instructions"), false);
+    assert.equal(Object.hasOwn(context.board, "project_notes"), false);
+    assert.equal(Object.hasOwn(context, "comments"), false);
+    assert.equal(JSON.stringify(context).includes("comment-only-thread"), false);
+    assert.equal(JSON.stringify(context).includes("project-context-only"), false);
+
+    assert.equal(fullContext.ticket.id, ticket.id);
+    assert.equal(fullContext.board_manual.board.id, board.id);
+    assert.equal(fullContext.board_manual.entries.some((entry) => entry.body === "project-context-only"), true);
+    assert.equal(Object.hasOwn(fullContext, "comments"), false);
+    assert.equal(JSON.stringify(fullContext).includes("comment-only-thread"), false);
+
+    assert.equal(projectContext.board.id, board.id);
+    assert.equal(projectContext.entries.some((entry) => entry.body === "project-context-only"), true);
   } finally {
     child.kill("SIGTERM");
   }

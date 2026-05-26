@@ -210,7 +210,18 @@ export function completeTicket(body, ctx) {
   return getContextPack(ticket.id, ctx, 1);
 }
 
-export function getContextPack(ticketId, ctx, depth = 1, options = {}) {
+function contextBoardIdentity(innerBoard, ctx) {
+  return {
+    id: innerBoard.id,
+    slug: innerBoard.slug,
+    name: innerBoard.name,
+    repo_path: innerBoard.system_path || ctx.board.repo_path || "",
+    system_path: innerBoard.system_path || ctx.board.repo_path || "",
+    default_branch: innerBoard.default_branch || "main"
+  };
+}
+
+function buildContextPack(ticketId, ctx, depth = 1, options = {}, { includeProjectContext = false } = {}) {
   const { db, board, actor } = ctx;
   const maxCharsPerField = positiveInt(options.max_chars_per_field ?? options.maxCharsPerField, 0);
   const includeParentFull = Boolean(options.include_parent_full ?? options.includeParentFull);
@@ -236,13 +247,12 @@ export function getContextPack(ticketId, ctx, depth = 1, options = {}) {
     ...(parentTicket ? [parentTicket] : [])
   ]);
 
-  return {
+  const pack = {
     ticket: capTicketFields({
       ...ticket,
       labels
     }, maxCharsPerField),
-    board: innerBoard,
-    board_manual: boardManual(innerBoard.id, ctx),
+    board: includeProjectContext ? innerBoard : contextBoardIdentity(innerBoard, ctx),
     parent_ticket: parentTicket ? (includeParentFull ? capTicketFields({ ...parentTicket, labels: labelsForTicket(db, parentTicket.id) }, maxCharsPerField) : compactTicket(parentTicket)) : null,
     child_tickets: childTickets.map((child) => ({
       ...capTicketFields(child, maxCharsPerField),
@@ -259,6 +269,17 @@ export function getContextPack(ticketId, ctx, depth = 1, options = {}) {
       includeRelatedFull ? capTicketFields({ ...related, labels: labelsForTicket(db, related.id) }, maxCharsPerField) : compactTicket(related)
     )
   };
+
+  if (includeProjectContext) pack.board_manual = boardManual(innerBoard.id, ctx);
+  return pack;
+}
+
+export function getContextPack(ticketId, ctx, depth = 1, options = {}) {
+  return buildContextPack(ticketId, ctx, depth, options, { includeProjectContext: false });
+}
+
+export function getContextPackFull(ticketId, ctx, depth = 1, options = {}) {
+  return buildContextPack(ticketId, ctx, depth, options, { includeProjectContext: true });
 }
 
 export function getAgentDispatchPacket(ticketId, ctx, options = {}) {

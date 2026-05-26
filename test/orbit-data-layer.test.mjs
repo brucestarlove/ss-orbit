@@ -19,7 +19,7 @@ import {
   deleteTicket
 } from "../src/core/tickets.js";
 import { createRelation } from "../src/core/relations.js";
-import { getAgentDispatchPacket, getContextPack, readComments, readTicket } from "../src/core/agent.js";
+import { getAgentDispatchPacket, getContextPack, getContextPackFull, readComments, readTicket } from "../src/core/agent.js";
 import { searchTickets } from "../src/core/search.js";
 import { now, id } from "../src/core/util.js";
 
@@ -122,23 +122,60 @@ test("named agent actor is stored on comments and status history", () => {
   });
 });
 
-test("default agent context omits ticket and related comments", () => {
+test("default agent context omits project context, journal, and comments", () => {
   const { ctx } = makeBoard();
   const a = createTicket({ title: "Alpha" }, ctx);
   const b = createTicket({ title: "Beta" }, ctx);
   createComment(a.id, { body: "private-ticket-thread" }, ctx);
   createComment(b.id, { body: "private-related-thread" }, ctx);
   createRelation({ source_ticket_id: a.id, target_ticket_id: b.id, type: "relates_to" }, ctx);
+  ctx.db.prepare("INSERT INTO board_entries (id, board_id, type, title, body, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+    id(),
+    ctx.board.id,
+    "lesson",
+    "Project Journal Secret",
+    "journal-only-memory",
+    "test",
+    now(),
+    now()
+  );
 
   const context = getContextPack(a.id, ctx, 1);
   const lightweight = readTicket(a.id, ctx);
 
+  assert.equal(Object.hasOwn(context, "board_manual"), false);
+  assert.deepEqual(Object.keys(context.board).sort(), ["default_branch", "id", "name", "repo_path", "slug", "system_path"]);
+  assert.equal(Object.hasOwn(context.board, "agent_instructions"), false);
+  assert.equal(Object.hasOwn(context.board, "project_notes"), false);
   assert.equal(Object.hasOwn(context, "comments"), false);
   assert.equal(Object.hasOwn(context, "related_comments"), false);
   assert.equal(Object.hasOwn(lightweight, "comments"), false);
   assert.equal(JSON.stringify(context).includes("private-ticket-thread"), false);
   assert.equal(JSON.stringify(context).includes("private-related-thread"), false);
+  assert.equal(JSON.stringify(context).includes("journal-only-memory"), false);
   assert.equal(JSON.stringify(lightweight).includes("private-ticket-thread"), false);
+});
+
+test("full agent context retains the board manual and journal when explicitly requested", () => {
+  const { ctx } = makeBoard();
+  const a = createTicket({ title: "Alpha" }, ctx);
+  ctx.db.prepare("INSERT INTO board_entries (id, board_id, type, title, body, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+    id(),
+    ctx.board.id,
+    "lesson",
+    "Project Journal Secret",
+    "journal-only-memory",
+    "test",
+    now(),
+    now()
+  );
+
+  const full = getContextPackFull(a.id, ctx, 1);
+
+  assert.equal(full.board_manual.board.id, ctx.board.id);
+  assert.equal(full.board_manual.board.agent_instructions.includes("Use Orbit carefully"), true);
+  assert.equal(full.board_manual.entries[0].body, "journal-only-memory");
+  assert.equal(Object.hasOwn(full, "comments"), false);
 });
 
 test("explicit comment retrieval remains available", () => {

@@ -707,6 +707,7 @@ test("orbit mcp speaks newline-delimited JSON-RPC for Hermes native MCP", async 
 
   assert.equal(tools.id, 2);
   assert.ok(tools.result.tools.some((tool) => tool.name === "board_context"));
+  assert.ok(tools.result.tools.some((tool) => tool.name === "board_get_ticket_context_full"));
 });
 
 test("orbit mcp exposes board_create_ticket and creates cards through core API", async () => {

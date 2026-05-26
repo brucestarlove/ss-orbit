@@ -185,7 +185,7 @@ const TOOL_DEFS = [
   {
     name: "board_context",
     description:
-      "Board context pack: name, agent_instructions, journal entries (board_entries), deployment paths. Resolves board from board_id / board_slug / board, else the MCP session board. Set include_struck true to include struck journal rows (default false). Same payload as GET /api/boards/:id/context.",
+      "Board/project context pack: board metadata, agent_instructions, journal entries (board_entries), and deployment paths. Complements the lean board_get_ticket_context. Resolves board from board_id / board_slug / board, else the MCP session board. Set include_struck true to include struck journal rows (default false). Same payload as GET /api/boards/:id/context.",
     inputSchema: {
       type: "object",
       properties: {
@@ -243,7 +243,7 @@ const TOOL_DEFS = [
   {
     name: "board_get_ticket_context",
     description:
-      "Read the default agent context pack for a ticket, including board agent_instructions (project-level agent context), relations, blockers, implementation fields, and child cards. Ticket comments are intentionally omitted; use board_read_comments for explicit comment retrieval.",
+      "Return the default lean context pack for a ticket: ticket fields, board identity only, relations, blockers, parent/children, and related ticket summaries. Project manual/journal and comments are intentionally omitted; use board_context for board manual/journal and board_read_comments for comment threads.",
     inputSchema: {
       type: "object",
       properties: {
@@ -260,6 +260,27 @@ const TOOL_DEFS = [
       additionalProperties: false
     },
     handler: (args) => orbitClient.getTicketContext(args)
+  },
+  {
+    name: "board_get_ticket_context_full",
+    description:
+      "Return the explicit heavy ticket context pack, preserving the historical board_get_ticket_context shape: ticket, full board row, board_manual/journal, relations, blockers, parent/children, and related tickets. Comments are still intentionally omitted; use board_read_comments for comment threads.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
+        depth: { type: "integer", minimum: 1, maximum: 3 },
+        max_chars_per_field: { type: "integer", minimum: 1 },
+        include_parent_full: { type: "boolean" },
+        include_related_full: { type: "boolean" }
+      },
+      required: ["ticket_id"],
+      additionalProperties: false
+    },
+    handler: (args) => orbitClient.getTicketContextFull(args)
   },
   {
     name: "board_get_agent_dispatch_packet",

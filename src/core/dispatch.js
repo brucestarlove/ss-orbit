@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { extname, join, resolve } from "node:path";
 import { localOwnerActor } from "./auth.js";
 import { DISPATCH_RUNS_DIR } from "./paths.js";
-import { getContextPack } from "./agent.js";
+import { getContextPackFull } from "./agent.js";
 import { openBoardDb, getBoardByRegistryId, getBoardByRepoPath, getBoardBySlug, touchBoardActive } from "./registry.js";
 import { stateByName, stateByRole, ticketById, ticketByNumber, unresolvedBlockers } from "./queries.js";
 import { createRegistrySchema } from "./db.js";
@@ -438,7 +438,7 @@ export function dispatchTicket(options) {
 
   mkdirSync(runDir, { recursive: true });
   const policyBin = createPolicyBin(runDir, policyName);
-  const context = getContextPack(ticket.id, ctx, 1);
+  const context = getContextPackFull(ticket.id, ctx, 1);
   const handoff = buildHandoff({
     boardRow,
     context,

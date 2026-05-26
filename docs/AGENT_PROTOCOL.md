@@ -72,7 +72,7 @@ Returns the first schedulable `AI Ready` ticket. The scheduler skips tickets blo
 
 By default, `claim-next` skips `epic` cards because they are index/planning cards. To claim an epic for planning, pass `"type": "epic"` or `"include_epics": true`.
 
-The response shape is `{ claimed: true, ticket_id, context }` where `context` is the lightweight `board_read_ticket` pack (`ticket` with title/description/labels/state and the `board_manual`). Ticket comments are not included in the default claim context; call `GET /api/tickets/:id/comments` (or MCP `board_read_comments`) when an explicit chat/comment surface needs them. For the heavier ticket pack with relations, blockers, implementation fields, and child cards, call `GET /api/tickets/:id/context` (or MCP `board_get_ticket_context`).
+The response shape is `{ claimed: true, ticket_id, context }` where `context` is the lightweight `board_read_ticket` pack (`ticket` with title/description/labels/state and the `board_manual`). Ticket comments are not included in the default claim context; call `GET /api/tickets/:id/comments` (or MCP `board_read_comments`) when an explicit chat/comment surface needs them. For the lean ticket relationship pack, call `GET /api/tickets/:id/context` (or MCP `board_get_ticket_context`). For the historical heavy pack with board manual/journal attached, call `GET /api/tickets/:id/context/full` (or MCP `board_get_ticket_context_full`).
 
 ### Read Lightweight Ticket
 
@@ -86,7 +86,7 @@ MCP equivalent: `board_read_ticket`.
 
 Returns the lightweight agent read shape: `ticket` with identity, title, description, labels, state/type/priority, plus `board_manual`. Ticket comments, relations, blockers, child cards, and implementation fields are intentionally omitted. Use this for quick orientation and claim context. The `lookup` form is exact by per-board ticket number or exact title; it does not use fuzzy search or comment/implementation indexes.
 
-### Get Context Pack
+### Get Lean Ticket Context Pack
 
 ```http
 GET /api/tickets/:id/context?depth=1
@@ -94,15 +94,31 @@ GET /api/tickets/:id/context?depth=1
 
 Returns:
 
-- Ticket, board, state, labels.
-- The board manual (`board_manual`), including `agent_instructions` and `project_notes`.
+- Ticket, board identity, state, labels.
 - Dedicated implementation fields: `ai_plan`, `implementation_summary`, and `implementation_updates`.
 - Parent epic/story ticket when present.
 - Child feature cards when the ticket is an epic/story.
 - Related tickets.
 - Blockers and blocking tickets.
 
-Ticket comments are intentionally omitted from this default agent context. Explicit comment/chat consumers should call:
+Project manual/journal (`agent_instructions`, `project_notes`, and board entries) and ticket comments are intentionally omitted from this default agent context. Fetch project context and comments explicitly when needed:
+
+```http
+GET /api/boards/:board_id/context?include_struck=false
+GET /api/tickets/:id/comments
+```
+
+MCP equivalents: `board_context` and `board_read_comments`.
+
+### Get Full Ticket Context Pack
+
+```http
+GET /api/tickets/:id/context/full?depth=1
+```
+
+MCP equivalent: `board_get_ticket_context_full`.
+
+Returns the historical heavy context shape: everything in the lean ticket context plus the full board row and `board_manual` / journal. Comments are still intentionally omitted; explicit comment/chat consumers should call:
 
 ```http
 GET /api/tickets/:id/comments
@@ -176,7 +192,7 @@ Searches ticket titles, descriptions, and comments.
 GET /api/boards/:board_id/context?include_struck=false
 ```
 
-Returns the same shape as MCP `board_context`: a trimmed `board` (`name`, `agent_instructions`, `updated_at`), `entries` (journal / decisions / lessons), and `deployment` paths. Use `include_struck=true` to include struck journal rows (default off).
+Returns the same shape as MCP `board_context`: board metadata (`agent_instructions`, `project_notes`, repository paths, default branch), `entries` (journal / decisions / lessons), and `deployment` paths. Use `include_struck=true` to include struck journal rows (default off).
 
 MCP: `board_context` with optional `board_id` / `board_slug` / `board` and optional `include_struck`.
 

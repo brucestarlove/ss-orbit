@@ -87,6 +87,7 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
     async boardSetActive(args = {}) { if (!args.slug) throw rpcError(-32602, "slug is required."); env.ORBIT_DEFAULT_BOARD = String(args.slug); return { ok: true, slug: String(args.slug), mode: "remote" }; },
     async claimNext(args = {}) { return request("POST", "/api/agent/claim-next", { body: { ...args, board: requireBoard(args) } }); },
     async getTicketContext(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/context`, { query: { ...contextQuery(args), depth: args.depth || 1 } }); },
+    async getTicketContextFull(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/context/full`, { query: { ...contextQuery(args), depth: args.depth || 1 } }); },
     async getAgentDispatchPacket(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/dispatch-packet`, { query: contextQuery(args) }); },
     async readTicket(args = {}) {
       if (args.ticket_id) {
@@ -216,6 +217,7 @@ export async function createLocalOrbitClient(env = process.env) {
     boardSetActive: (args = {}) => { const slug = String(args.slug || "").trim(); if (!slug) throw rpcError(-32602, "slug is required."); const row = registry.getBoardBySlug(slug); if (!row) throw rpcError(-32004, `Board slug not found: ${slug}`); setSessionBoard(row); return { ok: true, board_id: row.id, slug: row.slug, name: row.name, db_path: row.db_path }; },
     claimNext: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.claimNext(args, ctx)); },
     getTicketContext: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getContextPack(args.ticket_id, ctx, Number(args.depth || 1), args); },
+    getTicketContextFull: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getContextPackFull(args.ticket_id, ctx, Number(args.depth || 1), args); },
     getAgentDispatchPacket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getAgentDispatchPacket(args.ticket_id, ctx, args); },
     readTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.readTicket(args, ctx); },
     readComments: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.readComments(args, ctx); },

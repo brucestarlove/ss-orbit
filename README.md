@@ -176,8 +176,8 @@ A copy-editable client config lives at [docs/mcp-client.example.json](docs/mcp-c
 | Purpose       | Tool                                                                                                                                                                            |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Index         | `board_list` (tiny registry), `board_set_active`                                                                                                                                |
-| Board context | `board_context` (settings + journal + deployment; optional board + `include_struck`)                                                                                            |
-| Read          | `board_read_ticket`, `board_read_comments`, `board_get_ticket_context` (heavy), `board_get_ticket_relations`, `board_get_ticket_blockers`, `board_search`, `board_list_archive` |
+| Board context | `board_context` (settings + journal + deployment; optional board + `include_struck`)                                                                     |
+| Read          | `board_read_ticket`, `board_read_comments`, `board_get_ticket_context` (lean), `board_get_ticket_context_full` (manual/journal), `board_get_ticket_relations`, `board_get_ticket_blockers`, `board_search`, `board_list_archive` |
 | Agent flow    | `board_claim_next`, `board_checkpoint`, `board_complete`                                                                                                                        |
 | Write         | `board_update_ticket`, `board_add_comment`, `board_add_board_entry`, `board_archive_ticket`, `board_restore_ticket`, `board_delete_ticket`                                      |
 | Admin         | `board_export_board`, `board_update_settings`                                                                                                                                   |
