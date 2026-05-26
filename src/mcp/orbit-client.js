@@ -57,6 +57,24 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
   }
 
   const ticketQuery = (args = {}) => ({ board_id: args.board_id, board: args.board_slug || args.board || defaultBoard });
+  const searchQuery = (args = {}) => ({
+    q: args.q,
+    limit: args.limit,
+    board_id: args.board_id,
+    board: args.board_slug || args.board || defaultBoard,
+    mode: args.mode,
+    include_full: args.include_full || args.includeFull ? "true" : undefined,
+    fields: Array.isArray(args.fields) ? args.fields.join(",") : args.fields,
+    max_chars_per_field: args.max_chars_per_field ?? args.maxCharsPerField
+  });
+  const contextQuery = (args = {}) => ({
+    ...ticketQuery(args),
+    depth: args.depth,
+    max_chars_per_field: args.max_chars_per_field ?? args.maxCharsPerField,
+    comment_limit: args.comment_limit ?? args.commentLimit,
+    include_parent_full: args.include_parent_full || args.includeParentFull ? "true" : undefined,
+    include_related_full: args.include_related_full || args.includeRelatedFull ? "true" : undefined
+  });
 
   return {
     mode: "remote",
@@ -68,7 +86,8 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
     async boardList() { return request("GET", "/api/boards"); },
     async boardSetActive(args = {}) { if (!args.slug) throw rpcError(-32602, "slug is required."); env.ORBIT_DEFAULT_BOARD = String(args.slug); return { ok: true, slug: String(args.slug), mode: "remote" }; },
     async claimNext(args = {}) { return request("POST", "/api/agent/claim-next", { body: { ...args, board: requireBoard(args) } }); },
-    async getTicketContext(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/context`, { query: { ...ticketQuery(args), depth: args.depth || 1 } }); },
+    async getTicketContext(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/context`, { query: { ...contextQuery(args), depth: args.depth || 1 } }); },
+    async getAgentDispatchPacket(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/dispatch-packet`, { query: contextQuery(args) }); },
     async readTicket(args = {}) {
       if (args.ticket_id) {
         return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}`, { query: ticketQuery(args) });
@@ -92,7 +111,7 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
     },
     async getTicketRelations(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/relations`, { query: ticketQuery(args) }); },
     async getTicketBlockers(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/blockers`, { query: ticketQuery(args) }); },
-    async search(args = {}) { return request("GET", "/api/search", { query: { q: args.q, limit: args.limit, board_id: args.board_id, board: args.board_slug || args.board || defaultBoard } }); },
+    async search(args = {}) { return request("GET", "/api/search", { query: searchQuery(args) }); },
     async createTicket(args = {}) { return request("POST", "/api/tickets", { body: { ...args, board: requireBoard(args) }, ok: [201] }); },
     async updateTicket({ ticket_id, ...patch }) { return request("PATCH", `/api/tickets/${encodeURIComponent(ticket_id)}`, { query: ticketQuery(patch), body: patch }); },
     async addComment({ ticket_id, ...body }) { return request("POST", `/api/tickets/${encodeURIComponent(ticket_id)}/comments`, { body, ok: [201] }); },
@@ -196,12 +215,13 @@ export async function createLocalOrbitClient(env = process.env) {
     boardList: () => ({ boards: registry.listBoards().map((row) => ({ id: row.id, slug: row.slug, name: row.name, repo_path: row.repo_path })) }),
     boardSetActive: (args = {}) => { const slug = String(args.slug || "").trim(); if (!slug) throw rpcError(-32602, "slug is required."); const row = registry.getBoardBySlug(slug); if (!row) throw rpcError(-32004, `Board slug not found: ${slug}`); setSessionBoard(row); return { ok: true, board_id: row.id, slug: row.slug, name: row.name, db_path: row.db_path }; },
     claimNext: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.claimNext(args, ctx)); },
-    getTicketContext: (args = {}) => board.getContextPack(args.ticket_id, sessionCtx(actor()), Number(args.depth || 1)),
-    readTicket: (args = {}) => board.readTicket(args, sessionCtx(actor())),
-    readComments: (args = {}) => board.readComments(args, sessionCtx(actor())),
-    getTicketRelations: (args = {}) => board.getTicketRelations(args.ticket_id, sessionCtx(actor())),
-    getTicketBlockers: (args = {}) => board.getTicketBlockers(args.ticket_id, sessionCtx(actor())),
-    search: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.searchTickets({ q: args.q, limit: args.limit }, ctx); },
+    getTicketContext: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getContextPack(args.ticket_id, ctx, Number(args.depth || 1), args); },
+    getAgentDispatchPacket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getAgentDispatchPacket(args.ticket_id, ctx, args); },
+    readTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.readTicket(args, ctx); },
+    readComments: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.readComments(args, ctx); },
+    getTicketRelations: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getTicketRelations(args.ticket_id, ctx); },
+    getTicketBlockers: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getTicketBlockers(args.ticket_id, ctx); },
+    search: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.searchTickets(args, ctx); },
     createTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); const { board_slug, board: _b, ...body } = args; body.board_id = ctx.board.id; return backup(ctx, board.createTicket(body, ctx)); },
     updateTicket: ({ ticket_id, ...patch }) => { const ctx = sessionCtx(actor()); return backup(ctx, board.updateTicket(ticket_id, patch, ctx)); },
     addComment: ({ ticket_id, ...body }) => { const ctx = sessionCtx(actor()); return backup(ctx, board.createComment(ticket_id, body, ctx)); },

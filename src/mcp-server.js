@@ -19,6 +19,7 @@ import {
   deleteTicket,
   exportBoard,
   getBoardContext,
+  getAgentDispatchPacket,
   getContextPack,
   readComments,
   readTicket,
@@ -247,12 +248,37 @@ const TOOL_DEFS = [
       type: "object",
       properties: {
         ticket_id: { type: "string" },
-        depth: { type: "integer", minimum: 1, maximum: 3 }
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
+        depth: { type: "integer", minimum: 1, maximum: 3 },
+        max_chars_per_field: { type: "integer", minimum: 1 },
+        include_parent_full: { type: "boolean" },
+        include_related_full: { type: "boolean" }
       },
       required: ["ticket_id"],
       additionalProperties: false
     },
     handler: (args) => orbitClient.getTicketContext(args)
+  },
+  {
+    name: "board_get_agent_dispatch_packet",
+    description:
+      "Return a lean agent dispatch packet for one ticket: board identity/instructions, capped ticket description/acceptance/AI plan, blockers, shallow parent, relevant workflow state IDs, repo path/default branch, recent capped comments, and label names. Parent/related/implementation bodies are intentionally omitted.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
+        max_chars_per_field: { type: "integer", minimum: 1 },
+        comment_limit: { type: "integer", minimum: 0, maximum: 20 }
+      },
+      required: ["ticket_id"],
+      additionalProperties: false
+    },
+    handler: (args) => orbitClient.getAgentDispatchPacket(args)
   },
   {
     name: "board_read_ticket",
@@ -263,7 +289,10 @@ const TOOL_DEFS = [
       properties: {
         ticket_id: { type: "string" },
         number: { type: "integer" },
-        title: { type: "string" }
+        title: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" }
       },
       additionalProperties: false
     },
@@ -278,7 +307,10 @@ const TOOL_DEFS = [
       properties: {
         ticket_id: { type: "string" },
         number: { type: "integer" },
-        title: { type: "string" }
+        title: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" }
       },
       additionalProperties: false
     },
@@ -290,7 +322,10 @@ const TOOL_DEFS = [
     inputSchema: {
       type: "object",
       properties: {
-        ticket_id: { type: "string" }
+        ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" }
       },
       required: ["ticket_id"],
       additionalProperties: false
@@ -303,7 +338,10 @@ const TOOL_DEFS = [
     inputSchema: {
       type: "object",
       properties: {
-        ticket_id: { type: "string" }
+        ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" }
       },
       required: ["ticket_id"],
       additionalProperties: false
@@ -321,7 +359,11 @@ const TOOL_DEFS = [
         board: { type: "string" },
         board_slug: { type: "string" },
         board_id: { type: "string" },
-        limit: { type: "integer", minimum: 1, maximum: 50 }
+        limit: { type: "integer", minimum: 1, maximum: 50 },
+        mode: { type: "string", enum: ["ids", "summary", "full"] },
+        include_full: { type: "boolean" },
+        fields: { type: "array", items: { type: "string" } },
+        max_chars_per_field: { type: "integer", minimum: 1 }
       },
       required: ["q"],
       additionalProperties: false

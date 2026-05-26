@@ -40,6 +40,7 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
   await client.createTicket({ title: "Remote ticket" });
   await client.readTicket({ ticket_id: "ticket-1" });
   await client.readComments({ ticket_id: "ticket-1" });
+  await client.getAgentDispatchPacket({ ticket_id: "ticket-1", max_chars_per_field: 1200, comment_limit: 3 });
 
   assert.equal(calls[0].method, "GET");
   assert.equal(calls[0].url, "http://orbit.example/api-root/api/boards/example-board/context?include_struck=true");
@@ -59,6 +60,11 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
     method: "GET",
     body: null
   });
+  assert.deepEqual(calls[5], {
+    url: "http://orbit.example/api-root/api/tickets/ticket-1/dispatch-packet?board=example-board&max_chars_per_field=1200&comment_limit=3",
+    method: "GET",
+    body: null
+  });
 });
 
 test("HTTP Orbit client resolves number and title lookups through the exact lightweight lookup endpoint", async () => {
@@ -71,6 +77,7 @@ test("HTTP Orbit client resolves number and title lookups through the exact ligh
 
   await client.readTicket({ number: 42 });
   await client.readTicket({ title: "Exact Title" });
+  await client.readTicket({ board_slug: "other-board", number: 7 });
 
   assert.deepEqual(calls, [
     {
@@ -80,6 +87,11 @@ test("HTTP Orbit client resolves number and title lookups through the exact ligh
     },
     {
       url: "http://orbit.example/api/tickets/lookup?board=example-board&title=Exact+Title",
+      method: "GET",
+      body: null
+    },
+    {
+      url: "http://orbit.example/api/tickets/lookup?board=other-board&number=7",
       method: "GET",
       body: null
     }

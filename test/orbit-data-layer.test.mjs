@@ -19,7 +19,7 @@ import {
   deleteTicket
 } from "../src/core/tickets.js";
 import { createRelation } from "../src/core/relations.js";
-import { getContextPack, readComments, readTicket } from "../src/core/agent.js";
+import { getAgentDispatchPacket, getContextPack, readComments, readTicket } from "../src/core/agent.js";
 import { searchTickets } from "../src/core/search.js";
 import { now, id } from "../src/core/util.js";
 
@@ -30,10 +30,14 @@ function makeBoard() {
   createBoardSchema(db);
   const boardId = id();
   const t = now();
-  db.prepare("INSERT INTO boards (id,slug,name,created_at,updated_at) VALUES (?,?,?,?,?)").run(
+  const slug = `b-${boardId.slice(0, 8)}`;
+  db.prepare("INSERT INTO boards (id,slug,name,system_path,default_branch,agent_instructions,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").run(
     boardId,
-    `b-${boardId.slice(0, 8)}`,
+    slug,
     "Board",
+    dir,
+    "main",
+    "Use Orbit carefully. Keep tickets lean for agents. This intentionally long second sentence should be capped in packets.",
     t,
     t
   );
@@ -45,7 +49,7 @@ function makeBoard() {
   db.prepare(
     "INSERT INTO states (id,board_id,name,position,is_default,role,created_at) VALUES (?,?,?,?,0,?,?)"
   ).run(done, boardId, "Done", 1, "done", t);
-  const ctx = { actor: localOwnerActor(), board: { id: boardId, db_path: dbPath }, db };
+  const ctx = { actor: localOwnerActor(), board: { id: boardId, slug, name: "Board", db_path: dbPath, system_path: dir, default_branch: "main" }, db };
   return { db, ctx, todo, done, boardId };
 }
 
@@ -181,6 +185,122 @@ test("search results include stable state role metadata", () => {
   assert.equal(result.results[0]?.id, target.id);
   assert.equal(result.results[0]?.state_name, "Done");
   assert.equal(result.results[0]?.state_role, "done");
+});
+
+test("search defaults to lean summary results for agent consumers", () => {
+  const { ctx } = makeBoard();
+  const parent = createTicket({ title: "Parent Epic", type: "epic", description: "P".repeat(2000), implementation_updates: "U".repeat(2000) }, ctx);
+  const target = createTicket({
+    title: "Lean Search Target",
+    description: "D".repeat(2000),
+    parent_ticket_id: parent.id,
+    ai_plan: "Plan".repeat(500),
+    implementation_summary: "Summary".repeat(500),
+    implementation_updates: "Updates".repeat(500),
+    labels: ["agent", "lean"]
+  }, ctx);
+
+  const result = searchTickets({ q: "Lean Search Target" }, ctx);
+
+  assert.equal(result.mode, "summary");
+  assert.deepEqual(Object.keys(result.results[0]).sort(), [
+    "id",
+    "labels",
+    "number",
+    "parent_ticket_id",
+    "priority",
+    "rank",
+    "snippet",
+    "state_name",
+    "state_role",
+    "ticket_id",
+    "title",
+    "type"
+  ]);
+  assert.equal(result.results[0].ticket_id, target.id);
+  assert.deepEqual(result.results[0].labels, ["agent", "lean"]);
+  assert.equal(JSON.stringify(result).includes("D".repeat(500)), false);
+  assert.equal(JSON.stringify(result).includes("U".repeat(100)), false);
+});
+
+test("search supports ids and full opt-in result modes", () => {
+  const { ctx } = makeBoard();
+  const target = createTicket({ title: "Mode Target", description: "full-description-visible", labels: ["full"] }, ctx);
+
+  const ids = searchTickets({ q: "Mode Target", mode: "ids" }, ctx);
+  const full = searchTickets({ q: "Mode Target", mode: "full" }, ctx);
+
+  assert.equal(ids.mode, "ids");
+  assert.deepEqual(Object.keys(ids.results[0]).sort(), ["id", "number", "rank", "ticket_id"]);
+  assert.equal(ids.results[0].ticket_id, target.id);
+  assert.equal(ids.results[0].number, target.number);
+  assert.equal(full.mode, "full");
+  assert.equal(full.results[0].description, "full-description-visible");
+  assert.equal(full.results[0].labels[0].name, "full");
+});
+
+test("agent context caps fields and keeps parent and related tickets shallow by default", () => {
+  const { ctx } = makeBoard();
+  const parent = createTicket({ title: "Huge Epic", type: "epic", description: "parent-body-".repeat(100) }, ctx);
+  const target = createTicket({ title: "Child", description: "target-body-".repeat(100), parent_ticket_id: parent.id }, ctx);
+  const related = createTicket({ title: "Related", description: "related-body-".repeat(100) }, ctx);
+  createRelation({ source_ticket_id: target.id, target_ticket_id: related.id, type: "relates_to" }, ctx);
+
+  const context = getContextPack(target.id, ctx, 1, { maxCharsPerField: 40 });
+
+  assert.equal(context.ticket.description.length, 40);
+  assert.equal(Object.hasOwn(context.parent_ticket, "description"), false);
+  assert.equal(Object.hasOwn(context.related_tickets[0], "description"), false);
+  assert.equal(JSON.stringify(context).includes("parent-body-parent-body"), false);
+  assert.equal(JSON.stringify(context).includes("related-body-related-body"), false);
+});
+
+test("agent context can opt into full parent and related bodies", () => {
+  const { ctx } = makeBoard();
+  const parent = createTicket({ title: "Full Epic", type: "epic", description: "parent full body" }, ctx);
+  const target = createTicket({ title: "Child", parent_ticket_id: parent.id }, ctx);
+  const related = createTicket({ title: "Related", description: "related full body" }, ctx);
+  createRelation({ source_ticket_id: target.id, target_ticket_id: related.id, type: "relates_to" }, ctx);
+
+  const context = getContextPack(target.id, ctx, 1, { includeParentFull: true, includeRelatedFull: true });
+
+  assert.equal(context.parent_ticket.description, "parent full body");
+  assert.equal(context.related_tickets[0].description, "related full body");
+});
+
+test("agent dispatch packet returns capped workflow context without hydrated epic bodies", () => {
+  const { ctx, todo, done } = makeBoard();
+  const parent = createTicket({ title: "Dispatch Epic", type: "epic", description: "epic-body-".repeat(100) }, ctx);
+  const blocker = createTicket({ title: "Blocker" }, ctx);
+  const target = createTicket({
+    title: "Dispatch Target",
+    description: "Ticket description\n\nAcceptance criteria:\n- ship lean packet\n- avoid giant parents",
+    parent_ticket_id: parent.id,
+    ai_plan: "packet-plan-".repeat(20),
+    labels: ["dispatch"]
+  }, ctx);
+  createRelation({ source_ticket_id: target.id, target_ticket_id: blocker.id, type: "blocked_by" }, ctx);
+  createComment(target.id, { body: "first-comment-".repeat(20), kind: "human_comment" }, ctx);
+  createComment(target.id, { body: "second-comment", kind: "agent_note" }, ctx);
+
+  const packet = getAgentDispatchPacket(target.id, ctx, { maxCharsPerField: 60, commentLimit: 1 });
+
+  assert.equal(packet.board.id, ctx.board.id);
+  assert.equal(packet.board.slug, ctx.board.slug);
+  assert.equal(packet.ticket.id, target.id);
+  assert.equal(packet.ticket.acceptance.includes("ship lean packet"), true);
+  assert.equal(packet.ticket.description.length <= 60, true);
+  assert.equal(packet.ticket.ai_plan.length <= 60, true);
+  assert.deepEqual(packet.ticket.labels, ["dispatch"]);
+  assert.equal(packet.parent_ticket.title, "Dispatch Epic");
+  assert.equal(Object.hasOwn(packet.parent_ticket, "description"), false);
+  assert.equal(packet.blockers.can_start, false);
+  assert.equal(packet.blockers.blockers[0].id, blocker.id);
+  assert.equal(packet.relevant_state_ids.todo, todo);
+  assert.equal(packet.relevant_state_ids.done, done);
+  assert.equal(packet.recent_comments.length, 1);
+  assert.equal(packet.recent_comments[0].body.length <= 60, true);
+  assert.equal(JSON.stringify(packet).includes("epic-body-epic-body"), false);
 });
 
 test("duplicate relation is rejected instead of silently returning", () => {

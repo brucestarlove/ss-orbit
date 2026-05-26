@@ -7,6 +7,7 @@ import {
   relationRows,
   stateByName,
   stateByRole,
+  stateById,
   ticketById,
   ticketByNumber,
   ticketByTitle,
@@ -209,8 +210,11 @@ export function completeTicket(body, ctx) {
   return getContextPack(ticket.id, ctx, 1);
 }
 
-export function getContextPack(ticketId, ctx, depth = 1) {
+export function getContextPack(ticketId, ctx, depth = 1, options = {}) {
   const { db, board, actor } = ctx;
+  const maxCharsPerField = positiveInt(options.max_chars_per_field ?? options.maxCharsPerField, 0);
+  const includeParentFull = Boolean(options.include_parent_full ?? options.includeParentFull);
+  const includeRelatedFull = Boolean(options.include_related_full ?? options.includeRelatedFull);
   const ticket = ticketById(db, ticketId);
   if (!ticket || ticket.board_id !== board.id) throw httpError(404, "ticket_not_found");
   const innerBoard = boardById(db, ticket.board_id);
@@ -233,19 +237,122 @@ export function getContextPack(ticketId, ctx, depth = 1) {
   ]);
 
   return {
-    ticket: {
+    ticket: capTicketFields({
       ...ticket,
       labels
-    },
+    }, maxCharsPerField),
     board: innerBoard,
     board_manual: boardManual(innerBoard.id, ctx),
-    parent_ticket: parentTicket ? compactTicket(parentTicket) : null,
+    parent_ticket: parentTicket ? (includeParentFull ? capTicketFields({ ...parentTicket, labels: labelsForTicket(db, parentTicket.id) }, maxCharsPerField) : compactTicket(parentTicket)) : null,
     child_tickets: childTickets.map((child) => ({
-      ...child,
+      ...capTicketFields(child, maxCharsPerField),
       child_count: childTicketsFor(db, child.id).length
     })),
-    relations,
+    relations: relations.map((relation) => ({
+      ...relation,
+      other_ticket: includeRelatedFull
+        ? capTicketFields({ ...relation.other_ticket, labels: labelsForTicket(db, relation.other_ticket.id) }, maxCharsPerField)
+        : compactTicket(relation.other_ticket)
+    })),
     blockers,
-    related_tickets: relatedTickets
+    related_tickets: relatedTickets.map((related) =>
+      includeRelatedFull ? capTicketFields({ ...related, labels: labelsForTicket(db, related.id) }, maxCharsPerField) : compactTicket(related)
+    )
+  };
+}
+
+export function getAgentDispatchPacket(ticketId, ctx, options = {}) {
+  const { db, board, actor } = ctx;
+  const maxCharsPerField = positiveInt(options.max_chars_per_field ?? options.maxCharsPerField, 4000);
+  const commentLimit = Math.min(nonNegativeInt(options.comment_limit ?? options.commentLimit, 5), 20);
+  const ticket = ticketById(db, ticketId);
+  if (!ticket || ticket.board_id !== board.id) throw httpError(404, "ticket_not_found");
+  const innerBoard = boardById(db, ticket.board_id);
+  requireBoardAccess(actor, innerBoard);
+
+  const labels = labelsForTicket(db, ticket.id).map((label) => label.name);
+  const parentTicket = ticket.parent_ticket_id ? ticketById(db, ticket.parent_ticket_id) : null;
+  const blockers = unresolvedBlockers(db, ticket.id).map(compactTicket);
+  const comments = db
+    .prepare("SELECT id, author, kind, body, created_at FROM comments WHERE ticket_id = ? ORDER BY created_at DESC LIMIT ?")
+    .all(ticket.id, commentLimit)
+    .reverse()
+    .map((comment) => ({ ...comment, body: capString(comment.body, maxCharsPerField) }));
+
+  return {
+    board: {
+      id: innerBoard.id,
+      slug: innerBoard.slug,
+      name: innerBoard.name,
+      repo_path: innerBoard.repo_path || innerBoard.system_path || "",
+      system_path: innerBoard.system_path || innerBoard.repo_path || "",
+      default_branch: innerBoard.default_branch || "main",
+      agent_instructions: capString(innerBoard.agent_instructions || "", maxCharsPerField)
+    },
+    ticket: {
+      id: ticket.id,
+      ticket_id: ticket.id,
+      number: ticket.number,
+      title: ticket.title,
+      type: ticket.type,
+      priority: ticket.priority,
+      state_id: ticket.state_id,
+      state_name: ticket.state_name,
+      state_role: ticket.state_role,
+      description: capString(ticket.description || "", maxCharsPerField),
+      acceptance: capString(extractAcceptance(ticket.description || ""), maxCharsPerField),
+      ai_plan: capString(ticket.ai_plan || "", maxCharsPerField),
+      labels
+    },
+    blockers: {
+      can_start: blockers.length === 0,
+      blockers
+    },
+    parent_ticket: parentTicket ? compactTicket(parentTicket) : null,
+    relevant_state_ids: relevantStateIds(db, innerBoard.id, ticket.state_id),
+    recent_comments: comments
+  };
+}
+
+function positiveInt(value, fallback) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
+function nonNegativeInt(value, fallback) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
+function capString(value, maxChars) {
+  const text = String(value || "");
+  return maxChars && text.length > maxChars ? text.slice(0, maxChars) : text;
+}
+
+function capTicketFields(ticket, maxChars) {
+  if (!maxChars) return ticket;
+  const copy = { ...ticket };
+  for (const field of ["description", "ai_plan", "implementation_summary", "implementation_updates"]) {
+    if (Object.hasOwn(copy, field)) copy[field] = capString(copy[field], maxChars);
+  }
+  return copy;
+}
+
+function extractAcceptance(description) {
+  const match = String(description || "").match(/(?:^|\n)\s*(?:acceptance criteria|acceptance)\s*:?\s*\n([\s\S]*)/i);
+  return match ? match[1].trim() : "";
+}
+
+function relevantStateIds(db, boardId, currentStateId) {
+  const byRole = (role) => stateByRole(db, boardId, role)?.id || null;
+  const byName = (name) => stateByName(db, boardId, name)?.id || null;
+  return {
+    current: currentStateId,
+    current_role: stateById(db, currentStateId)?.role || null,
+    ai_ready: byRole("ai_ready") || byName("AI Ready"),
+    in_progress: byRole("in_progress") || byName("In Progress"),
+    review: byRole("review") || byName("Review"),
+    done: byRole("done") || byName("Done"),
+    todo: byRole("todo") || byName("Todo")
   };
 }

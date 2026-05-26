@@ -134,7 +134,7 @@ export {
 export { archiveTicket, createComment, createTicket, deleteTicket, restoreTicket, updateTicket } from "./tickets.js";
 export { archivedTicketsForBoard } from "./queries.js";
 export { getTicketBlockers, getTicketRelations } from "./relations.js";
-export { checkpointTicket, claimNext, completeTicket, getContextPack, readComments, readTicket } from "./agent.js";
+export { checkpointTicket, claimNext, completeTicket, getAgentDispatchPacket, getContextPack, readComments, readTicket } from "./agent.js";
 export { searchTickets } from "./search.js";
 export { exportBoard } from "./snapshots.js";
 

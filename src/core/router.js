@@ -65,6 +65,7 @@ import {
   checkpointTicket,
   claimNext,
   completeTicket,
+  getAgentDispatchPacket,
   getContextPack,
   readComments,
   readTicket
@@ -101,6 +102,15 @@ function boardHintsFromQuery(url) {
   return {
     boardId: url.searchParams.get("board_id"),
     boardSlug: url.searchParams.get("board")
+  };
+}
+
+function agentContextOptions(url) {
+  return {
+    max_chars_per_field: url.searchParams.get("max_chars_per_field"),
+    comment_limit: url.searchParams.get("comment_limit"),
+    include_parent_full: url.searchParams.get("include_parent_full") === "true",
+    include_related_full: url.searchParams.get("include_related_full") === "true"
   };
 }
 
@@ -269,7 +279,11 @@ export async function handleApi(req, res, url) {
     }
     if (sub === "context" && req.method === "GET") {
       const depth = Number(url.searchParams.get("depth") || 1);
-      sendJson(res, 200, getContextPack(ticketId, ctx, depth));
+      sendJson(res, 200, getContextPack(ticketId, ctx, depth, agentContextOptions(url)));
+      return;
+    }
+    if ((sub === "dispatch-packet" || sub === "agent-dispatch-packet") && req.method === "GET") {
+      sendJson(res, 200, getAgentDispatchPacket(ticketId, ctx, agentContextOptions(url)));
       return;
     }
     if (sub === "history" && req.method === "GET") {
@@ -399,7 +413,11 @@ export async function handleApi(req, res, url) {
     if (!row) throw httpError(400, "board_id_required");
     const args = {
       q: url.searchParams.get("q") || "",
-      limit: url.searchParams.get("limit")
+      limit: url.searchParams.get("limit"),
+      mode: url.searchParams.get("mode"),
+      include_full: url.searchParams.get("include_full") === "true" ? true : undefined,
+      fields: url.searchParams.get("fields"),
+      max_chars_per_field: url.searchParams.get("max_chars_per_field")
     };
     sendJson(res, 200, searchTickets(args, ctxFromBoardRow(row, actor)));
     return;

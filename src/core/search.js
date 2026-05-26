@@ -12,9 +12,12 @@ export function searchTickets(args, ctx) {
   const { db, board, actor } = ctx;
   const q = String(args.q || "").trim();
   const limit = Math.min(Number(args.limit || 20), 50);
+  const mode = normalizeMode(args);
+  const maxCharsPerField = positiveInt(args.max_chars_per_field ?? args.maxCharsPerField, 0);
+  const fields = parseFields(args.fields);
 
-  if (!q) return { query: q, results: [] };
-  if (!canAccessBoard(actor, board)) return { query: q, results: [] };
+  if (!q) return { query: q, mode, results: [] };
+  if (!canAccessBoard(actor, board)) return { query: q, mode, results: [] };
 
   const ticketNumber = ticketNumberQuery(q);
   const fts = toFtsQuery(q);
@@ -93,12 +96,82 @@ export function searchTickets(args, ctx) {
     if (deduped.length >= limit) break;
   }
 
-  const results = deduped.map((ticket) => ({
-    ...ticket,
-    labels: labelsForTicket(db, ticket.id)
-  }));
+  const results = deduped.map((ticket) =>
+    shapeSearchResult(ticket, labelsForTicket(db, ticket.id), { mode, fields, maxCharsPerField })
+  );
 
-  return { query: q, results };
+  return { query: q, mode, results };
+}
+
+function normalizeMode(args) {
+  if (args.include_full === true || args.includeFull === true) return "full";
+  const mode = String(args.mode || "summary").trim().toLowerCase();
+  return ["ids", "summary", "full"].includes(mode) ? mode : "summary";
+}
+
+function positiveInt(value, fallback) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
+function parseFields(fields) {
+  if (Array.isArray(fields)) return new Set(fields.map(String));
+  if (typeof fields === "string" && fields.trim()) {
+    return new Set(fields.split(",").map((field) => field.trim()).filter(Boolean));
+  }
+  return null;
+}
+
+function cap(value, maxChars) {
+  if (!maxChars || typeof value !== "string") return value;
+  return value.length > maxChars ? value.slice(0, maxChars) : value;
+}
+
+function snippetFor(ticket, maxChars) {
+  const text = ticket.description || ticket.ai_plan || ticket.implementation_summary || "";
+  return cap(text, maxChars || 240);
+}
+
+function labelNames(labels) {
+  return labels.map((label) => label.name);
+}
+
+function pickFields(row, fields) {
+  if (!fields) return row;
+  const picked = {};
+  for (const field of fields) {
+    if (Object.hasOwn(row, field)) picked[field] = row[field];
+  }
+  return picked;
+}
+
+function shapeSearchResult(ticket, labels, { mode, fields, maxCharsPerField }) {
+  if (mode === "ids") {
+    return pickFields({ ticket_id: ticket.id, id: ticket.id, number: ticket.number, rank: ticket.rank }, fields);
+  }
+  if (mode === "full") {
+    const full = { ...ticket, labels };
+    if (maxCharsPerField) {
+      for (const key of ["description", "ai_plan", "implementation_summary", "implementation_updates"]) {
+        full[key] = cap(full[key], maxCharsPerField);
+      }
+    }
+    return pickFields(full, fields);
+  }
+  return pickFields({
+    ticket_id: ticket.id,
+    id: ticket.id,
+    number: ticket.number,
+    title: ticket.title,
+    state_name: ticket.state_name,
+    state_role: ticket.state_role,
+    type: ticket.type,
+    priority: ticket.priority,
+    parent_ticket_id: ticket.parent_ticket_id,
+    rank: ticket.rank,
+    snippet: snippetFor(ticket, maxCharsPerField),
+    labels: labelNames(labels)
+  }, fields);
 }
 
 function ticketNumberQuery(q) {

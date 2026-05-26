@@ -631,6 +631,27 @@ test("ticket lookup endpoint resolves number and title exactly with the lightwei
     });
     assert.equal(distractorCommentResponse.status, 201);
 
+    const secondBoardResponse = await fetch(`http://127.0.0.1:${port}/api/boards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Lookup Second Board", slug: "lookup-second-board", repo_path: join(h.root, "lookup-second") })
+    });
+    assert.equal(secondBoardResponse.status, 201);
+    const secondBoard = await secondBoardResponse.json();
+    const secondTicketResponse = await fetch(`http://127.0.0.1:${port}/api/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ board_id: secondBoard.id, title: "Second Board Number One" })
+    });
+    assert.equal(secondTicketResponse.status, 201);
+    const secondTicket = await secondTicketResponse.json();
+    assert.equal(secondTicket.number, target.number, "fixture proves board-scoped same-number lookup");
+
+    const secondBoardNumberResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/lookup?board=${encodeURIComponent(secondBoard.slug)}&number=${secondTicket.number}`);
+    assert.equal(secondBoardNumberResponse.status, 200);
+    const secondBoardNumber = await secondBoardNumberResponse.json();
+    assert.equal(secondBoardNumber.ticket.id, secondTicket.id);
+
     const byNumberResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/lookup?board=${encodeURIComponent(board.slug)}&number=${target.number}`);
     assert.equal(byNumberResponse.status, 200);
     const byNumber = await byNumberResponse.json();
