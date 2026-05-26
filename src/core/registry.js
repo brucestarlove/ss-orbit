@@ -27,7 +27,7 @@ export function getBoardByRepoPath(repoPathNorm) {
     .prepare(
       `SELECT * FROM boards
        WHERE repo_path = ?
-       ORDER BY (last_active_at IS NULL) ASC, last_active_at DESC
+       ORDER BY (last_active_at IS NULL) ASC, last_active_at DESC, rowid DESC
        LIMIT 1`
     )
     .get(repoPathNorm);
@@ -39,7 +39,7 @@ export function pickDefaultBoard() {
   return getRegistry()
     .prepare(
       `SELECT * FROM boards
-       ORDER BY (last_active_at IS NULL) ASC, last_active_at DESC, created_at ASC
+       ORDER BY (last_active_at IS NULL) ASC, last_active_at DESC, rowid DESC
        LIMIT 1`
     )
     .get();

@@ -457,6 +457,61 @@ const TOOL_DEFS = [
     handler: ({ ticket_id, ...body }) => orbitClient.addComment({ ticket_id, ...body })
   },
   {
+    name: "board_create_review_verdict",
+    description: "Create a durable Sentinel/agent review verdict for a ticket. Verdict must be PASS, BLOCK, or QUESTION. Findings and evidence commands are stored as structured arrays; comments may mirror the data for humans but are not the source of truth.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string" },
+        verdict: { type: "string", enum: ["PASS", "BLOCK", "QUESTION"] },
+        blocking_findings: { type: "array" },
+        optional_findings: { type: "array" },
+        evidence_commands: { type: "array" },
+        reviewer_profile: { type: "string" },
+        reviewer_session_id: { type: "string" },
+        reviewed_commit_sha: { type: "string" },
+        dispatch_run_id: { type: "string" },
+        supersedes_prior_review_id: { type: ["string", "null"] }
+      },
+      required: ["ticket_id", "verdict"],
+      additionalProperties: false
+    },
+    handler: ({ ticket_id, ...body }) => orbitClient.createReviewVerdict({ ticket_id, ...body })
+  },
+  {
+    name: "board_list_review_verdicts",
+    description: "List durable review verdict records for a ticket, newest first. Use this for repair/re-review tooling instead of parsing prose comments.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
+        limit: { type: "integer", minimum: 1, maximum: 200 }
+      },
+      required: ["ticket_id"],
+      additionalProperties: false
+    },
+    handler: (args) => orbitClient.listReviewVerdicts(args)
+  },
+  {
+    name: "board_get_review_verdict",
+    description: "Read one durable review verdict record by id.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" }
+      },
+      required: ["review_id"],
+      additionalProperties: false
+    },
+    handler: (args) => orbitClient.getReviewVerdict(args)
+  },
+  {
     name: "board_add_board_entry",
     description: "Add a durable board-level decision or lesson for future agents.",
     inputSchema: {

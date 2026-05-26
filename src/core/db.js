@@ -179,6 +179,22 @@ export function createBoardSchema(db) {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS review_verdicts (
+      id TEXT PRIMARY KEY,
+      ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      verdict TEXT NOT NULL CHECK (verdict IN ('PASS', 'BLOCK', 'QUESTION')),
+      blocking_findings_json TEXT NOT NULL DEFAULT '[]',
+      optional_findings_json TEXT NOT NULL DEFAULT '[]',
+      evidence_commands_json TEXT NOT NULL DEFAULT '[]',
+      reviewer_profile TEXT NOT NULL DEFAULT '',
+      reviewer_session_id TEXT NOT NULL DEFAULT '',
+      reviewed_commit_sha TEXT NOT NULL DEFAULT '',
+      dispatch_run_id TEXT NOT NULL DEFAULT '',
+      supersedes_prior_review_id TEXT REFERENCES review_verdicts(id) ON DELETE SET NULL,
+      created_by TEXT NOT NULL DEFAULT 'human',
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS ticket_attachments (
       id TEXT PRIMARY KEY,
       ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
@@ -251,6 +267,8 @@ export function createBoardSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_tickets_archived ON tickets(board_id, archived_at);
     CREATE INDEX IF NOT EXISTS idx_tickets_parent ON tickets(parent_ticket_id);
     CREATE INDEX IF NOT EXISTS idx_comments_ticket ON comments(ticket_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_review_verdicts_ticket ON review_verdicts(ticket_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_review_verdicts_supersedes ON review_verdicts(supersedes_prior_review_id);
     CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticket ON ticket_attachments(ticket_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_ticket_attachments_board ON ticket_attachments(board_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_board_entries_board ON board_entries(board_id, type, created_at);
@@ -266,6 +284,7 @@ export function resetBoard(db) {
     DELETE FROM ticket_labels;
     DELETE FROM relations;
     DELETE FROM comments;
+    DELETE FROM review_verdicts;
     DELETE FROM ticket_attachments;
     DELETE FROM board_entries;
     DELETE FROM events;

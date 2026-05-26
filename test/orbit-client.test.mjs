@@ -31,7 +31,9 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
   const calls = [];
   const fetchImpl = async (url, options) => {
     calls.push({ url: String(url), method: options.method, body: options.body ? JSON.parse(options.body) : null });
-    return new Response(JSON.stringify({ ok: true }), { status: options.method === "POST" && String(url).endsWith("/api/tickets") ? 201 : 200 });
+    const path = String(url);
+    const created = options.method === "POST" && (path.endsWith("/api/tickets") || path.includes("/review-verdicts"));
+    return new Response(JSON.stringify({ ok: true }), { status: created ? 201 : 200 });
   };
   const client = createHttpOrbitClient({ ORBIT_API_URL: "http://orbit.example/api-root/", ORBIT_DEFAULT_BOARD: "example-board" }, fetchImpl);
 
@@ -43,6 +45,9 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
   await client.getTicketContext({ ticket_id: "ticket-1", depth: 2, max_chars_per_field: 900 });
   await client.getTicketContextFull({ ticket_id: "ticket-1", depth: 2, max_chars_per_field: 900 });
   await client.getAgentDispatchPacket({ ticket_id: "ticket-1", max_chars_per_field: 1200, comment_limit: 3 });
+  await client.createReviewVerdict({ ticket_id: "ticket-1", verdict: "PASS", evidence_commands: ["npm test"] });
+  await client.listReviewVerdicts({ ticket_id: "ticket-1", limit: 2 });
+  await client.getReviewVerdict({ review_id: "review-1" });
 
   assert.equal(calls[0].method, "GET");
   assert.equal(calls[0].url, "http://orbit.example/api-root/api/boards/example-board/context?include_struck=true");
@@ -74,6 +79,21 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
   });
   assert.deepEqual(calls[7], {
     url: "http://orbit.example/api-root/api/tickets/ticket-1/dispatch-packet?board=example-board&max_chars_per_field=1200&comment_limit=3",
+    method: "GET",
+    body: null
+  });
+  assert.deepEqual(calls[8], {
+    url: "http://orbit.example/api-root/api/tickets/ticket-1/review-verdicts?board=example-board",
+    method: "POST",
+    body: { verdict: "PASS", evidence_commands: ["npm test"] }
+  });
+  assert.deepEqual(calls[9], {
+    url: "http://orbit.example/api-root/api/tickets/ticket-1/review-verdicts?board=example-board&limit=2",
+    method: "GET",
+    body: null
+  });
+  assert.deepEqual(calls[10], {
+    url: "http://orbit.example/api-root/api/review-verdicts/review-1?board=example-board",
     method: "GET",
     body: null
   });

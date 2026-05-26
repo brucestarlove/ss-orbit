@@ -37,6 +37,11 @@ export function exportBoard(boardId, ctx, options = {}) {
         .prepare("SELECT * FROM comments WHERE ticket_id IN (SELECT id FROM tickets WHERE board_id = ?) ORDER BY created_at ASC")
         .all(boardId)
     : [];
+  const reviewVerdicts = ticketIds.length
+    ? db
+        .prepare("SELECT * FROM review_verdicts WHERE ticket_id IN (SELECT id FROM tickets WHERE board_id = ?) ORDER BY created_at ASC")
+        .all(boardId)
+    : [];
   const relations = ticketIds.length
     ? db
         .prepare(
@@ -67,7 +72,7 @@ export function exportBoard(boardId, ctx, options = {}) {
 
   return {
     format: "orbit-board-export",
-    version: 6,
+    version: 7,
     exported_at: now(),
     include_attachments: Boolean(options.includeAttachments),
     board: { ...innerBoard },
@@ -75,6 +80,7 @@ export function exportBoard(boardId, ctx, options = {}) {
     labels,
     tickets,
     comments,
+    review_verdicts: reviewVerdicts,
     relations,
     attachments,
     board_entries: entries,
@@ -195,6 +201,31 @@ export function importBoardSnapshot(body, ctx) {
         comment.kind || "comment",
         comment.body || "",
         comment.created_at || now()
+      );
+    }
+
+    for (const review of snapshot.review_verdicts || []) {
+      db.prepare(
+        `INSERT INTO review_verdicts
+         (id, ticket_id, verdict, blocking_findings_json, optional_findings_json,
+          evidence_commands_json, reviewer_profile, reviewer_session_id,
+          reviewed_commit_sha, dispatch_run_id, supersedes_prior_review_id,
+          created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        review.id,
+        review.ticket_id,
+        review.verdict,
+        review.blocking_findings_json || "[]",
+        review.optional_findings_json || "[]",
+        review.evidence_commands_json || "[]",
+        review.reviewer_profile || "",
+        review.reviewer_session_id || "",
+        review.reviewed_commit_sha || "",
+        review.dispatch_run_id || "",
+        review.supersedes_prior_review_id || null,
+        review.created_by || "import",
+        review.created_at || now()
       );
     }
 

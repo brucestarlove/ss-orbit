@@ -43,6 +43,7 @@ Options (dispatch):
   --worktree-path <dir> Worktree path when --worktree is used
   --branch <name>       Branch name for the preserved worktree
   --hermes-bin <cmd>    Hermes executable (default: hermes)
+  --verify-command <cmd> Declare an expected verification command (repeatable)
   --no-spawn            Prepare card/worktree/run record but do not start Hermes or move In Progress
   --no-yolo             Do not pass --yolo to Hermes (default dispatch passes --yolo)
   --foreground          Attach spawned Hermes process to this terminal
@@ -157,6 +158,13 @@ function resetBusyError(error, projectRoot) {
   return wrapped;
 }
 
+function invalidArgs(args, message) {
+  console.error(message);
+  args.command = "help";
+  args.invalid = true;
+  return args;
+}
+
 function parseArgs(argv) {
   const args = {
     command: null,
@@ -180,6 +188,7 @@ function parseArgs(argv) {
     worktreePath: null,
     branch: null,
     hermesBin: "hermes",
+    verifyCommands: [],
     noSpawn: false,
     yolo: true,
     keepHandoffFile: false,
@@ -254,6 +263,18 @@ function parseArgs(argv) {
       args.hermesBin = rest[++i];
     } else if (a.startsWith("--hermes-bin=")) {
       args.hermesBin = a.slice("--hermes-bin=".length);
+    } else if (a === "--verify-command") {
+      const value = rest[i + 1];
+      if (!value || value.startsWith("--")) {
+        return invalidArgs(args, "--verify-command requires a non-empty value. Use --verify-command=<cmd> for values that start with --.");
+      }
+      args.verifyCommands.push(rest[++i]);
+    } else if (a.startsWith("--verify-command=")) {
+      const value = a.slice("--verify-command=".length);
+      if (!value) {
+        return invalidArgs(args, "--verify-command requires a non-empty value.");
+      }
+      args.verifyCommands.push(value);
     } else if (a === "--no-spawn") {
       args.noSpawn = true;
     } else if (a === "--no-yolo") {
@@ -560,6 +581,7 @@ async function runDispatch(options) {
   console.log(`Policy: ${result.policy}`);
   console.log(`Worktree: ${result.worktree_path}`);
   if (result.branch) console.log(`Branch: ${result.branch}`);
+  if (result.run_record_path) console.log(`Run record: ${result.run_record_path}`);
   if (result.pid) console.log(`PID: ${result.pid}`);
   console.log("AI Written-Plan updated with the generated handoff.");
   console.log("Run record comment added to the ticket.");

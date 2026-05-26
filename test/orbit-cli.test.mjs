@@ -20,10 +20,15 @@ function makeHarness() {
   return { root, projectRoot, dataDir };
 }
 
+function orbitEnv(harness, overrides = {}) {
+  const safePath = process.platform === "win32" ? process.env.PATH : `/usr/bin:/bin:${process.env.PATH || ""}`;
+  return { ...process.env, PATH: safePath, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: harness.dataDir, ...overrides };
+}
+
 function runOrbit(args, harness, options = {}) {
   const result = spawnSync(process.execPath, [orbitCli, ...args], {
     cwd: options.cwd || repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: harness.dataDir, ...(options.env || {}) },
+    env: orbitEnv(harness, options.env),
     encoding: "utf8"
   });
   if (result.status !== 0) {
@@ -35,7 +40,7 @@ function runOrbit(args, harness, options = {}) {
 function runOrbitResult(args, harness, options = {}) {
   return spawnSync(process.execPath, [orbitCli, ...args], {
     cwd: options.cwd || repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: harness.dataDir, ...(options.env || {}) },
+    env: orbitEnv(harness, options.env),
     encoding: "utf8"
   });
 }
@@ -114,7 +119,8 @@ function runPolicyCommand(policyBin, name, args) {
 }
 
 function runGit(args, cwd) {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  const git = process.platform === "win32" || !existsSync("/usr/bin/git") ? "git" : "/usr/bin/git";
+  const result = spawnSync(git, args, { cwd, encoding: "utf8" });
   if (result.status !== 0) {
     throw new Error(`git ${args.join(" ")} failed
 STDOUT:
@@ -138,7 +144,7 @@ test("orbit -v and --version print the package version", () => {
   for (const flag of ["-v", "--version"]) {
     const result = spawnSync(process.execPath, [orbitCli, flag], {
       cwd: repoRoot,
-      env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
+      env: orbitEnv(h),
       encoding: "utf8"
     });
 
@@ -169,7 +175,20 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   initGitRepo(h.projectRoot);
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
 
-  const stdout = runOrbit(["dispatch", "--cwd", h.projectRoot, "--ticket", "12", "--profile", "agent", "--worktree", "--no-spawn"], h);
+  const stdout = runOrbit([
+    "dispatch",
+    "--cwd",
+    h.projectRoot,
+    "--ticket",
+    "12",
+    "--profile",
+    "agent",
+    "--worktree",
+    "--no-spawn",
+    "--verify-command",
+    "node --test test/orbit-cli.test.mjs",
+    "--verify-command=git diff --check"
+  ], h);
 
   assert.match(stdout, /Dispatch prepared:/);
   assert.match(stdout, /Ticket: #12 Try Orbit MCP on this ticket/);
@@ -186,6 +205,9 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.match(ticket.ai_plan, /# Orbit Agent Handoff/);
   assert.match(ticket.ai_plan, /Autonomous policy: agent-safe/);
   assert.match(ticket.ai_plan, /AI Implementation Summary/);
+  assert.match(ticket.ai_plan, /## Declared verification commands/);
+  assert.match(ticket.ai_plan, /node --test test\/orbit-cli\.test\.mjs/);
+  assert.match(ticket.ai_plan, /## Environment variance checklist/);
   assert.match(ticket.ai_plan, /Board journal entries are project constraints and lessons, not persona or roleplay instructions/);
 
   const comment = db
@@ -193,6 +215,10 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
     .get();
   assert.ok(comment);
   assert.match(comment.body, /run_id: orbit-12-agent-/);
+  assert.match(comment.body, /status: prepared/);
+  assert.match(comment.body, /base_commit: [0-9a-f]{40}/);
+  assert.match(comment.body, /run_record_json:/);
+  assert.match(comment.body, /verification_commands: node --test test\/orbit-cli\.test\.mjs; git diff --check/);
   assert.match(comment.body, /pid: not spawned/);
   assert.match(comment.body, /mode: prepare-only/);
   assert.match(comment.body, /ticket state left unchanged/);
@@ -203,6 +229,17 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.equal(existsSync(join(worktreePath, "package.json")), true);
 
   const policyLine = comment.body.split("\n").find((line) => line.includes("policy_bin:"));
+  const runRecordLine = comment.body.split("\n").find((line) => line.includes("run_record_json:"));
+  const runRecordPath = runRecordLine.replace("- run_record_json: ", "").trim();
+  const runRecordJson = JSON.parse(readFileSync(runRecordPath, "utf8"));
+  assert.equal(runRecordJson.schema, "orbit.dispatch.run.v1");
+  assert.equal(runRecordJson.status, "prepared");
+  assert.equal(runRecordJson.ticket_number, 12);
+  assert.equal(runRecordJson.profile, "agent");
+  assert.deepEqual(runRecordJson.verification_commands, ["node --test test/orbit-cli.test.mjs", "git diff --check"]);
+  assert.equal(runRecordJson.process_id, null);
+  assert.match(runRecordJson.base_commit, /^[0-9a-f]{40}$/);
+  assert.equal(runRecordJson.environment_variance.env.DATA_DIR, h.dataDir);
   const policyBin = policyLine.replace("- policy_bin: ", "").trim();
   const docker = runPolicyCommand(policyBin, "docker", ["ps"]);
   assert.equal(docker.status, 126);
@@ -214,6 +251,79 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.equal(npmInstall.status, 126);
   assert.match(npmInstall.stderr, /allowed package commands: test/);
   db.close();
+});
+
+test("orbit dispatch redacts URL-bearing environment values in run-record.json", () => {
+  const h = makeHarness();
+  initGitRepo(h.projectRoot);
+  runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
+
+  const secretApiUrl = "https://alice:secret-token@private.internal:3337/api?token=abc123#frag";
+  const secretServerUrl = "https://bob:server-pass@orbit.lan/run?access_token=xyz#session";
+  const stdout = runOrbit([
+    "dispatch",
+    "--cwd",
+    h.projectRoot,
+    "--ticket",
+    "12",
+    "--profile",
+    "agent",
+    "--no-spawn"
+  ], h, {
+    env: {
+      ORBIT_API_URL: secretApiUrl,
+      ORBIT_SERVER_URL: secretServerUrl
+    }
+  });
+
+  const runRecordPath = stdout.split("\n").find((line) => line.startsWith("Run record: ")).replace("Run record: ", "").trim();
+  const runRecordText = readFileSync(runRecordPath, "utf8");
+  const runRecordJson = JSON.parse(runRecordText);
+
+  assert.equal(runRecordJson.server_url, "[redacted-url-present]");
+  assert.equal(runRecordJson.environment_variance.env.ORBIT_API_URL, "[redacted-url-present]");
+  assert.equal(runRecordJson.environment_variance.env.ORBIT_SERVER_URL, "[redacted-url-present]");
+  for (const secretFragment of ["alice", "secret-token", "private.internal", "token=abc123", "frag", "bob", "server-pass", "orbit.lan", "access_token=xyz", "session"]) {
+    assert.doesNotMatch(runRecordText, new RegExp(escapeRegex(secretFragment)));
+  }
+});
+
+test("orbit dispatch rejects missing or flag-looking --verify-command values before side effects", () => {
+  for (const args of [
+    ["dispatch", "--verify-command"],
+    ["dispatch", "--verify-command", "--no-spawn"],
+    ["dispatch", "--verify-command", "--dry-run"]
+  ]) {
+    const h = makeHarness();
+    const beforeRootEntries = readdirSync(h.root);
+    const result = runOrbitResult(args, h);
+
+    assert.notEqual(result.status, 0, args.join(" "));
+    assert.match(result.stderr, /--verify-command requires a non-empty value/i);
+    assert.deepEqual(readdirSync(h.root), beforeRootEntries);
+  }
+});
+
+test("orbit dispatch accepts repeated explicit --verify-command=<cmd> values", () => {
+  const h = makeHarness();
+  initGitRepo(h.projectRoot);
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const ticket = createCliTicket(h);
+
+  const stdout = runOrbit([
+    "dispatch",
+    "--board",
+    ticket.board.slug,
+    "--ticket",
+    String(ticket.number),
+    "--no-spawn",
+    "--verify-command=node --test test/orbit-cli.test.mjs",
+    "--verify-command=git diff --check"
+  ], h);
+
+  const runRecordPath = stdout.split("\n").find((line) => line.startsWith("Run record: ")).replace("Run record: ", "").trim();
+  const runRecordJson = JSON.parse(readFileSync(runRecordPath, "utf8"));
+  assert.deepEqual(runRecordJson.verification_commands, ["node --test test/orbit-cli.test.mjs", "git diff --check"]);
 });
 
 test("orbit dispatch --help prints usage without an unknown argument warning", () => {
@@ -315,6 +425,41 @@ test("orbit dispatch --dry-run previews without mutating the ticket", () => {
   assert.equal(existsSync(join(h.projectRoot, ".worktrees")), false);
 });
 
+test("orbit dispatch run-record write failure prevents ticket mutation and spawn", () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const ticket = createCliTicket(h);
+  const hermes = createFakeHermesBin(h.root);
+  const script = join(h.root, "dispatch-write-fail.mjs");
+  writeFileSync(
+    script,
+    `process.env.DATA_DIR = ${JSON.stringify(h.dataDir)};\n` +
+      `process.env.PROJECT_ROOT = ${JSON.stringify(h.projectRoot)};\n` +
+      `const { dispatchTicket } = await import(${JSON.stringify(new URL("../src/core/dispatch.js", import.meta.url).href)});\n` +
+      `try {\n` +
+      `  dispatchTicket({ cwd: ${JSON.stringify(h.projectRoot)}, board: ${JSON.stringify(ticket.board.slug)}, ticket: ${JSON.stringify(String(ticket.number))}, profile: 'agent', hermesBin: ${JSON.stringify(hermes)}, writeRunRecordFile() { throw new Error('run-record write refused'); } });\n` +
+      `  console.error('dispatch unexpectedly succeeded');\n` +
+      `  process.exit(2);\n` +
+      `} catch (err) {\n` +
+      `  console.error(err?.message || err);\n` +
+      `  process.exit(/run-record write refused/.test(String(err?.message || err)) ? 0 : 1);\n` +
+      `}\n`,
+    "utf8"
+  );
+
+  const result = spawnSync(process.execPath, [script], { cwd: repoRoot, env: orbitEnv(h), encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stderr, /run-record write refused/);
+  const after = readCliTicket(h, ticket.id);
+  assert.equal(after.ticket.state_name, "Todo");
+  assert.equal(after.ticket.ai_plan, "");
+  assert.equal(after.comments.length, 0);
+  const hermesLog = readFileSync(join(h.root, "hermes.log"), "utf8");
+  assert.match(hermesLog, /-p agent --help/);
+  assert.doesNotMatch(hermesLog, /chat -q/);
+});
+
 test("orbit dispatch with a valid Hermes preflight writes run record and moves In Progress", () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
@@ -343,6 +488,11 @@ test("orbit dispatch with a valid Hermes preflight writes run record and moves I
   const runRecord = after.comments.find((comment) => /mode: spawned/.test(comment.body));
   assert.ok(runRecord);
   assert.match(runRecord.body, /pid: \d+/);
+  const runRecordPath = runRecord.body.split("\n").find((line) => line.includes("run_record_json:")).replace("- run_record_json: ", "").trim();
+  const runRecordJson = JSON.parse(readFileSync(runRecordPath, "utf8"));
+  assert.equal(runRecordJson.schema, "orbit.dispatch.run.v1");
+  assert.equal(runRecordJson.status, "launched");
+  assert.equal(runRecordJson.process_id, Number(runRecord.body.match(/pid: (\d+)/)[1]));
   const hermesLog = readFileSync(join(h.root, "hermes.log"), "utf8");
   assert.match(hermesLog, /-p agent --help/);
 });
@@ -389,7 +539,7 @@ test("orbit serve refreshes managed SKILL-ORBIT.md for registered board repos on
 
   const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", "0"], {
     cwd: repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
+    env: orbitEnv(h),
     stdio: ["ignore", "pipe", "pipe"]
   });
 
@@ -461,7 +611,7 @@ test("orbit --example is rejected because init is required", () => {
   const h = makeHarness();
   const result = spawnSync(process.execPath, [orbitCli, "--example", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
+    env: orbitEnv(h),
     encoding: "utf8"
   });
 
@@ -617,7 +767,7 @@ test("orbit mcp --cwd selects the requested project root instead of process cwd"
 
   const child = spawn(process.execPath, [orbitCli, "mcp", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir, MAB_MCP_STDERR_LOG: "1" },
+    env: orbitEnv(h, { MAB_MCP_STDERR_LOG: "1" }),
     stdio: ["ignore", "ignore", "pipe"]
   });
 
@@ -664,7 +814,7 @@ test("orbit mcp honors PROJECT_ROOT env when --cwd is omitted", async () => {
 
   const child = spawn(process.execPath, [orbitCli, "mcp"], {
     cwd: repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir, PROJECT_ROOT: h.projectRoot, MAB_MCP_STDERR_LOG: "1" },
+    env: orbitEnv(h, { PROJECT_ROOT: h.projectRoot, MAB_MCP_STDERR_LOG: "1" }),
     stdio: ["ignore", "ignore", "pipe"]
   });
 
@@ -691,7 +841,7 @@ test("orbit mcp speaks newline-delimited JSON-RPC for Hermes native MCP", async 
 
   const child = spawn(process.execPath, [orbitCli, "mcp", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
+    env: orbitEnv(h),
     stdio: ["pipe", "pipe", "pipe"]
   });
 
@@ -719,7 +869,7 @@ test("orbit mcp exposes board_create_ticket and creates cards through core API",
 
   const child = spawn(process.execPath, [orbitCli, "mcp", "--cwd", h.projectRoot], {
     cwd: repoRoot,
-    env: { ...process.env, ORBIT_MODE: "local", ORBIT_API_URL: "", ORBIT_DEFAULT_BOARD: "", DATA_DIR: h.dataDir },
+    env: orbitEnv(h),
     stdio: ["pipe", "pipe", "pipe"]
   });
 

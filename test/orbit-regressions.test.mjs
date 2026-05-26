@@ -748,6 +748,14 @@ test("bootstrap exposes the selected default board separately from alphabetic bo
     assert.equal(createdResponse.status, 201);
     const created = await createdResponse.json();
 
+    // Registry timestamps can legitimately collide when a board is created
+    // immediately after startup. The selected board should still be the most
+    // recently inserted/activated row, not the alphabetically first board.
+    const reg = new DatabaseSync(join(h.dataDir, "registry.db"));
+    const tieTimestamp = "2026-01-01T00:00:00.000Z";
+    reg.prepare("UPDATE boards SET last_active_at = ?, created_at = ?, updated_at = ?").run(tieTimestamp, tieTimestamp, tieTimestamp);
+    reg.close();
+
     const bootstrapResponse = await fetch(`http://127.0.0.1:${port}/api/bootstrap`);
     assert.equal(bootstrapResponse.status, 200);
     const bootstrap = await bootstrapResponse.json();

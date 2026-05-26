@@ -132,6 +132,7 @@ export {
   boardManual
 } from "./boards.js";
 export { archiveTicket, createComment, createTicket, deleteTicket, restoreTicket, updateTicket } from "./tickets.js";
+export { createReviewVerdict, getReviewVerdict, listReviewVerdicts } from "./review-verdicts.js";
 export { archivedTicketsForBoard } from "./queries.js";
 export { getTicketBlockers, getTicketRelations } from "./relations.js";
 export { checkpointTicket, claimNext, completeTicket, getAgentDispatchPacket, getContextPack, getContextPackFull, readComments, readTicket } from "./agent.js";

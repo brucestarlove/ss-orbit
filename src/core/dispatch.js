@@ -11,6 +11,13 @@ import { createComment, updateTicket } from "./tickets.js";
 import { id, normalizePath, slugify } from "./util.js";
 
 const DEFAULT_POLICY = "agent-safe";
+const DEFAULT_VERIFICATION_COMMANDS = [
+  "npm test",
+  "npm run build (when public/ or browser bundle assets change)",
+  "node src/cli/orbit.js dispatch --help",
+  "git diff --check",
+  "git diff --cached --check before commit"
+];
 
 function shortId() {
   return id().replace(/-/g, "").slice(0, 10);
@@ -111,7 +118,8 @@ function resolveRepoRoot(options, boardRow) {
 }
 
 function commandOutput(command, args, options = {}) {
-  const result = spawnSync(command, args, { encoding: "utf8", ...options });
+  const executable = command === "git" ? findExecutable("git") || command : command;
+  const result = spawnSync(executable, args, { encoding: "utf8", ...options });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     const detail = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
@@ -120,8 +128,101 @@ function commandOutput(command, args, options = {}) {
   return String(result.stdout || "").trim();
 }
 
+function optionalCommandOutput(command, args, options = {}) {
+  try {
+    return commandOutput(command, args, options);
+  } catch {
+    return "";
+  }
+}
+
+function normalizeVerificationCommands(commands) {
+  const values = Array.isArray(commands) ? commands : commands ? [commands] : [];
+  const cleaned = values.map((value) => String(value || "").trim()).filter(Boolean);
+  return cleaned.length ? cleaned : [...DEFAULT_VERIFICATION_COMMANDS];
+}
+
+const REDACTED_URL_PRESENT = "[redacted-url-present]";
+const URL_ENV_KEYS = new Set(["ORBIT_API_URL", "ORBIT_SERVER_URL"]);
+
+function sanitizeUrlBearingValue(value) {
+  if (value === undefined || value === null || value === "") return "";
+  return REDACTED_URL_PRESENT;
+}
+
+function sanitizeEnvironmentValue(key, value) {
+  if (URL_ENV_KEYS.has(key)) return sanitizeUrlBearingValue(value);
+  return value;
+}
+
+function collectEnvironmentVariance() {
+  const envKeys = ["HOME", "PROJECT_ROOT", "DATA_DIR", "ORBIT_MODE", "ORBIT_API_URL", "ORBIT_DEFAULT_BOARD", "ORBIT_SERVER_URL"];
+  const env = {};
+  for (const key of envKeys) {
+    if (process.env[key] !== undefined) env[key] = sanitizeEnvironmentValue(key, process.env[key]);
+  }
+  return {
+    platform: process.platform,
+    node: process.version,
+    cwd: process.cwd(),
+    path_format: process.platform === "win32" ? "windows" : "posix",
+    env
+  };
+}
+
+function buildRunRecordJson({
+  runId,
+  status,
+  boardRow,
+  ticket,
+  profile,
+  policyName,
+  repoRoot,
+  worktreePath,
+  branchName,
+  baseCommit,
+  handoffPath,
+  policyBin,
+  child,
+  hermesArgs,
+  verificationCommands,
+  options,
+  serverUrl,
+  environmentVariance
+}) {
+  return {
+    schema: "orbit.dispatch.run.v1",
+    run_id: runId,
+    ticket_id: ticket.id,
+    ticket_number: ticket.number,
+    board_id: boardRow.id,
+    board_slug: boardRow.slug,
+    profile,
+    prompt_path: handoffPath,
+    worktree: worktreePath || repoRoot,
+    repo_root: repoRoot,
+    branch: branchName || optionalCommandOutput("git", ["-C", repoRoot, "branch", "--show-current"]),
+    base_commit: baseCommit,
+    process_id: child?.pid || null,
+    policy: policyName || "none",
+    status,
+    verification_commands: verificationCommands,
+    commit_shas: [],
+    residual_risks: [],
+    server_url: sanitizeUrlBearingValue(serverUrl),
+    mode: options.noSpawn ? "prepare-only" : "spawn",
+    command: `${options.hermesBin || "hermes"} ${hermesArgs.map((arg) => (arg.includes(" ") ? q(arg) : arg)).join(" ")}`,
+    created_at: new Date().toISOString(),
+    environment_variance: environmentVariance
+  };
+}
+
 function findExecutable(name) {
-  const result = spawnSync("sh", ["-lc", `command -v ${name}`], { encoding: "utf8" });
+  const filteredPath = String(process.env.PATH || "")
+    .split(process.platform === "win32" ? ";" : ":")
+    .filter((entry) => entry && !/(^|[/\\])policy-bin$/i.test(entry))
+    .join(process.platform === "win32" ? ";" : ":");
+  const result = spawnSync("sh", ["-lc", `command -v ${name}`], { encoding: "utf8", env: { ...process.env, PATH: filteredPath } });
   return result.status === 0 ? result.stdout.trim() : "";
 }
 
@@ -264,7 +365,7 @@ exec ${q(realRm)} "$@"
   return binDir;
 }
 
-function buildHandoff({ boardRow, context, profile, repoRoot, worktreePath, branchName, policyName, runId, serverUrl }) {
+function buildHandoff({ boardRow, context, profile, repoRoot, worktreePath, branchName, baseCommit, policyName, runId, serverUrl, verificationCommands }) {
   const { ticket, board, board_manual: manual, parent_ticket: parent, child_tickets: children, blockers } = context;
   const boardEntries = (manual.entries || [])
     .slice(0, 12)
@@ -276,6 +377,7 @@ function buildHandoff({ boardRow, context, profile, repoRoot, worktreePath, bran
   const childText = children.length
     ? children.map((child) => `- #${child.number} ${child.title} (${child.state_name})`).join("\n")
     : "None.";
+  const verificationText = verificationCommands.map((command) => `- ${command}`).join("\n");
 
   return `# Orbit Agent Handoff
 
@@ -289,6 +391,7 @@ Initial state: ${ticket.state_name}
 Repository root: ${repoRoot}
 Worktree: ${worktreePath || repoRoot}
 Branch: ${branchName || "current branch"}
+Base commit: ${baseCommit || "unknown"}
 ${serverUrl ? `Orbit server: ${serverUrl}` : ""}
 
 ## Mission
@@ -341,6 +444,18 @@ ${blockerText}
 Allowed without asking: read/search files, inspect git status/diff/log, edit files for this ticket, run package test/build/lint/check/typecheck commands, and create a local git commit.
 Blocked or requires explicit human approval: Docker, git push, deploy/publish/release commands, destructive git operations (reset/clean/rebase/force checkout/worktree removal), package install/publish/version commands, recursive/force filesystem deletion, SSH/SCP/rsync, cloud CLIs, GitHub CLI, direct curl/wget network calls, sudo, and secret exfiltration.
 
+## Declared verification commands
+Run the commands that apply before handoff. If a conditional command does not apply, say why in Implementation Updates.
+
+${verificationText}
+
+## Environment variance checklist
+- HOME / DATA_DIR / PROJECT_ROOT / ORBIT_* inherited env vars
+- Existing local board DB/files and central registry state
+- Port availability when touching serve/SSE/API flows
+- OS path format and shell differences
+- Accidental use of real user state in tests or dispatch artifacts
+
 ## Completion protocol
 When done:
 1. Run the relevant automated tests and any focused manual/API sanity checks.
@@ -381,6 +496,7 @@ export function dispatchTicket(options) {
 
   const profile = options.profile || "agent";
   const policyName = options.policy === undefined ? DEFAULT_POLICY : options.policy;
+  const verificationCommands = normalizeVerificationCommands(options.verifyCommands);
   createRegistrySchema();
   const actor = localOwnerActor();
   const boardRow = resolveBoard(options);
@@ -414,7 +530,9 @@ export function dispatchTicket(options) {
       pid: null,
       spawned: false,
       prompt: "",
-      run_record: ""
+      run_record: "",
+      run_record_path: null,
+      verification_commands: verificationCommands
     };
   }
 
@@ -422,6 +540,9 @@ export function dispatchTicket(options) {
   const runId = `orbit-${ticket.number}-${profile}-${shortId()}`;
   const runDir = join(DISPATCH_RUNS_DIR, boardRow.slug, runId);
   const serverUrl = options.serverUrl || process.env.ORBIT_SERVER_URL || "";
+  const displayServerUrl = sanitizeUrlBearingValue(serverUrl);
+  const baseCommit = optionalCommandOutput("git", ["-C", repoRoot, "rev-parse", "HEAD"]);
+  const environmentVariance = collectEnvironmentVariance();
   let branchName = options.branch || "";
   let worktreePath = "";
 
@@ -448,13 +569,51 @@ export function dispatchTicket(options) {
     repoRoot,
     worktreePath,
     branchName,
+    baseCommit,
     policyName,
     runId,
-    serverUrl
+    serverUrl: displayServerUrl,
+    verificationCommands
   });
-  const prompt = buildShortPrompt({ boardRow, ticket, profile, serverUrl });
+  const prompt = buildShortPrompt({ boardRow, ticket, profile, serverUrl: displayServerUrl });
   const handoffPath = join(runDir, "handoff.md");
   writeFileSync(handoffPath, handoff, "utf8");
+
+  const hermesArgs = [];
+  if (profile) hermesArgs.push("-p", profile);
+  if (options.yolo) hermesArgs.push("--yolo");
+  hermesArgs.push("chat", "-q", prompt);
+  const runRecordPath = join(runDir, "run-record.json");
+  const writeRunRecordFile = options.writeRunRecordFile || ((path, runRecordJson) => {
+    writeFileSync(path, `${JSON.stringify(runRecordJson, null, 2)}\n`, "utf8");
+  });
+  const writeRunRecordJson = (status, childProcess = null) => {
+    const runRecordJson = buildRunRecordJson({
+      runId,
+      status,
+      boardRow,
+      ticket,
+      profile,
+      policyName,
+      repoRoot,
+      worktreePath,
+      branchName,
+      baseCommit,
+      handoffPath,
+      policyBin,
+      child: childProcess,
+      hermesArgs,
+      verificationCommands,
+      options,
+      serverUrl,
+      environmentVariance
+    });
+    writeRunRecordFile(runRecordPath, runRecordJson);
+    return runRecordJson;
+  };
+
+  let status = "prepared";
+  writeRunRecordJson(status, null);
 
   touchBoardActive(boardRow.id);
   if (options.noSpawn) {
@@ -463,10 +622,6 @@ export function dispatchTicket(options) {
     updateTicket(ticket.id, { ai_plan: handoff, state_id: inProgress.id }, ctx);
   }
 
-  const hermesArgs = [];
-  if (profile) hermesArgs.push("-p", profile);
-  if (options.yolo) hermesArgs.push("--yolo");
-  hermesArgs.push("chat", "-q", prompt);
   const cwd = worktreePath || repoRoot;
   const env = {
     ...process.env,
@@ -488,19 +643,25 @@ export function dispatchTicket(options) {
       stdio: options.foreground ? "inherit" : "ignore"
     });
     if (!options.foreground) child.unref();
+    status = "launched";
+    writeRunRecordJson(status, child);
   }
 
   const runRecord = [
     `Orbit dispatch run ${options.noSpawn ? "prepared" : "started"}.`,
     `- run_id: ${runId}`,
     `- profile: ${profile}`,
+    `- status: ${status}`,
     `- policy: ${policyName || "none"}`,
     `- ticket: #${ticket.number} ${ticket.title}`,
     `- branch: ${branchName || "current branch"}`,
+    `- base_commit: ${baseCommit || "unknown"}`,
     `- worktree: ${worktreePath || repoRoot}`,
     `- handoff: AI Written-Plan field${options.keepHandoffFile ? ` and ${handoffPath}` : ""}`,
+    `- run_record_json: ${runRecordPath}`,
     `- policy_bin: ${policyBin || "none"}`,
     `- pid: ${child?.pid || "not spawned"}`,
+    `- verification_commands: ${verificationCommands.join("; ")}`,
     `- command: ${options.hermesBin || "hermes"} ${hermesArgs.map((arg) => (arg.includes(" ") ? q(arg) : arg)).join(" ")}`,
     options.noSpawn ? "- mode: prepare-only; no agent spawned and ticket state left unchanged" : "- mode: spawned; ticket moved to In Progress"
   ].join("\n");
@@ -529,6 +690,8 @@ export function dispatchTicket(options) {
     pid: child?.pid || null,
     spawned: Boolean(child),
     prompt,
-    run_record: runRecord
+    run_record: runRecord,
+    run_record_path: runRecordPath,
+    verification_commands: verificationCommands
   };
 }

@@ -71,6 +71,7 @@ import {
   readComments,
   readTicket
 } from "./agent.js";
+import { createReviewVerdict, getReviewVerdict, listReviewVerdicts } from "./review-verdicts.js";
 
 /** Build a ctx for an already-resolved registry row + actor. */
 function ctxFromBoardRow(boardRow, actor) {
@@ -313,6 +314,15 @@ export async function handleApi(req, res, url) {
       sendMutationJson(res, 201, createComment(ticketId, body, ctx), ctx);
       return;
     }
+    if (sub === "review-verdicts" && req.method === "GET") {
+      sendJson(res, 200, { review_verdicts: listReviewVerdicts(ticketId, ctx, { limit: url.searchParams.get("limit") }) });
+      return;
+    }
+    if (sub === "review-verdicts" && req.method === "POST") {
+      const body = await readJson(req);
+      sendMutationJson(res, 201, createReviewVerdict(ticketId, body, ctx), ctx);
+      return;
+    }
     if (sub === "attachments" && req.method === "GET") {
       sendJson(res, 200, listTicketAttachments(ticketId, ctx));
       return;
@@ -339,6 +349,16 @@ export async function handleApi(req, res, url) {
       return;
     }
     sendJson(res, 404, { error: "not_found" });
+    return;
+  }
+
+  const reviewVerdictPath = url.pathname.match(/^\/api\/review-verdicts\/([^/]+)$/);
+  if (reviewVerdictPath && req.method === "GET") {
+    const reviewId = decodeURIComponent(reviewVerdictPath[1]);
+    const { boardId, boardSlug } = boardHintsFromQuery(url);
+    const row = resolveBoardFromHint(boardId, boardSlug);
+    if (!row) throw httpError(400, "board_id_required");
+    sendJson(res, 200, getReviewVerdict(reviewId, ctxFromBoardRow(row, actor)));
     return;
   }
 
