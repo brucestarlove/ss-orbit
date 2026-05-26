@@ -185,7 +185,7 @@ const TOOL_DEFS = [
   {
     name: "board_context",
     description:
-      "Board/project context pack: board metadata, agent_instructions, journal entries (board_entries), and deployment paths. Complements the lean board_get_ticket_context. Resolves board from board_id / board_slug / board, else the MCP session board. Set include_struck true to include struck journal rows (default false). Same payload as GET /api/boards/:id/context.",
+      "Board/project context pack: board metadata, agent_instructions, journal entries (board_entries), and deployment paths. Complements the lean board_get_ticket_context. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Set include_struck true to include struck journal rows (default false). Same payload as GET /api/boards/:id/context.",
     inputSchema: {
       type: "object",
       properties: {
@@ -212,7 +212,7 @@ const TOOL_DEFS = [
   {
     name: "board_set_active",
     description:
-      "Switch the MCP session to another board by slug (updates last_active_at for multi-board repos). Subsequent tools use that board until switched again.",
+      "Switch the MCP session fallback to another board by slug (updates last_active_at for multi-board repos). Tools that accept board_id / board_slug / board use those explicit selectors first; this session board is only the convenience fallback when selectors are omitted.",
     inputSchema: {
       type: "object",
       properties: {
@@ -226,7 +226,7 @@ const TOOL_DEFS = [
   {
     name: "board_claim_next",
     description:
-      "Claim the next schedulable AI-ready ticket on the session's active board. Pass `board` (slug) only to explicitly switch to another board you mean to work on; omitted `board` never scans other boards.",
+      "Claim the next schedulable AI-ready ticket on a specific board. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience when selectors are omitted, and omitted selectors never scan other boards.",
     inputSchema: {
       type: "object",
       properties: {
@@ -243,7 +243,7 @@ const TOOL_DEFS = [
   {
     name: "board_get_ticket_context",
     description:
-      "Return the default lean context pack for a ticket: ticket fields, board identity only, relations, blockers, parent/children, and related ticket summaries. Project manual/journal and comments are intentionally omitted; use board_context for board manual/journal and board_read_comments for comment threads.",
+      "Return the default lean context pack for a ticket: ticket fields, board identity only, relations, blockers, parent/children, and related ticket summaries. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Project manual/journal and comments are intentionally omitted; use board_context for board manual/journal and board_read_comments for comment threads.",
     inputSchema: {
       type: "object",
       properties: {
@@ -264,7 +264,7 @@ const TOOL_DEFS = [
   {
     name: "board_get_ticket_context_full",
     description:
-      "Return the explicit heavy ticket context pack, preserving the historical board_get_ticket_context shape: ticket, full board row, board_manual/journal, relations, blockers, parent/children, and related tickets. Comments are still intentionally omitted; use board_read_comments for comment threads.",
+      "Return the explicit heavy ticket context pack, preserving the historical board_get_ticket_context shape: ticket, full board row, board_manual/journal, relations, blockers, parent/children, and related tickets. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Comments are still intentionally omitted; use board_read_comments for comment threads.",
     inputSchema: {
       type: "object",
       properties: {
@@ -285,7 +285,7 @@ const TOOL_DEFS = [
   {
     name: "board_get_agent_dispatch_packet",
     description:
-      "Return a lean agent dispatch packet for one ticket: board identity/instructions, capped ticket description/acceptance/AI plan, blockers, shallow parent, relevant workflow state IDs, repo path/default branch, recent capped comments, and label names. Parent/related/implementation bodies are intentionally omitted.",
+      "Return a lean agent dispatch packet for one ticket: board identity/instructions, capped ticket description/acceptance/AI plan, blockers, shallow parent, relevant workflow state IDs, repo path/default branch, recent capped comments, and label names. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Parent/related/implementation bodies are intentionally omitted.",
     inputSchema: {
       type: "object",
       properties: {
@@ -304,7 +304,7 @@ const TOOL_DEFS = [
   {
     name: "board_read_ticket",
     description:
-      "Look up a ticket by ticket_id, number, or exact title (case-insensitive) on the session's active board, and return its title, description, labels, state, and the board manual (agent_instructions + journal + deployment paths). Ticket comments are intentionally omitted; use board_read_comments for explicit comment retrieval.",
+      "Look up a ticket by ticket_id, number, or exact title (case-insensitive), and return its title, description, labels, state, and the board manual (agent_instructions + journal + deployment paths). Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Ticket comments are intentionally omitted; use board_read_comments for explicit comment retrieval.",
     inputSchema: {
       type: "object",
       properties: {
@@ -322,7 +322,7 @@ const TOOL_DEFS = [
   {
     name: "board_read_comments",
     description:
-      "Return every comment on a ticket (oldest → newest). Look up by ticket_id, number, or exact title (case-insensitive) on the session's active board. Comment kinds include human_comment, agent_note, checkpoint, completion, note.",
+      "Return every comment on a ticket (oldest → newest). Look up by ticket_id, number, or exact title (case-insensitive). Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Comment kinds include human_comment, agent_note, checkpoint, completion, note.",
     inputSchema: {
       type: "object",
       properties: {
@@ -339,7 +339,7 @@ const TOOL_DEFS = [
   },
   {
     name: "board_get_ticket_relations",
-    description: "List every link touching a ticket. Each entry has `type`, `direction`, `other_ticket`, and `source`. `source='relation'` rows come from the relations table (`relates_to` / `blocks` / `blocked_by`) and are the SSOT for peer dependencies — write via `POST /api/relations`, delete via `DELETE /api/relations/:id`. `source='hierarchy'` rows are read-only synthetic entries surfacing epic ownership (`child_of` toward the parent epic, `parent_of` toward each child); they have `id: null` and are mutated by patching the ticket's `parent_ticket_id`, not by calling the relations endpoints.",
+    description: "List every link touching a ticket. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Each entry has `type`, `direction`, `other_ticket`, and `source`. `source='relation'` rows come from the relations table (`relates_to` / `blocks` / `blocked_by`) and are the SSOT for peer dependencies — write via `POST /api/relations`, delete via `DELETE /api/relations/:id`. `source='hierarchy'` rows are read-only synthetic entries surfacing epic ownership (`child_of` toward the parent epic, `parent_of` toward each child); they have `id: null` and are mutated by patching the ticket's `parent_ticket_id`, not by calling the relations endpoints.",
     inputSchema: {
       type: "object",
       properties: {
@@ -355,7 +355,7 @@ const TOOL_DEFS = [
   },
   {
     name: "board_get_ticket_blockers",
-    description: "Return unresolved blockers for a ticket and a can_start boolean. The single source of truth for dependencies is the per-card `blocked_by` row in the relations table; if a row exists the blocker is unresolved. Rows are removed two ways: (1) automatically when the blocking ticket moves into the Done lane (state role='done'), or (2) manually by the user in the UI. A ticket with can_start=false must not be worked on until its blockers resolve. Epic blocker targets expand to that epic's open children (children in any lane whose role is not 'done', not archived); each expanded entry carries via_epic_id.",
+    description: "Return unresolved blockers for a ticket and a can_start boolean. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. The single source of truth for dependencies is the per-card `blocked_by` row in the relations table; if a row exists the blocker is unresolved. Rows are removed two ways: (1) automatically when the blocking ticket moves into the Done lane (state role='done'), or (2) manually by the user in the UI. A ticket with can_start=false must not be worked on until its blockers resolve. Epic blocker targets expand to that epic's open children (children in any lane whose role is not 'done', not archived); each expanded entry carries via_epic_id.",
     inputSchema: {
       type: "object",
       properties: {
@@ -372,7 +372,7 @@ const TOOL_DEFS = [
   {
     name: "board_search",
     description:
-      "Search tickets, comments, and implementation records by text on the session's active board. Pass `board` (slug) only to explicitly search another board; omitted `board` never merges results from other boards.",
+      "Search tickets, comments, and implementation records by text on a specific board. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience when selectors are omitted, and omitted selectors never merge results from other boards.",
     inputSchema: {
       type: "object",
       properties: {
@@ -394,7 +394,7 @@ const TOOL_DEFS = [
   {
     name: "board_create_ticket",
     description:
-      "Create a new Orbit ticket/card on the active board. Use this instead of editing .orbit/board.db directly. Same operation as POST /api/tickets.",
+      "Create a new Orbit ticket/card. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Use this instead of editing .orbit/board.db directly. Same operation as POST /api/tickets.",
     inputSchema: {
       type: "object",
       properties: {
@@ -420,11 +420,14 @@ const TOOL_DEFS = [
   {
     name: "board_update_ticket",
     description:
-      "Update ticket fields such as AI plan, implementation summary, implementation updates, state, type, priority, or labels (full replace: array of label names).",
+      "Update ticket fields such as AI plan, implementation summary, implementation updates, state, type, priority, or labels (full replace: array of label names). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
         title: { type: "string" },
         description: { type: "string" },
         type: { type: "string" },
@@ -443,11 +446,14 @@ const TOOL_DEFS = [
   },
   {
     name: "board_add_comment",
-    description: "Add a ticket comment or agent breadcrumb.",
+    description: "Add a ticket comment or agent breadcrumb. Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
         body: { type: "string" },
         kind: { type: "string" }
       },
@@ -458,11 +464,14 @@ const TOOL_DEFS = [
   },
   {
     name: "board_create_review_verdict",
-    description: "Create a durable Sentinel/agent review verdict for a ticket. Verdict must be PASS, BLOCK, or QUESTION. Findings and evidence commands are stored as structured arrays; comments may mirror the data for humans but are not the source of truth.",
+    description: "Create a durable Sentinel/agent review verdict for a ticket. Verdict must be PASS, BLOCK, or QUESTION. Findings and evidence commands are stored as structured arrays; comments may mirror the data for humans but are not the source of truth. Resolves board from board_id / board_slug / board; the active session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
         verdict: { type: "string", enum: ["PASS", "BLOCK", "QUESTION"] },
         blocking_findings: { type: "array" },
         optional_findings: { type: "array" },
@@ -513,12 +522,13 @@ const TOOL_DEFS = [
   },
   {
     name: "board_add_board_entry",
-    description: "Add a durable board-level decision or lesson for future agents.",
+    description: "Add a durable board-level decision or lesson for future agents. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         board_id: { type: "string" },
         board_slug: { type: "string" },
+        board: { type: "string" },
         type: { type: "string", enum: ["decision", "lesson"] },
         title: { type: "string" },
         body: { type: "string" },
@@ -532,11 +542,14 @@ const TOOL_DEFS = [
   {
     name: "board_checkpoint",
     description:
-      "Pause mid-flight for a human: moves the ticket to Review (same lane as board_complete; checkpoint distinguishes a blocking question) and posts a checkpoint-kind comment with your message. Use when you cannot proceed without the user—not for normal 'work is done' handoff (use board_complete).",
+      "Pause mid-flight for a human: moves the ticket to Review (same lane as board_complete; checkpoint distinguishes a blocking question) and posts a checkpoint-kind comment with your message. Use when you cannot proceed without the user—not for normal 'work is done' handoff (use board_complete). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
         message: { type: "string" }
       },
       required: ["ticket_id", "message"],
@@ -547,11 +560,14 @@ const TOOL_DEFS = [
   {
     name: "board_complete",
     description:
-      "Hand off finished work for human review: moves the ticket to the Review lane (by role or name), writes a completion comment (summary, optional PR URL), and optional implementation_updates. This is the usual 'ready for you to look' path; use board_checkpoint only when blocked mid-flight.",
+      "Hand off finished work for human review: moves the ticket to the Review lane (by role or name), writes a completion comment (summary, optional PR URL), and optional implementation_updates. This is the usual 'ready for you to look' path; use board_checkpoint only when blocked mid-flight. Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         ticket_id: { type: "string" },
+        board_id: { type: "string" },
+        board_slug: { type: "string" },
+        board: { type: "string" },
         summary: { type: "string" },
         updates: { type: "string" },
         pr_url: { type: "string" },
@@ -565,10 +581,10 @@ const TOOL_DEFS = [
   {
     name: "board_archive_ticket",
     description:
-      "Archive (soft-delete) a ticket. The ticket is moved off the board into the Archive: it is excluded from bootstrap, search, claim-next, blockers, and relations, but its data and comments are preserved. Reverse with board_restore_ticket; permanently remove with board_delete_ticket.",
+      "Archive (soft-delete) a ticket. The ticket is moved off the board into the Archive: it is excluded from bootstrap, search, claim-next, blockers, and relations, but its data and comments are preserved. Reverse with board_restore_ticket; permanently remove with board_delete_ticket. Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
-      properties: { ticket_id: { type: "string" } },
+      properties: { ticket_id: { type: "string" }, board_id: { type: "string" }, board_slug: { type: "string" }, board: { type: "string" } },
       required: ["ticket_id"],
       additionalProperties: false
     },
@@ -576,10 +592,10 @@ const TOOL_DEFS = [
   },
   {
     name: "board_restore_ticket",
-    description: "Restore an archived ticket back to the board in its previous lane (state).",
+    description: "Restore an archived ticket back to the board in its previous lane (state). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
-      properties: { ticket_id: { type: "string" } },
+      properties: { ticket_id: { type: "string" }, board_id: { type: "string" }, board_slug: { type: "string" }, board: { type: "string" } },
       required: ["ticket_id"],
       additionalProperties: false
     },
@@ -588,10 +604,10 @@ const TOOL_DEFS = [
   {
     name: "board_delete_ticket",
     description:
-      "Permanently delete a ticket. The ticket MUST already be archived (call board_archive_ticket first) — otherwise this returns 409 ticket_not_archived. This cannot be undone: comments, labels, and relations are removed via cascade. Events for this ticket are kept but their ticket_id becomes NULL.",
+      "Permanently delete a ticket. The ticket MUST already be archived (call board_archive_ticket first) — otherwise this returns 409 ticket_not_archived. This cannot be undone: comments, labels, and relations are removed via cascade. Events for this ticket are kept but their ticket_id becomes NULL. Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
-      properties: { ticket_id: { type: "string" } },
+      properties: { ticket_id: { type: "string" }, board_id: { type: "string" }, board_slug: { type: "string" }, board: { type: "string" } },
       required: ["ticket_id"],
       additionalProperties: false
     },
@@ -612,12 +628,13 @@ const TOOL_DEFS = [
   },
   {
     name: "board_export_board",
-    description: "Export a board snapshot as JSON for backup or transfer.",
+    description: "Export a board snapshot as JSON for backup or transfer. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         board_id: { type: "string" },
         board_slug: { type: "string" },
+        board: { type: "string" },
         include_attachments: { type: "boolean", description: "Embed attached image bytes in the JSON snapshot." },
         include_images: { type: "boolean", description: "Alias for include_attachments." }
       },
@@ -628,12 +645,13 @@ const TOOL_DEFS = [
   {
     name: "board_update_settings",
     description:
-      "PATCH-equivalent for board settings: name (display rename only; slug/canonical URLs stay unchanged), repo_url, system_path, default_branch, agent_instructions (project-level agent context), and project_notes (Notes For You).",
+      "PATCH-equivalent for board settings: name (display rename only; slug/canonical URLs stay unchanged), repo_url, system_path, default_branch, agent_instructions (project-level agent context), and project_notes (Notes For You). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
         board_id: { type: "string" },
         board_slug: { type: "string" },
+        board: { type: "string" },
         name: { type: "string" },
         repo_url: { type: "string" },
         system_path: { type: "string" },

@@ -20,7 +20,7 @@ export async function createOrbitClient(env = process.env) {
 
 export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.fetch) {
   const apiUrl = String(env.ORBIT_API_URL || "").trim().replace(/\/+$/, "");
-  const defaultBoard = String(env.ORBIT_DEFAULT_BOARD || "").trim();
+  let defaultBoard = String(env.ORBIT_DEFAULT_BOARD || "").trim();
   if (!apiUrl) throw rpcError(-32602, "ORBIT_MODE=remote requires ORBIT_API_URL.");
   if (typeof fetchImpl !== "function") throw rpcError(-32603, "ORBIT_MODE=remote requires global fetch support.");
 
@@ -57,6 +57,10 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
   }
 
   const ticketQuery = (args = {}) => ({ board_id: args.board_id, board: args.board_slug || args.board || defaultBoard });
+  const stripBoardSelectors = (args = {}) => {
+    const { board_id, board_slug, board, ...rest } = args;
+    return rest;
+  };
   const searchQuery = (args = {}) => ({
     q: args.q,
     limit: args.limit,
@@ -84,7 +88,7 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
       return request("GET", `/api/boards/${encodeURIComponent(requireBoard(args))}/context`, { query: { include_struck: args.include_struck ? "true" : undefined } });
     },
     async boardList() { return request("GET", "/api/boards"); },
-    async boardSetActive(args = {}) { if (!args.slug) throw rpcError(-32602, "slug is required."); env.ORBIT_DEFAULT_BOARD = String(args.slug); return { ok: true, slug: String(args.slug), mode: "remote" }; },
+    async boardSetActive(args = {}) { if (!args.slug) throw rpcError(-32602, "slug is required."); defaultBoard = String(args.slug); env.ORBIT_DEFAULT_BOARD = defaultBoard; return { ok: true, slug: defaultBoard, mode: "remote" }; },
     async claimNext(args = {}) { return request("POST", "/api/agent/claim-next", { body: { ...args, board: requireBoard(args) } }); },
     async getTicketContext(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/context`, { query: { ...contextQuery(args), depth: args.depth || 1 } }); },
     async getTicketContextFull(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/context/full`, { query: { ...contextQuery(args), depth: args.depth || 1 } }); },
@@ -114,14 +118,14 @@ export function createHttpOrbitClient(env = process.env, fetchImpl = globalThis.
     async getTicketBlockers(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/blockers`, { query: ticketQuery(args) }); },
     async search(args = {}) { return request("GET", "/api/search", { query: searchQuery(args) }); },
     async createTicket(args = {}) { return request("POST", "/api/tickets", { body: { ...args, board: requireBoard(args) }, ok: [201] }); },
-    async updateTicket({ ticket_id, ...patch }) { return request("PATCH", `/api/tickets/${encodeURIComponent(ticket_id)}`, { query: ticketQuery(patch), body: patch }); },
-    async addComment({ ticket_id, ...body }) { return request("POST", `/api/tickets/${encodeURIComponent(ticket_id)}/comments`, { body, ok: [201] }); },
-    async createReviewVerdict({ ticket_id, ...body }) { return request("POST", `/api/tickets/${encodeURIComponent(ticket_id)}/review-verdicts`, { query: ticketQuery(body), body, ok: [201] }); },
+    async updateTicket({ ticket_id, ...patch }) { return request("PATCH", `/api/tickets/${encodeURIComponent(ticket_id)}`, { query: ticketQuery(patch), body: stripBoardSelectors(patch) }); },
+    async addComment({ ticket_id, ...body }) { return request("POST", `/api/tickets/${encodeURIComponent(ticket_id)}/comments`, { query: ticketQuery(body), body: stripBoardSelectors(body), ok: [201] }); },
+    async createReviewVerdict({ ticket_id, ...body }) { return request("POST", `/api/tickets/${encodeURIComponent(ticket_id)}/review-verdicts`, { query: ticketQuery(body), body: stripBoardSelectors(body), ok: [201] }); },
     async listReviewVerdicts(args = {}) { return request("GET", `/api/tickets/${encodeURIComponent(args.ticket_id)}/review-verdicts`, { query: { ...ticketQuery(args), limit: args.limit } }); },
     async getReviewVerdict(args = {}) { return request("GET", `/api/review-verdicts/${encodeURIComponent(args.review_id)}`, { query: ticketQuery(args) }); },
-    async addBoardEntry(args = {}) { return request("POST", `/api/boards/${encodeURIComponent(requireBoard(args))}/entries`, { body: args, ok: [201] }); },
-    async checkpoint(args = {}) { return request("POST", "/api/agent/checkpoint", { body: args }); },
-    async complete(args = {}) { return request("POST", "/api/agent/complete", { body: args }); },
+    async addBoardEntry(args = {}) { return request("POST", `/api/boards/${encodeURIComponent(requireBoard(args))}/entries`, { body: stripBoardSelectors(args), ok: [201] }); },
+    async checkpoint(args = {}) { const fallback = boardArg(args); return request("POST", "/api/agent/checkpoint", { body: fallback ? { ...args, board: args.board || args.board_slug || fallback } : args }); },
+    async complete(args = {}) { const fallback = boardArg(args); return request("POST", "/api/agent/complete", { body: fallback ? { ...args, board: args.board || args.board_slug || fallback } : args }); },
     async archiveTicket(args = {}) { return request("POST", `/api/tickets/${encodeURIComponent(args.ticket_id)}/archive`, { query: ticketQuery(args) }); },
     async restoreTicket(args = {}) { return request("POST", `/api/tickets/${encodeURIComponent(args.ticket_id)}/restore`, { query: ticketQuery(args) }); },
     async deleteTicket(args = {}) { return request("DELETE", `/api/tickets/${encodeURIComponent(args.ticket_id)}`, { query: ticketQuery(args) }); },
@@ -202,10 +206,26 @@ export async function createLocalOrbitClient(env = process.env) {
     if (!row) throw rpcError(-32602, "No board in session; pass board_id or board_slug, or call board_set_active first.");
     return { actor, board: row, db: registry.openBoardDb(row) };
   };
-  const sessionCtx = (actor) => ctxFor(getSessionBoard(), actor);
   const backup = (ctx, result) => { backups.scheduleAutomaticBoardBackup(ctx.board, ctx.db); return result; };
-  const explicit = (args = {}) => args.board_id ? registry.getBoardByRegistryId(args.board_id) : (args.board_slug || args.board ? registry.getBoardBySlug(args.board_slug || args.board) : null);
+  const explicit = (args = {}) => {
+    if (args.board_id) {
+      const row = registry.getBoardByRegistryId(args.board_id);
+      if (!row) throw rpcError(-32004, `Board id not found: ${args.board_id}`);
+      return row;
+    }
+    if (args.board_slug || args.board) {
+      const slug = args.board_slug || args.board;
+      const row = registry.getBoardBySlug(slug);
+      if (!row) throw rpcError(-32004, `Board slug not found: ${slug}`);
+      return row;
+    }
+    return null;
+  };
   const rowOrSession = (args = {}) => explicit(args) || getSessionBoard();
+  const stripBoardSelectors = (args = {}) => {
+    const { board_id, board_slug, board: _board, ...rest } = args;
+    return rest;
+  };
   const actor = () => board.localAgentActor();
 
   return {
@@ -227,18 +247,18 @@ export async function createLocalOrbitClient(env = process.env) {
     getTicketRelations: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getTicketRelations(args.ticket_id, ctx); },
     getTicketBlockers: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getTicketBlockers(args.ticket_id, ctx); },
     search: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.searchTickets(args, ctx); },
-    createTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); const { board_slug, board: _b, ...body } = args; body.board_id = ctx.board.id; return backup(ctx, board.createTicket(body, ctx)); },
-    updateTicket: ({ ticket_id, ...patch }) => { const ctx = sessionCtx(actor()); return backup(ctx, board.updateTicket(ticket_id, patch, ctx)); },
-    addComment: ({ ticket_id, ...body }) => { const ctx = sessionCtx(actor()); return backup(ctx, board.createComment(ticket_id, body, ctx)); },
-    createReviewVerdict: ({ ticket_id, ...body }) => { const ctx = sessionCtx(actor()); return backup(ctx, board.createReviewVerdict(ticket_id, body, ctx)); },
+    createTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); const body = stripBoardSelectors(args); body.board_id = ctx.board.id; return backup(ctx, board.createTicket(body, ctx)); },
+    updateTicket: ({ ticket_id, ...patch }) => { const ctx = ctxFor(rowOrSession(patch), actor()); return backup(ctx, board.updateTicket(ticket_id, stripBoardSelectors(patch), ctx)); },
+    addComment: ({ ticket_id, ...body }) => { const ctx = ctxFor(rowOrSession(body), actor()); return backup(ctx, board.createComment(ticket_id, stripBoardSelectors(body), ctx)); },
+    createReviewVerdict: ({ ticket_id, ...body }) => { const ctx = ctxFor(rowOrSession(body), actor()); return backup(ctx, board.createReviewVerdict(ticket_id, stripBoardSelectors(body), ctx)); },
     listReviewVerdicts: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return { review_verdicts: board.listReviewVerdicts(args.ticket_id, ctx, args) }; },
     getReviewVerdict: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getReviewVerdict(args.review_id, ctx); },
-    addBoardEntry: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.createBoardEntry(ctx.board.id, args, ctx)); },
-    checkpoint: (args = {}) => { const ctx = sessionCtx(actor()); return backup(ctx, board.checkpointTicket(args, ctx)); },
-    complete: (args = {}) => { const ctx = sessionCtx(actor()); return backup(ctx, board.completeTicket(args, ctx)); },
-    archiveTicket: (args = {}) => { const ctx = sessionCtx(actor()); return backup(ctx, board.archiveTicket(args.ticket_id, ctx)); },
-    restoreTicket: (args = {}) => { const ctx = sessionCtx(actor()); return backup(ctx, board.restoreTicket(args.ticket_id, ctx)); },
-    deleteTicket: (args = {}) => { const ctx = sessionCtx(actor()); return backup(ctx, board.deleteTicket(args.ticket_id, ctx)); },
+    addBoardEntry: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.createBoardEntry(ctx.board.id, stripBoardSelectors(args), ctx)); },
+    checkpoint: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.checkpointTicket(stripBoardSelectors(args), ctx)); },
+    complete: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.completeTicket(stripBoardSelectors(args), ctx)); },
+    archiveTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.archiveTicket(args.ticket_id, ctx)); },
+    restoreTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.restoreTicket(args.ticket_id, ctx)); },
+    deleteTicket: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return backup(ctx, board.deleteTicket(args.ticket_id, ctx)); },
     listArchive: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return { tickets: board.archivedTicketsForBoard(ctx.db, ctx.board.id) }; },
     exportBoard: (args = {}) => {
       const ctx = ctxFor(rowOrSession(args), actor());
@@ -246,6 +266,6 @@ export async function createLocalOrbitClient(env = process.env) {
         includeAttachments: Boolean(args.include_attachments || args.include_images)
       });
     },
-    updateSettings: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); const { board_id, board_slug, ...patch } = args; return backup(ctx, board.updateBoard(ctx.board.id, patch, ctx)); }
+    updateSettings: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); const patch = stripBoardSelectors(args); return backup(ctx, board.updateBoard(ctx.board.id, patch, ctx)); }
   };
 }
