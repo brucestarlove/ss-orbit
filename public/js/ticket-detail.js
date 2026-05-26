@@ -17,7 +17,9 @@ import {
   priorityLabel,
   priorityKeyFor,
   renderMarkdown,
-  stateClassFor
+  renderPreservedText,
+  stateClassFor,
+  cleanText
 } from "./format.js";
 import { renderTypeIcon, renderPriorityPill, renderBoard } from "./kanban.js";
 import { renderDrawerShell, openDrawer, closeDrawer } from "./drawer.js";
@@ -63,18 +65,38 @@ async function patchTicket(ticketId, body) {
 /**
  * Replace a static node with an inline editor; commit on Enter / blur, cancel on Esc.
  * For multi-line fields, Ctrl/Cmd+Enter commits and plain Enter inserts a newline.
+ *
+ * Options:
+ *   - fieldName: short identifier used for aria-label / data attribute (e.g. "title").
+ *   - multiline: true for <textarea> + Ctrl+Enter commit; false for <input> + Enter commit.
+ *   - initialValue: text shown in the editor on open.
+ *   - ariaLabel: full label for screen readers.
+ *   - emptyMessage: if set, an empty trimmed value triggers a warning toast and cancels.
+ *   - rerender: async fn called on cancel / no-change to put the static node back.
+ *   - commit: async fn called with the new value when the user accepts a real change.
+ *             Receives the *raw* editor value; the caller is responsible for any
+ *             trimming, cleanText, or PATCH wiring.
  */
-function startInlineEdit(node, field, initialValue, ticketId) {
+export function startInlineEdit(node, opts) {
   if (!node || node.dataset.editing === "true") return;
+  const {
+    fieldName,
+    multiline = true,
+    initialValue = "",
+    ariaLabel,
+    emptyMessage,
+    rerender,
+    commit: commitHandler
+  } = opts;
+
   node.dataset.editing = "true";
 
-  const isTextarea = field === "description";
-  const editor = document.createElement(isTextarea ? "textarea" : "input");
-  editor.className = isTextarea ? "inline-desc-editor" : "inline-title-editor";
+  const editor = document.createElement(multiline ? "textarea" : "input");
+  editor.className = multiline ? "inline-desc-editor" : "inline-title-editor";
   editor.value = initialValue;
-  editor.setAttribute("data-editing-field", field);
-  editor.setAttribute("aria-label", isTextarea ? "Edit ticket description" : "Edit ticket title");
-  if (!isTextarea) {
+  if (fieldName) editor.setAttribute("data-editing-field", fieldName);
+  if (ariaLabel) editor.setAttribute("aria-label", ariaLabel);
+  if (!multiline) {
     editor.type = "text";
     editor.maxLength = 500;
     editor.autocomplete = "off";
@@ -85,7 +107,7 @@ function startInlineEdit(node, field, initialValue, ticketId) {
 
   node.replaceWith(editor);
   editor.focus();
-  if (!isTextarea) editor.select();
+  if (!multiline) editor.select();
   else editor.setSelectionRange(editor.value.length, editor.value.length);
 
   let done = false;
@@ -113,8 +135,8 @@ function startInlineEdit(node, field, initialValue, ticketId) {
   function handleOutsidePointerDown(event) {
     if (done || event.target === editor || editor.contains(event.target)) return;
     // Some drawer/header surfaces are not focusable, so clicking them does not
-    // reliably blur the title input in every browser. Force the same blur path
-    // description editing already uses so the edit styling cannot get stuck.
+    // reliably blur the input in every browser. Force the blur path used on
+    // commit so the edit styling cannot get stuck.
     editor.blur();
   }
 
@@ -122,24 +144,24 @@ function startInlineEdit(node, field, initialValue, ticketId) {
 
   const commit = async () => {
     if (done) return;
-    const next = field === "title" ? editor.value.trim() : editor.value;
+    const next = multiline ? editor.value : editor.value.trim();
     finish();
     if (String(next) === String(initialValue)) {
-      await renderDetail();
+      if (rerender) await rerender();
       return;
     }
-    if (field === "title" && !next) {
-      toast.warning("Title cannot be empty");
-      await renderDetail();
+    if (emptyMessage && !next.trim()) {
+      toast.warning(emptyMessage);
+      if (rerender) await rerender();
       return;
     }
-    await patchTicket(ticketId, { [field]: next });
+    if (commitHandler) await commitHandler(next);
   };
 
   const cancel = async () => {
     if (done) return;
     finish();
-    await renderDetail();
+    if (rerender) await rerender();
   };
 
   editor.addEventListener("blur", commit);
@@ -150,7 +172,7 @@ function startInlineEdit(node, field, initialValue, ticketId) {
       return;
     }
     if (event.key === "Enter") {
-      if (!isTextarea) {
+      if (!multiline) {
         event.preventDefault();
         void commit();
       } else if (event.metaKey || event.ctrlKey) {
@@ -165,29 +187,82 @@ function startInlineEdit(node, field, initialValue, ticketId) {
 function wireTicketDetailEditors(ticket) {
   const ticketId = ticket.id;
 
+  const editTitle = () =>
+    startInlineEdit(titleEl, {
+      fieldName: "title",
+      multiline: false,
+      initialValue: ticket.title || "",
+      ariaLabel: "Edit ticket title",
+      emptyMessage: "Title cannot be empty",
+      rerender: () => renderDetail(),
+      commit: (next) => patchTicket(ticketId, { title: next })
+    });
+
   const titleEl = drawer.querySelector('[data-edit-field="title"]');
   if (titleEl) {
-    titleEl.addEventListener("click", () => {
-      startInlineEdit(titleEl, "title", ticket.title || "", ticketId);
-    });
+    titleEl.addEventListener("click", editTitle);
     titleEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        startInlineEdit(titleEl, "title", ticket.title || "", ticketId);
+        editTitle();
       }
     });
   }
 
   const descEl = drawerInner.querySelector('[data-edit-field="description"]');
+  const editDescription = () =>
+    startInlineEdit(descEl, {
+      fieldName: "description",
+      multiline: true,
+      initialValue: ticket.description || "",
+      ariaLabel: "Edit ticket description",
+      rerender: () => renderDetail(),
+      commit: (next) => patchTicket(ticketId, { description: cleanText(next) })
+    });
+
   if (descEl) {
     descEl.addEventListener("click", (event) => {
       event.preventDefault();
-      startInlineEdit(descEl, "description", ticket.description || "", ticketId);
+      editDescription();
     });
     descEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        startInlineEdit(descEl, "description", ticket.description || "", ticketId);
+        editDescription();
+      }
+    });
+  }
+
+  // AI Plan / Implementation fields: each becomes its own click-to-edit
+  // surface so they save independently on blur / Ctrl+Enter, matching the
+  // description field. The "ai_plan" / "implementation_summary" /
+  // "implementation_updates" data-edit-field selectors are emitted by the
+  // detail body template below.
+  const AI_FIELDS = [
+    { key: "ai_plan", label: "AI plan" },
+    { key: "implementation_summary", label: "Implementation summary" },
+    { key: "implementation_updates", label: "Implementation updates / lessons" }
+  ];
+  for (const { key, label } of AI_FIELDS) {
+    const fieldEl = drawerInner.querySelector(`[data-edit-field="${key}"]`);
+    if (!fieldEl) continue;
+    const edit = () =>
+      startInlineEdit(fieldEl, {
+        fieldName: key,
+        multiline: true,
+        initialValue: ticket[key] || "",
+        ariaLabel: `Edit ${label}`,
+        rerender: () => renderDetail(),
+        commit: (next) => patchTicket(ticketId, { [key]: cleanText(next) })
+      });
+    fieldEl.addEventListener("click", (event) => {
+      event.preventDefault();
+      edit();
+    });
+    fieldEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        edit();
       }
     });
   }
@@ -331,6 +406,10 @@ export async function renderDetail(options = {}) {
   const priorityKey = priorityKeyFor(ticket.priority);
   const currentState = states.find((s) => s.id === ticket.state_id);
   const stateClass = stateClassFor(currentState);
+  const descriptionHtml = ticket.description ? renderPreservedText(ticket.description) : escapeHtml("No description yet.");
+  const descriptionClass = ticket.description
+    ? "description preserved-text-body editable-field"
+    : "description editable-field is-placeholder";
   const detailSubtitleHtml = `
     <span class="ticket-number">${escapeHtml(ticketLabel(ticket))}</span>
     <div class="detail-meta-badge-row" aria-label="Ticket metadata controls">
@@ -355,7 +434,7 @@ export async function renderDetail(options = {}) {
     body: `
     <div class="detail-head">
       <p class="detail-updated" title="Last saved change">Updated ${escapeHtml(formatDateDetail(ticket.updated_at))}</p>
-      <div class="description markdown-body editable-field ${ticket.description ? "" : "is-placeholder"}" data-edit-field="description" tabindex="0" title="Click to edit">${ticket.description ? renderMarkdown(ticket.description) : escapeHtml("No description yet.")}</div>
+      <div class="${descriptionClass}" data-edit-field="description" tabindex="0" title="Click to edit">${descriptionHtml}</div>
       <dl class="ticket-meta" id="ticketMetaGrid" data-ticket-id="${escapeHtml(ticket.id)}">
         <div class="ticket-meta-row ticket-meta-row--stack">
           <dt>Labels</dt>
@@ -385,21 +464,26 @@ export async function renderDetail(options = {}) {
     ${currentBoard()?.ai_enabled !== 0 ? `
     <details class="section ai-fields" data-ai-plan-toggle data-ticket-id="${escapeHtml(ticket.id)}"${aiPlanOpen(ticket.id) ? " open" : ""}>
       <summary><h3>AI Plan / Implementation Record</h3></summary>
-      <form id="aiFieldsForm" class="field-form">
-        <label>
-          <span>AI-Written Plan</span>
-          <textarea name="ai_plan" placeholder="Paste or let an AI write the plan...">${escapeHtml(ticket.ai_plan || "")}</textarea>
-        </label>
-        <label>
-          <span>Implementation Summary</span>
-          <textarea name="implementation_summary" placeholder="What changed, what shipped, what remains...">${escapeHtml(ticket.implementation_summary || "")}</textarea>
-        </label>
-        <label>
-          <span>Implementation Updates / Lessons</span>
-          <textarea name="implementation_updates" placeholder="Progress notes, mistakes to avoid, discoveries...">${escapeHtml(ticket.implementation_updates || "")}</textarea>
-        </label>
-        <button type="submit">Save Fields</button>
-      </form>
+      <div class="ai-fields-grid">
+        ${renderInlineMarkdownField({
+          fieldName: "ai_plan",
+          label: "AI-Written Plan",
+          value: ticket.ai_plan,
+          placeholder: "Paste or let an AI write the plan..."
+        })}
+        ${renderInlineMarkdownField({
+          fieldName: "implementation_summary",
+          label: "Implementation Summary",
+          value: ticket.implementation_summary,
+          placeholder: "What changed, what shipped, what remains..."
+        })}
+        ${renderInlineMarkdownField({
+          fieldName: "implementation_updates",
+          label: "Implementation Updates / Lessons",
+          value: ticket.implementation_updates,
+          placeholder: "Progress notes, mistakes to avoid, discoveries..."
+        })}
+      </div>
     </details>` : ""}
 
     <div class="section">
@@ -421,24 +505,9 @@ export async function renderDetail(options = {}) {
   wireTicketDetailEditors(ticket);
   if (features.attachments) wireAttachmentControls(ticket);
 
-  $("#aiFieldsForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await api(withBoardQuery(`/api/tickets/${ticket.id}`), {
-      method: "PATCH",
-      body: {
-        ai_plan: form.get("ai_plan"),
-        implementation_summary: form.get("implementation_summary"),
-        implementation_updates: form.get("implementation_updates")
-      }
-    });
-    await refreshTicketDetail(ticket.id);
-    toast.success("AI fields saved");
-  });
-
   $("#detailCommentForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const body = new FormData(event.currentTarget).get("body").trim();
+    const body = cleanText(new FormData(event.currentTarget).get("body")).trim();
     if (!body) return;
     await api(withBoardQuery(`/api/tickets/${ticket.id}/comments`), {
       method: "POST",
@@ -816,7 +885,33 @@ function renderComment(comment) {
         <strong>${escapeHtml(formatCommentAuthor(comment))}</strong>
         <span>${comment.kind === "human_comment" ? "" : `${escapeHtml(comment.kind)} - `}${formatDate(comment.created_at)}</span>
       </div>
-      <div class="comment-body">${escapeHtml(comment.body)}</div>
+      <div class="comment-body markdown-body">${renderMarkdown(comment.body)}</div>
+    </div>
+  `;
+}
+
+/**
+ * Click-to-edit row for AI Plan / Implementation fields and any other
+ * long-form ticket field that should render markdown by default and become
+ * a textarea on click. The wiring (event handlers + commit) lives in
+ * wireTicketDetailEditors so this helper stays a pure template.
+ */
+export function renderInlineMarkdownField({ fieldName, label, value, placeholder }) {
+  const text = value || "";
+  const hasValue = Boolean(text.trim());
+  const inner = hasValue ? renderMarkdown(text) : escapeHtml(placeholder || "");
+  const placeholderClass = hasValue ? "" : "is-placeholder";
+  return `
+    <div class="inline-md-field">
+      <span class="inline-md-field-label">${escapeHtml(label)}</span>
+      <div
+        class="inline-md-field-body markdown-body editable-field ${placeholderClass}"
+        data-edit-field="${escapeHtml(fieldName)}"
+        tabindex="0"
+        title="Click to edit"
+        role="button"
+        aria-label="Edit ${escapeHtml(label)}"
+      >${inner}</div>
     </div>
   `;
 }

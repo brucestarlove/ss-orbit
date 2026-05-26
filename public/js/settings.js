@@ -4,13 +4,13 @@
 
 import { state, getSettingsTab, statesForProject, ticketsForProject, currentBoard } from "./state.js";
 import { drawerInner, $ } from "./dom.js";
-import { escapeHtml, formatDate, repoLabelFromUrl } from "./format.js";
+import { escapeHtml, formatDate, repoLabelFromUrl, renderMarkdown, cleanText } from "./format.js";
 import { api, withBoardQuery } from "./api.js";
 import { toast, downloadJson } from "./toast.js";
 import { renderDrawerShell } from "./drawer.js";
 import { navigate } from "./router.js";
 import { renderBoard } from "./kanban.js";
-import { renderDetailCard } from "./ticket-detail.js";
+import { renderDetailCard, startInlineEdit } from "./ticket-detail.js";
 import { load } from "./app.js";
 import { features } from "./config.js";
 import {
@@ -470,19 +470,23 @@ function renderNotesSettingsTab(context) {
   const project = context.board;
   const notesPlaceholder =
     "Remember to mention SKILL-ORBIT.md to my AI agents if they get confused";
+  const notes = project.project_notes || "";
+  const hasNotes = Boolean(notes.trim());
+  const placeholderClass = hasNotes ? "" : "is-placeholder";
+  const inner = hasNotes ? renderMarkdown(notes) : escapeHtml(notesPlaceholder);
   return `
     <div class="section ai-fields">
-      <form id="notesSettingsForm" class="field-form settings-notes-form">
-        <label class="settings-notes-field-group">
-          <span>Notes For You</span>
-          <textarea
-            name="project_notes"
-            class="settings-notes-textarea"
-            placeholder="${escapeHtml(notesPlaceholder)}"
-          >${escapeHtml(project.project_notes || "")}</textarea>
-        </label>
-        <button type="submit" class="settings-notes-save">Save</button>
-      </form>
+      <div class="inline-md-field">
+        <span class="inline-md-field-label">Notes For You</span>
+        <div
+          class="inline-md-field-body markdown-body editable-field settings-notes-body ${placeholderClass}"
+          data-edit-field="project_notes"
+          tabindex="0"
+          title="Click to edit"
+          role="button"
+          aria-label="Edit Notes For You"
+        >${inner}</div>
+      </div>
     </div>
   `;
 }
@@ -683,17 +687,39 @@ function bindProjectTabHandlers(context, tab) {
   }
 
   if (tab === "notes") {
-    $("#notesSettingsForm")?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = new FormData(event.currentTarget);
-      await api(`/api/boards/${project.id}`, {
-        method: "PATCH",
-        body: { project_notes: String(form.get("project_notes") ?? "") }
+    const notesEl = drawerInner.querySelector('[data-edit-field="project_notes"]');
+    if (notesEl) {
+      const edit = () =>
+        startInlineEdit(notesEl, {
+          fieldName: "project_notes",
+          multiline: true,
+          initialValue: project.project_notes || "",
+          ariaLabel: "Edit Notes For You",
+          rerender: async () => {
+            state.detailMode = "settings";
+            await renderProjectDetail();
+          },
+          commit: async (next) => {
+            await api(`/api/boards/${project.id}`, {
+              method: "PATCH",
+              body: { project_notes: cleanText(next) }
+            });
+            await load();
+            state.detailMode = "settings";
+            toast.success("Saved");
+          }
+        });
+      notesEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        edit();
       });
-      await load();
-      state.detailMode = "settings";
-      toast.success("Saved");
-    });
+      notesEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          edit();
+        }
+      });
+    }
   }
 
   if (tab === "lanes") {

@@ -9,7 +9,7 @@ import { DatabaseSync } from "node:sqlite";
 import { folderPickerCommands, pickFolder } from "../src/core/system-picker.js";
 import { readJson } from "../src/core/http.js";
 import { normalizePath } from "../src/core/util.js";
-import { renderMarkdown } from "../public/js/format.js";
+import { renderMarkdown, cleanText, renderPreservedText } from "../public/js/format.js";
 import { buildRoute, hasRoute, isCanonicalRouteUrl, parseRoute } from "../public/js/url-routes.js";
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -38,6 +38,90 @@ test("ticket description markdown renders common formatting safely", () => {
   assert.match(html, /<pre><code>const x = &quot;&lt;tag&gt;&quot;;<\/code><\/pre>/);
 });
 
+test("ticket markdown preserves pasted terminal indentation", () => {
+  const html = renderMarkdown("agent output\n  file: C:\\Users\\bruce\n\tstatus: ok");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.equal(html, "<p>agent output<br>  file: C:\\Users\\bruce<br>\tstatus: ok</p>");
+  assert.match(stylesSource, /\.markdown-body\s*\{[\s\S]*tab-size:\s*4;/);
+  assert.match(stylesSource, /\.markdown-body p\s*\{[\s\S]*white-space:\s*break-spaces;/);
+});
+
+test("preserved text rendering keeps detail description source literal", () => {
+  const html = renderPreservedText("1. Keep numbering\n  GET /api/stream\n\tstatus: <ok>");
+
+  assert.equal(html, "1. Keep numbering\n  GET /api/stream\n\tstatus: &lt;ok&gt;");
+  assert.doesNotMatch(html, /<ol>/);
+  assert.doesNotMatch(html, /<script/i);
+});
+
+test("cleanText repairs common CP-437 mojibake and normalizes CRLF", () => {
+  // Curly quotes that survived as proper Unicode get flattened to straight ASCII.
+  assert.equal(cleanText("It’s “great”"), 'It\'s "great"');
+  // Classic Windows-tmux CP-437 mojibake sequences.
+  assert.equal(cleanText("a ΓÇô b ΓÇö c"), "a – b — c");
+  assert.equal(cleanText("ΓÇ£hi ThereΓÇ¥"), '"hi There"');
+  // The Γû╝ (down arrow) sequence we added — required so the ASCII pipeline
+  // diagrams users paste in survive round-tripping.
+  assert.equal(cleanText("step 1 Γû╝ step 2"), "step 1 ▼ step 2");
+  // CRLF / lone CR both fold to LF; multiple newlines preserved.
+  assert.equal(cleanText("a\r\nb\rc\n\nd"), "a\nb\nc\n\nd");
+  // Null / empty input stays empty without throwing.
+  assert.equal(cleanText(""), "");
+  assert.equal(cleanText(null), "");
+});
+
+test("renderMarkdown supports headers, blockquotes, hr, and GFM task lists", () => {
+  const html = renderMarkdown(
+    "# Top heading\n## Sub heading\n\n> quoted line\n> spans two\n\n---\n\n- [ ] todo item\n- [x] done item"
+  );
+
+  assert.match(html, /<h1>Top heading<\/h1>/);
+  assert.match(html, /<h2>Sub heading<\/h2>/);
+  assert.match(html, /<blockquote><p>quoted line<br>spans two<\/p><\/blockquote>/);
+  assert.match(html, /<hr>/);
+  assert.match(html, /<ul class="task-list">/);
+  assert.match(html, /<li class="task-item"><input type="checkbox" disabled> todo item<\/li>/);
+  assert.match(html, /<li class="task-item task-item-done"><input type="checkbox" disabled checked> done item<\/li>/);
+});
+
+test("renderMarkdown calls cleanText so mojibake-laden source still renders correctly", () => {
+  const html = renderMarkdown("ΓÇ£hi ThereΓÇ¥\r\n\r\n- one\r\n- two");
+  // The mojibake double-quote becomes a straight quote, which escapeHtml then
+  // emits as &quot; inside the HTML output.
+  assert.match(html, /<p>&quot;hi There&quot;<\/p>/);
+  assert.match(html, /<ul><li>one<\/li><li>two<\/li><\/ul>/);
+});
+
+test("comments, AI fields, and board Notes render markdown with cleanup on save", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+
+  // Comments are markdown-rendered (no longer escapeHtml only).
+  assert.match(detailSource, /comment-body markdown-body">\$\{renderMarkdown\(comment\.body\)\}/);
+  assert.doesNotMatch(detailSource, /comment-body">\$\{escapeHtml\(comment\.body\)\}/);
+  // New comments are cleanText'd on submit.
+  assert.match(detailSource, /cleanText\(new FormData\(event\.currentTarget\)\.get\("body"\)\)/);
+
+  // AI Plan / Implementation Record uses three click-to-edit markdown fields
+  // instead of a single shared form with a Save button. The field names are
+  // passed to renderInlineMarkdownField, which emits the data-edit-field
+  // attribute at render time.
+  assert.match(detailSource, /fieldName:\s*"ai_plan"/);
+  assert.match(detailSource, /fieldName:\s*"implementation_summary"/);
+  assert.match(detailSource, /fieldName:\s*"implementation_updates"/);
+  assert.match(detailSource, /data-edit-field="\$\{escapeHtml\(fieldName\)\}"/);
+  assert.doesNotMatch(detailSource, /id="aiFieldsForm"/);
+  // Saves go through patchTicket with cleanText applied.
+  assert.match(detailSource, /patchTicket\(ticketId,\s*\{\s*\[key\]:\s*cleanText\(next\)\s*\}\)/);
+
+  // Board Notes ditches the form and uses click-to-edit on a markdown body.
+  assert.match(settingsSource, /data-edit-field="project_notes"/);
+  assert.match(settingsSource, /renderMarkdown\(notes\)/);
+  assert.doesNotMatch(settingsSource, /id="notesSettingsForm"/);
+  assert.match(settingsSource, /project_notes:\s*cleanText\(next\)/);
+});
+
 test("ticket description markdown escapes HTML and rejects unsafe link URLs", () => {
   const html = renderMarkdown(
     '<script>alert(1)</script> [bad](javascript:alert(1)) [ok](/tickets/1) <img src=x onerror=alert(1)>'
@@ -52,16 +136,22 @@ test("ticket description markdown escapes HTML and rejects unsafe link URLs", ()
   assert.match(html, /<a href="\/tickets\/1" target="_blank" rel="noopener noreferrer">ok<\/a>/);
 });
 
-test("ticket descriptions use markdown rendering in the board and detail pane", () => {
+test("ticket descriptions use markdown on cards and preserved text in the detail pane", () => {
   const formatSource = readFileSync(join(repoRoot, "public", "js", "format.js"), "utf8");
   const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   assert.match(formatSource, /export function renderMarkdown/);
+  assert.match(formatSource, /export function renderPreservedText/);
   assert.match(kanbanSource, /renderMarkdown\(ticket\.description\)/);
   assert.match(kanbanSource, /card-description markdown-body/);
-  assert.match(detailSource, /description markdown-body editable-field/);
-  assert.match(detailSource, /renderMarkdown\(ticket\.description\)/);
+  assert.match(detailSource, /renderPreservedText\(ticket\.description\)/);
+  assert.match(detailSource, /preserved-text-body editable-field/);
+  assert.doesNotMatch(detailSource, /description markdown-body editable-field/);
+  assert.doesNotMatch(detailSource, /renderMarkdown\(ticket\.description\)/);
+  assert.match(stylesSource, /\.detail-head > \.preserved-text-body\s*\{[\s\S]*white-space:\s*break-spaces;/);
+  assert.match(stylesSource, /\.detail-head > \.preserved-text-body\s*\{[\s\S]*font-family:\s*ui-monospace/);
   assert.doesNotMatch(detailSource, /escapeHtml\(ticket\.description \|\| "No description yet\."\)/);
 });
 
@@ -139,7 +229,7 @@ test("ticket title editor is explicit, keyboard friendly, and exits edit mode on
   assert.match(detailSource, /handleOutsidePointerDown/);
   assert.match(detailSource, /editor\.blur\(\)/);
   assert.match(settingsSource, /title: project\.name/);
-  assert.doesNotMatch(settingsSource, /data-edit-field.*title/s);
+  assert.doesNotMatch(settingsSource, /data-edit-field="title"/);
   assert.match(drawerSource, /if \(titleAttrs\)/);
   const previewBoardPatchAllowed = localBackendSource.match(/async function handleBoardPatch[\s\S]*?const ALLOWED = \[([\s\S]*?)\];/);
   assert.ok(previewBoardPatchAllowed);
