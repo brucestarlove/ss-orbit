@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join, normalize, sep } from "node:path";
+import { dirname, extname, join, normalize, sep } from "node:path";
 import { boardById, ticketById } from "./queries.js";
 import { requireBoardAccess, requirePermission } from "./auth.js";
 import { tx } from "./db.js";
@@ -29,7 +29,7 @@ function ticketAttachmentDir(boardRow, ticketId) {
 }
 
 function safeOriginalName(value) {
-  const name = basename(String(value || "image").replace(/[\0\r\n]/g, "")).trim();
+  const name = String(value || "image").replace(/[\0\r\n]/g, "").trim();
   return name.slice(0, 240) || "image";
 }
 

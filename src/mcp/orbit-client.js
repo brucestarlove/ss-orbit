@@ -127,6 +127,7 @@ export async function createLocalOrbitClient(env = process.env) {
   const walkUp = (startDir, predicate) => { let dir = startDir; while (true) { if (predicate(dir)) return dir; const parent = dirname(dir); if (parent === dir) return null; dir = parent; } };
 
   const start = util.normalizePath(env.PROJECT_ROOT ? resolve(env.PROJECT_ROOT) : process.cwd());
+  const displayStart = resolve(env.PROJECT_ROOT ? env.PROJECT_ROOT : process.cwd());
 
   // Find repo root (walk up for .git, fall back to start).
   const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
@@ -188,7 +189,7 @@ export async function createLocalOrbitClient(env = process.env) {
     mode: "local",
     sessionLabel: () => {
       const b = getSessionBoard();
-      return b ? `${b.repo_path}  db: ${b.db_path}` : "(none)";
+      return b ? `${displayStart}  target: ${b.repo_path}  db: ${b.db_path}` : "(none)";
     },
     close: () => dbMod.closeAllConnections(),
     boardContext: (args = {}) => { const ctx = ctxFor(rowOrSession(args), actor()); return board.getBoardContext(ctx.board.id, ctx, { includeStruck: Boolean(args.include_struck) }); },

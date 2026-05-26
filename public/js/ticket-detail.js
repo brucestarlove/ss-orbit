@@ -16,7 +16,6 @@ import {
   typeLabelLong,
   priorityLabel,
   priorityKeyFor,
-  renderMarkdown,
   renderPreservedText,
   stateClassFor,
   cleanText
@@ -465,19 +464,19 @@ export async function renderDetail(options = {}) {
     <details class="section ai-fields" data-ai-plan-toggle data-ticket-id="${escapeHtml(ticket.id)}"${aiPlanOpen(ticket.id) ? " open" : ""}>
       <summary><h3>AI Plan / Implementation Record</h3></summary>
       <div class="ai-fields-grid">
-        ${renderInlineMarkdownField({
+        ${renderInlinePreservedTextField({
           fieldName: "ai_plan",
           label: "AI-Written Plan",
           value: ticket.ai_plan,
           placeholder: "Paste or let an AI write the plan..."
         })}
-        ${renderInlineMarkdownField({
+        ${renderInlinePreservedTextField({
           fieldName: "implementation_summary",
           label: "Implementation Summary",
           value: ticket.implementation_summary,
           placeholder: "What changed, what shipped, what remains..."
         })}
-        ${renderInlineMarkdownField({
+        ${renderInlinePreservedTextField({
           fieldName: "implementation_updates",
           label: "Implementation Updates / Lessons",
           value: ticket.implementation_updates,
@@ -885,27 +884,27 @@ function renderComment(comment) {
         <strong>${escapeHtml(formatCommentAuthor(comment))}</strong>
         <span>${comment.kind === "human_comment" ? "" : `${escapeHtml(comment.kind)} - `}${formatDate(comment.created_at)}</span>
       </div>
-      <div class="comment-body markdown-body">${renderMarkdown(comment.body)}</div>
+      <div class="comment-body preserved-text-body">${renderPreservedText(comment.body)}</div>
     </div>
   `;
 }
 
 /**
  * Click-to-edit row for AI Plan / Implementation fields and any other
- * long-form ticket field that should render markdown by default and become
+ * long-form ticket field that should render literal read-only text and become
  * a textarea on click. The wiring (event handlers + commit) lives in
  * wireTicketDetailEditors so this helper stays a pure template.
  */
-export function renderInlineMarkdownField({ fieldName, label, value, placeholder }) {
+export function renderInlinePreservedTextField({ fieldName, label, value, placeholder }) {
   const text = value || "";
   const hasValue = Boolean(text.trim());
-  const inner = hasValue ? renderMarkdown(text) : escapeHtml(placeholder || "");
+  const inner = hasValue ? renderPreservedText(text) : escapeHtml(placeholder || "");
   const placeholderClass = hasValue ? "" : "is-placeholder";
   return `
     <div class="inline-md-field">
       <span class="inline-md-field-label">${escapeHtml(label)}</span>
       <div
-        class="inline-md-field-body markdown-body editable-field ${placeholderClass}"
+        class="inline-md-field-body preserved-text-body editable-field ${placeholderClass}"
         data-edit-field="${escapeHtml(fieldName)}"
         tabindex="0"
         title="Click to edit"

@@ -102,6 +102,17 @@ function createFakeHermesBin(root, { exitCode = 0 } = {}) {
   return bin;
 }
 
+function runPolicyCommand(policyBin, name, args) {
+  const command = process.platform === "win32" && existsSync(join(policyBin, `${name}.cmd`))
+    ? join(policyBin, `${name}.cmd`)
+    : join(policyBin, name);
+  if (process.platform === "win32") {
+    const quote = (value) => `"${String(value).replace(/"/g, '""')}"`;
+    return spawnSync([quote(command), ...args.map(quote)].join(" "), { encoding: "utf8", shell: true });
+  }
+  return spawnSync(command, args, { encoding: "utf8" });
+}
+
 function runGit(args, cwd) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
   if (result.status !== 0) {
@@ -192,13 +203,13 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
 
   const policyLine = comment.body.split("\n").find((line) => line.includes("policy_bin:"));
   const policyBin = policyLine.replace("- policy_bin: ", "").trim();
-  const docker = spawnSync(join(policyBin, "docker"), ["ps"], { encoding: "utf8" });
+  const docker = runPolicyCommand(policyBin, "docker", ["ps"]);
   assert.equal(docker.status, 126);
   assert.match(docker.stderr, /Docker requires explicit human approval/);
-  const gitPush = spawnSync(join(policyBin, "git"), ["push", "origin", "HEAD"], { encoding: "utf8" });
+  const gitPush = runPolicyCommand(policyBin, "git", ["push", "origin", "HEAD"]);
   assert.equal(gitPush.status, 126);
   assert.match(gitPush.stderr, /Blocked by Orbit agent-safe policy: git push/);
-  const npmInstall = spawnSync(join(policyBin, "npm"), ["install"], { encoding: "utf8" });
+  const npmInstall = runPolicyCommand(policyBin, "npm", ["install"]);
   assert.equal(npmInstall.status, 126);
   assert.match(npmInstall.stderr, /allowed package commands: test/);
   db.close();

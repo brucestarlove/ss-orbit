@@ -93,33 +93,41 @@ test("renderMarkdown calls cleanText so mojibake-laden source still renders corr
   assert.match(html, /<ul><li>one<\/li><li>two<\/li><\/ul>/);
 });
 
-test("comments, AI fields, and board Notes render markdown with cleanup on save", () => {
+test("comments, AI fields, and board Notes use preserved read-only text with cleanup on save", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
   const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
-  // Comments are markdown-rendered (no longer escapeHtml only).
-  assert.match(detailSource, /comment-body markdown-body">\$\{renderMarkdown\(comment\.body\)\}/);
-  assert.doesNotMatch(detailSource, /comment-body">\$\{escapeHtml\(comment\.body\)\}/);
+  // Comments use the same literal read-only renderer as the detail description,
+  // so pasted plans/logs keep numbering, indentation, and blank lines.
+  assert.match(detailSource, /comment-body preserved-text-body">\$\{renderPreservedText\(comment\.body\)\}/);
+  assert.doesNotMatch(detailSource, /comment-body markdown-body/);
+  assert.doesNotMatch(detailSource, /renderMarkdown\(comment\.body\)/);
   // New comments are cleanText'd on submit.
   assert.match(detailSource, /cleanText\(new FormData\(event\.currentTarget\)\.get\("body"\)\)/);
 
-  // AI Plan / Implementation Record uses three click-to-edit markdown fields
-  // instead of a single shared form with a Save button. The field names are
-  // passed to renderInlineMarkdownField, which emits the data-edit-field
-  // attribute at render time.
-  assert.match(detailSource, /fieldName:\s*"ai_plan"/);
-  assert.match(detailSource, /fieldName:\s*"implementation_summary"/);
-  assert.match(detailSource, /fieldName:\s*"implementation_updates"/);
+  // AI Plan / Implementation Record uses three click-to-edit preserved-text
+  // fields instead of markdown-rendered read-only bodies or a shared form.
+  assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"ai_plan"/);
+  assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_summary"/);
+  assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_updates"/);
+  assert.match(detailSource, /const inner = hasValue \? renderPreservedText\(text\) : escapeHtml\(placeholder \|\| ""\)/);
+  assert.match(detailSource, /class="inline-md-field-body preserved-text-body editable-field/);
   assert.match(detailSource, /data-edit-field="\$\{escapeHtml\(fieldName\)\}"/);
   assert.doesNotMatch(detailSource, /id="aiFieldsForm"/);
   // Saves go through patchTicket with cleanText applied.
   assert.match(detailSource, /patchTicket\(ticketId,\s*\{\s*\[key\]:\s*cleanText\(next\)\s*\}\)/);
 
-  // Board Notes ditches the form and uses click-to-edit on a markdown body.
+  // Board Notes uses click-to-edit on preserved text, matching ticket detail.
   assert.match(settingsSource, /data-edit-field="project_notes"/);
-  assert.match(settingsSource, /renderMarkdown\(notes\)/);
+  assert.match(settingsSource, /renderPreservedText\(notes\)/);
+  assert.match(settingsSource, /class="inline-md-field-body preserved-text-body editable-field settings-notes-body/);
+  assert.doesNotMatch(settingsSource, /renderMarkdown\(notes\)/);
   assert.doesNotMatch(settingsSource, /id="notesSettingsForm"/);
   assert.match(settingsSource, /project_notes:\s*cleanText\(next\)/);
+
+  assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*white-space:\s*break-spaces;/);
+  assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*tab-size:\s*4;/);
 });
 
 test("ticket description markdown escapes HTML and rejects unsafe link URLs", () => {

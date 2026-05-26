@@ -2951,6 +2951,16 @@ select.detail-meta-badge::-ms-expand {
   white-space: break-spaces;
 }
 
+.preserved-text-body {
+  overflow-x: auto;
+  white-space: break-spaces;
+  overflow-wrap: normal;
+  tab-size: 4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
 /* Headers carry more weight than body paragraphs and need a bit more breathing
    room above when they follow other content. Slightly tighter below so the
    header visually pairs with its first paragraph. */
@@ -3570,10 +3580,9 @@ details.section > summary .mcp-title-row {
   line-height: 1.4;
 }
 
-/* Comments render as markdown now; let .markdown-body own wrapping behavior
-   so soft line breaks come from <br> rather than CSS pre-wrap. */
-.comment-body.markdown-body {
-  white-space: normal;
+/* Comments use the literal preserved renderer so pasted logs/plans keep spacing. */
+.comment-body.preserved-text-body {
+  white-space: break-spaces;
 }
 
 .comment-form {

@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { extname, join, resolve } from "node:path";
 import { localOwnerActor } from "./auth.js";
 import { DISPATCH_RUNS_DIR } from "./paths.js";
 import { getContextPack } from "./agent.js";
@@ -57,20 +57,39 @@ function remoteDispatchError(options) {
 
 function resolveExecutable(command) {
   const executable = command || "hermes";
-  if (executable.includes("/") && existsSync(executable)) return executable;
+  if ((executable.includes("/") || executable.includes("\\")) && existsSync(executable)) return executable;
   const result = spawnSync("sh", ["-lc", `command -v ${q(executable)}`], { encoding: "utf8" });
   return result.status === 0 ? result.stdout.trim() : "";
 }
 
+function resolveCommandSpec(command) {
+  const executable = resolveExecutable(command);
+  if (!executable) return null;
+  if (process.platform === "win32" && existsSync(executable)) {
+    const extension = extname(executable).toLowerCase();
+    if (!extension || extension === ".js") {
+      try {
+        const firstLine = readFileSync(executable, "utf8").split(/\r?\n/, 1)[0] || "";
+        if (/^#!.*\bnode\b/i.test(firstLine)) {
+          return { command: process.execPath, argsPrefix: [executable], display: executable };
+        }
+      } catch {
+        // Fall through to direct execution for non-text executables.
+      }
+    }
+  }
+  return { command: executable, argsPrefix: [], display: executable };
+}
+
 function preflightHermes(options, profile) {
-  const hermes = resolveExecutable(options.hermesBin || "hermes");
+  const hermes = resolveCommandSpec(options.hermesBin || "hermes");
   if (!hermes) {
     throw new Error(
       `Hermes binary not found: ${options.hermesBin || "hermes"}. Install Hermes or pass --hermes-bin <path>. ` +
         "For prepare-only handoff without spawning, rerun with --no-spawn."
     );
   }
-  const result = spawnSync(hermes, ["-p", profile, "--help"], { encoding: "utf8" });
+  const result = spawnSync(hermes.command, [...hermes.argsPrefix, "-p", profile, "--help"], { encoding: "utf8" });
   if (result.error) {
     throw new Error(`Hermes preflight failed for profile ${profile}: ${result.error.message}. Try --no-spawn for prepare-only.`);
   }
@@ -113,6 +132,15 @@ function q(value) {
 function createWrapper(path, content) {
   writeFileSync(path, content, "utf8");
   chmodSync(path, 0o755);
+}
+
+function createWindowsCmdWrapper(path, blockedMessage) {
+  writeFileSync(
+    `${path}.cmd`,
+    `@echo off\r\necho ${blockedMessage} 1>&2\r\nexit /b 126\r\n`,
+    "utf8"
+  );
+  chmodSync(`${path}.cmd`, 0o755);
 }
 
 function createPolicyBin(runDir, policyName) {
@@ -161,6 +189,9 @@ case "$cmd" in
 esac
 `
   );
+  if (process.platform === "win32") {
+    createWindowsCmdWrapper(join(binDir, "git"), `Blocked by Orbit ${policyName} policy: git %~1`);
+  }
 
   const packageWrapper = (realCommand, name) => `#!/bin/sh
 cmd="\${1:-}"
@@ -188,6 +219,11 @@ exit 126
   createWrapper(join(binDir, "npm"), packageWrapper(realNpm, "npm"));
   createWrapper(join(binDir, "pnpm"), packageWrapper(realPnpm, "pnpm"));
   createWrapper(join(binDir, "yarn"), packageWrapper(realYarn, "yarn"));
+  if (process.platform === "win32") {
+    createWindowsCmdWrapper(join(binDir, "npm"), `Blocked by Orbit ${policyName} policy: npm %1 (allowed package commands: test)`);
+    createWindowsCmdWrapper(join(binDir, "pnpm"), `Blocked by Orbit ${policyName} policy: pnpm %1 (allowed package commands: test)`);
+    createWindowsCmdWrapper(join(binDir, "yarn"), `Blocked by Orbit ${policyName} policy: yarn %1 (allowed package commands: test)`);
+  }
 
   createWrapper(
     join(binDir, "docker"),
@@ -196,6 +232,9 @@ echo "Blocked by Orbit ${policyName} policy: Docker requires explicit human appr
 exit 126
 `
   );
+  if (process.platform === "win32") {
+    createWindowsCmdWrapper(join(binDir, "docker"), `Blocked by Orbit ${policyName} policy: Docker requires explicit human approval.`);
+  }
 
   for (const name of ["kubectl", "vercel", "netlify", "fly", "railway", "scp", "rsync", "ssh", "sudo", "gh", "curl", "wget", "aws", "gcloud", "az"]) {
     createWrapper(
@@ -440,7 +479,7 @@ export function dispatchTicket(options) {
 
   let child = null;
   if (!options.noSpawn) {
-    child = spawn(hermesExecutable, hermesArgs, {
+    child = spawn(hermesExecutable.command, [...hermesExecutable.argsPrefix, ...hermesArgs], {
       cwd,
       env,
       detached: !options.foreground,

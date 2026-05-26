@@ -42,6 +42,7 @@ import {
   touchBoardActive
 } from "./core/registry.js";
 import { scheduleAutomaticBoardBackup } from "./core/backups.js";
+import { provisionRepoBoard } from "./core/provision-repo-board.js";
 import { seedIfEmpty } from "./core/seed.js";
 import { now, normalizePath } from "./core/util.js";
 
@@ -91,7 +92,16 @@ function walkUp(startDir, predicate) {
 function initMcpSessionBoard() {
   const start = normalizePath(process.env.PROJECT_ROOT ? resolve(process.env.PROJECT_ROOT) : process.cwd());
 
-  // 1. Walk up for an existing board db.
+  // 1. Prefer the registry row for PROJECT_ROOT (or one of its ancestors). New
+  // Orbit boards live in central DATA_DIR storage, so there may be no in-repo
+  // .orbit/board.db to discover.
+  const registeredRoot = walkUp(start, (dir) => Boolean(getBoardByRepoPath(normalizePath(dir))));
+  if (registeredRoot) {
+    setSessionBoard(getBoardByRepoPath(normalizePath(registeredRoot)));
+    return;
+  }
+
+  // 2. Walk up for an existing legacy board db.
   const boardRoot = walkUp(start, (dir) => existsSync(join(dir, ".orbit", "board.db")));
   if (boardRoot) {
     const root = normalizePath(boardRoot);
@@ -111,9 +121,10 @@ function initMcpSessionBoard() {
     return;
   }
 
-  // 2. Walk up for a git root; fall back to cwd for non-git projects.
+  // 3. Walk up for a git root; fall back to cwd for non-git projects.
   const gitRoot = walkUp(start, (dir) => existsSync(join(dir, ".git")));
-  createBoardAtRoot(normalizePath(gitRoot || start));
+  const result = provisionRepoBoard(normalizePath(gitRoot || start));
+  if (result.registryRow) setSessionBoard(result.registryRow);
 }
 
 function createBoardAtRoot(root) {
