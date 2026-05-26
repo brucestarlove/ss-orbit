@@ -165,8 +165,12 @@ function renderProjectAiTab(context) {
 }
 
 function renderAgentContextSection(project) {
-  const ph =
+  const instructionsPlaceholder =
     "This project is about…\n\nHow any AI agent should use this board and work in this repo.";
+  const instructions = project.agent_instructions || "";
+  const hasInstructions = Boolean(instructions.trim());
+  const placeholderClass = hasInstructions ? "" : "is-placeholder";
+  const inner = hasInstructions ? renderPreservedText(instructions) : escapeHtml(instructionsPlaceholder);
   return `
     <div class="section ai-subsection ai-context-setup">
       <div class="ai-context-title-row">
@@ -174,10 +178,16 @@ function renderAgentContextSection(project) {
         <h3>Agent Instructions</h3>
       </div>
       <p class="description">This project-level context is provided to agents when they work on tickets.</p>
-      <form id="agentInstructionsForm" class="field-form">
-        <textarea name="agent_instructions" placeholder="${escapeHtml(ph)}">${escapeHtml(project.agent_instructions || "")}</textarea>
-        <button type="submit">Save</button>
-      </form>
+      <div class="inline-md-field">
+        <div
+          class="inline-md-field-body preserved-text-body editable-field settings-agent-instructions-body ${placeholderClass}"
+          data-edit-field="agent_instructions"
+          tabindex="0"
+          title="Click to edit"
+          role="button"
+          aria-label="Edit Agent Instructions"
+        >${inner}</div>
+      </div>
     </div>
   `;
 }
@@ -817,17 +827,39 @@ function bindProjectTabHandlers(context, tab) {
       });
     });
 
-    $("#agentInstructionsForm")?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = new FormData(event.currentTarget);
-      await api(`/api/boards/${project.id}`, {
-        method: "PATCH",
-        body: Object.fromEntries(form.entries())
+    const instructionsEl = drawerInner.querySelector('[data-edit-field="agent_instructions"]');
+    if (instructionsEl) {
+      const edit = () =>
+        startInlineEdit(instructionsEl, {
+          fieldName: "agent_instructions",
+          multiline: true,
+          initialValue: project.agent_instructions || "",
+          ariaLabel: "Edit Agent Instructions",
+          rerender: async () => {
+            state.detailMode = "settings";
+            await renderProjectDetail();
+          },
+          commit: async (next) => {
+            await api(`/api/boards/${project.id}`, {
+              method: "PATCH",
+              body: { agent_instructions: cleanText(next) }
+            });
+            await load();
+            state.detailMode = "settings";
+            toast.success("Saved");
+          }
+        });
+      instructionsEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        edit();
       });
-      await load();
-      state.detailMode = "settings";
-      toast.success("Saved");
-    });
+      instructionsEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          edit();
+        }
+      });
+    }
 
     $("#aiEnabledToggle")?.addEventListener("change", async (event) => {
       const enabled = !!event.currentTarget.checked;

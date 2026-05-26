@@ -75,6 +75,8 @@ Use board-level memory entries for durable history:
 - `decision`: UX or architecture choices agents should follow instead of defaulting to generic codegen.
 - `lesson`: mistakes or discoveries distilled as "do X instead of Y when working with Z."
 
+Board entries are durable project memory, not general notes or persona guidance. Keep active entries focused on mechanisms, architectural/product boundaries, workflow invariants, public-product implications, and reusable pitfalls. Prefer ticket comments/implementation fields for one-run chronology, and strike or consolidate stale overlapping entries once a doctrine stabilizes.
+
 ## Ticket Relationships
 
 Two distinct, non-overlapping mechanisms:

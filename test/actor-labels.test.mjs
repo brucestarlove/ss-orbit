@@ -13,8 +13,8 @@ test("status history does not label local agent actions as the current user", ()
 });
 
 test("status history preserves named agent attribution", () => {
-  assert.equal(formatActorLabel({ actor: "Nova", actorType: "agent", actorId: "nova" }), "Agent · Nova");
-  assert.equal(formatActorLabel({ actor: "agent", actorType: "agent", actorId: "aeva" }), "Agent · Aeva");
+  assert.equal(formatActorLabel({ actor: "Planner", actorType: "agent", actorId: "planner" }), "Agent · Planner");
+  assert.equal(formatActorLabel({ actor: "agent", actorType: "agent", actorId: "reviewer" }), "Agent · Reviewer");
 });
 
 test("status history hides raw local identifiers behind useful labels", () => {
@@ -25,7 +25,7 @@ test("status history hides raw local identifiers behind useful labels", () => {
 test("comment author labels distinguish human and agent comments", () => {
   assert.equal(formatCommentAuthor({ author: "local", kind: "human_comment" }), "You");
   assert.equal(formatCommentAuthor({ author: "local", kind: "agent_note" }), "Agent");
-  assert.equal(formatCommentAuthor({ author: "Nova", kind: "completion" }), "Agent · Nova");
+  assert.equal(formatCommentAuthor({ author: "Planner", kind: "completion" }), "Agent · Planner");
 });
 
 test("HTTP actor headers can attribute mutations to a named agent", () => {

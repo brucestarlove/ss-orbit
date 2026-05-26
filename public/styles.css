@@ -3671,14 +3671,11 @@ details.section > summary .mcp-title-row {
   min-height: 2rem;
 }
 
-/* Board Notes is the long-form home for project guidance; reserve a textarea
-   sized landing area so it doesn't collapse to a one-liner when empty. */
-.settings-notes-body {
+/* Long-form settings fields reserve textarea-sized landing areas so they don't
+   collapse to one-liners when empty. */
+.settings-notes-body,
+.settings-agent-instructions-body {
   min-height: 11rem;
-}
-
-.ai-context-setup textarea[name="agent_instructions"] {
-  min-height: 9rem;
 }
 
 .ai-context-setup > .description {

@@ -39,10 +39,10 @@ test("ticket description markdown renders common formatting safely", () => {
 });
 
 test("ticket markdown preserves pasted terminal indentation", () => {
-  const html = renderMarkdown("agent output\n  file: C:\\Users\\bruce\n\tstatus: ok");
+  const html = renderMarkdown("agent output\n  file: C:\\Users\\operator\n\tstatus: ok");
   const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
-  assert.equal(html, "<p>agent output<br>  file: C:\\Users\\bruce<br>\tstatus: ok</p>");
+  assert.equal(html, "<p>agent output<br>  file: C:\\Users\\operator<br>\tstatus: ok</p>");
   assert.match(stylesSource, /\.markdown-body\s*\{[\s\S]*tab-size:\s*4;/);
   assert.match(stylesSource, /\.markdown-body p\s*\{[\s\S]*white-space:\s*break-spaces;/);
 });
@@ -125,6 +125,13 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.doesNotMatch(settingsSource, /renderMarkdown\(notes\)/);
   assert.doesNotMatch(settingsSource, /id="notesSettingsForm"/);
   assert.match(settingsSource, /project_notes:\s*cleanText\(next\)/);
+
+  // Agent Instructions uses the same click-to-edit preserved text interface as Notes.
+  assert.match(settingsSource, /data-edit-field="agent_instructions"/);
+  assert.match(settingsSource, /renderPreservedText\(instructions\)/);
+  assert.match(settingsSource, /class="inline-md-field-body preserved-text-body editable-field settings-agent-instructions-body/);
+  assert.doesNotMatch(settingsSource, /id="agentInstructionsForm"/);
+  assert.match(settingsSource, /agent_instructions:\s*cleanText\(next\)/);
 
   assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*white-space:\s*break-spaces;/);
   assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*tab-size:\s*4;/);

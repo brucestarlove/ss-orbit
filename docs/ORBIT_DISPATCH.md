@@ -95,6 +95,8 @@ Dispatch stores the generated handoff in the ticket's AI Written-Plan field. It 
 
 The short prompt passed to `hermes chat -q` is intentionally small. The ticket is the source of truth; the CLI argument is only a bootstrap pointer.
 
+Board journal entries are framed as project constraints and lessons, not persona or roleplay instructions. Keep durable board entries focused on mechanisms, architectural/product boundaries, workflow invariants, public-product implications, and reusable pitfalls; use ticket fields/comments for run-specific chronology.
+
 ## Preserved worktrees
 
 Use `--worktree` when the agent will edit code. Dispatch creates a normal git worktree under `.worktrees/` by default and gives the agent that directory as its working directory.

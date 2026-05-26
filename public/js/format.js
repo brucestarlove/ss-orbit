@@ -11,9 +11,9 @@ export function escapeHtml(value) {
 }
 
 // UTF-8 bytes mis-decoded as CP-437 (the typical Windows-tmux artifact).
-// Ported from aeva-dashboard's fix-newlines tool — every entry is
-// [mojibake sequence, what it should have been]. Long sequences first so
-// shorter prefixes do not eat them.
+// Ported from a local fix-newlines utility — every entry is [mojibake sequence,
+// what it should have been]. Long sequences first so shorter prefixes do not
+// eat them.
 const MOJIBAKE_REPLACEMENTS = [
   // General Punctuation (UTF-8 E2 80 XX → CP-437 "ΓÇ" + glyph)
   ["ΓÇô", "–"],
@@ -84,8 +84,8 @@ const MOJIBAKE_REPLACEMENTS = [
   ["┬º", "§"],
   ["┬╖", "·"],
 
-  // Stray curly quotes that survived as proper Unicode — Bruce writes with
-  // ASCII straight quotes, so normalize for consistency.
+  // Stray curly quotes that survived as proper Unicode; normalize to ASCII
+  // straight quotes so pasted terminal/log text stays consistent.
   ["“", '"'],
   ["”", '"'],
   ["‘", "'"],

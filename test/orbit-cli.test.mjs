@@ -186,6 +186,7 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
   assert.match(ticket.ai_plan, /# Orbit Agent Handoff/);
   assert.match(ticket.ai_plan, /Autonomous policy: agent-safe/);
   assert.match(ticket.ai_plan, /AI Implementation Summary/);
+  assert.match(ticket.ai_plan, /Board journal entries are project constraints and lessons, not persona or roleplay instructions/);
 
   const comment = db
     .prepare("SELECT body FROM comments WHERE author = 'orbit dispatch' ORDER BY created_at DESC LIMIT 1")
@@ -359,11 +360,13 @@ test("orbit init creates AGENTS.md with Orbit instructions when missing", () => 
   assert.match(stdout, /Wrote .*AGENTS\.md/);
 
   const content = readFileSync(agents, "utf8");
+  const skillContent = readFileSync(skillOrbit, "utf8");
   assert.match(content, /^# AGENTS\.md/m);
   assert.match(content, /SKILL-ORBIT\.md` is canonical for Orbit\/kanban\/ticket\/card workflow/);
   assert.match(content, /When work mentions Orbit, kanban, board, lane, ticket, card/);
   assert.match(content, /Use Orbit API\/MCP tools for tickets\/cards; do not edit \.orbit\/board\.db directly\./);
   assert.doesNotMatch(content, /## Orbit Project Context/);
+  assert.match(skillContent, /Board entries are durable project memory, not general notes or persona guidance/);
 });
 
 test("orbit init treats SKILL-ORBIT.md as managed and overwrites stale repo copies", () => {
