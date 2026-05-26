@@ -173,8 +173,8 @@ test("ticket descriptions use markdown on cards and preserved text in the detail
 test("ticket detail fetches comments from the dedicated endpoint", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
 
-  assert.match(detailSource, /\/api\/tickets\/\$\{state\.selectedTicketId\}\/comments/);
-  assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{state\.selectedTicketId\}\/comments`\)\)\.then\(\(result\) => result\.comments \|\| \[\]\)/);
+  assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/comments/);
+  assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{requestedTicketId\}\/comments`\)\)\.then\(\(result\) => result\.comments \|\| \[\]\)/);
   assert.match(detailSource, /comments\.map\(renderComment\)/);
   assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
 });
@@ -225,6 +225,15 @@ test("ticket detail moves state, type, and priority controls into header badge d
   assert.match(stylesSource, /\.detail-state-badge/);
   assert.match(stylesSource, /\.detail-priority-badge\.priority-pill-med\s*\{[\s\S]*background-color:\s*rgba\(var\(--amber-rgb\), 0\.16\);/);
   assert.match(stylesSource, /\[data-theme="dark"\] \.detail-priority-badge\.priority-pill-high\s*\{[\s\S]*background-color:\s*rgba\(var\(--coral-rgb\), 0\.2\);/);
+});
+
+test("ticket detail ignores stale async renders after rapid ticket switches", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+
+  assert.match(detailSource, /const requestedTicketId = state\.selectedTicketId;/);
+  assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/context\?depth=1/);
+  assert.match(detailSource, /if \(state\.detailMode !== "ticket" \|\| state\.selectedTicketId !== requestedTicketId\) return;/);
+  assert.match(detailSource, /if \(context\.ticket\?\.id !== requestedTicketId\) return;/);
 });
 
 test("ticket title editor is explicit, keyboard friendly, and exits edit mode on outside clicks", () => {

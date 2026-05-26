@@ -337,23 +337,26 @@ export async function renderDetail(options = {}) {
     return;
   }
 
+  const requestedTicketId = state.selectedTicketId;
   const hasOption = (key) => Object.prototype.hasOwnProperty.call(options, key);
   const [context, statusHistory, comments, attachmentList] = await Promise.all([
     hasOption("context")
       ? Promise.resolve(options.context)
-      : api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/context?depth=1`)),
+      : api(withBoardQuery(`/api/tickets/${requestedTicketId}/context?depth=1`)),
     hasOption("statusHistory")
       ? Promise.resolve(options.statusHistory)
-      : api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/history`)),
+      : api(withBoardQuery(`/api/tickets/${requestedTicketId}/history`)),
     hasOption("comments")
       ? Promise.resolve(options.comments)
-      : api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/comments`)).then((result) => result.comments || []),
+      : api(withBoardQuery(`/api/tickets/${requestedTicketId}/comments`)).then((result) => result.comments || []),
     hasOption("attachmentList")
       ? Promise.resolve(options.attachmentList)
       : features.attachments
-        ? api(withBoardQuery(`/api/tickets/${state.selectedTicketId}/attachments`)).catch(() => ({ attachments: [] }))
+        ? api(withBoardQuery(`/api/tickets/${requestedTicketId}/attachments`)).catch(() => ({ attachments: [] }))
         : Promise.resolve({ attachments: [] })
   ]);
+  if (state.detailMode !== "ticket" || state.selectedTicketId !== requestedTicketId) return;
+  if (context.ticket?.id !== requestedTicketId) return;
   const ticket = context.ticket;
   // Acknowledge the read receipt: clear the unread dot on this card.
   // Also wipe the dot from the already-rendered card in the board so the
