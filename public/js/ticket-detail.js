@@ -39,15 +39,15 @@ import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
  * cache; otherwise leave the board DOM alone.
  */
 async function refreshTicketDetail(ticketId, { renderBoardAfter = false } = {}) {
-  state.selectedTicketId = ticketId;
-  state.detailMode = "ticket";
   const [context, statusHistory, commentsResult] = await Promise.all([
     api(withBoardQuery(`/api/tickets/${ticketId}/context?depth=1`)),
     api(withBoardQuery(`/api/tickets/${ticketId}/history`)),
     api(withBoardQuery(`/api/tickets/${ticketId}/comments`))
   ]);
+  if (context.ticket?.id !== ticketId) return;
   upsertTicket(context.ticket);
   if (renderBoardAfter) renderBoard();
+  if (state.detailMode !== "ticket" || state.selectedTicketId !== ticketId) return;
   await renderDetail({ context, statusHistory, comments: commentsResult.comments || [] });
 }
 
@@ -115,11 +115,9 @@ export function startInlineEdit(node, opts) {
     document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
   };
 
-  // The title row uses a persistent shell element (#drawerTitle) that
-  // renderDrawerShell re-queries by id on every render. Leaving the editor in
-  // its place means the next render finds nothing, throws, and the input is
-  // stranded on screen until a full reload. Put the original node back before
-  // any downstream render runs.
+  // If a downstream render rebuilds the title block while the editor is open,
+  // the editor is dropped along with everything else; only restore the saved
+  // node when our editor is still connected to the DOM.
   const restoreNode = () => {
     if (editor.isConnected) editor.replaceWith(node);
     delete node.dataset.editing;

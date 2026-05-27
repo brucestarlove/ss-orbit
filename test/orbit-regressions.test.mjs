@@ -236,6 +236,36 @@ test("ticket detail ignores stale async renders after rapid ticket switches", ()
   assert.match(detailSource, /if \(context\.ticket\?\.id !== requestedTicketId\) return;/);
 });
 
+test("drawer title block is rebuilt wholesale each render so inline-edit click handlers do not stack across ticket switches", () => {
+  const drawerSource = readFileSync(join(repoRoot, "public", "js", "drawer.js"), "utf8");
+  const indexSource = readFileSync(join(repoRoot, "public", "index.html"), "utf8");
+
+  // Orbit #88: when #drawerEyebrow / #drawerTitle / #drawerSubtitle were
+  // persistent shell elements, wireTicketDetailEditors stacked a new editTitle
+  // click handler on the <h2> for every ticket the user opened. The first-
+  // rendered handler won on click and seeded the inline editor with the
+  // previously-selected ticket's title. Treat the title block like
+  // drawerInner: replace its innerHTML each render so old listeners die with
+  // the old nodes.
+  assert.match(indexSource, /id="drawerTitleBlock"/);
+  assert.doesNotMatch(indexSource, /id="drawerTitle"/);
+  assert.doesNotMatch(indexSource, /id="drawerEyebrow"/);
+  assert.doesNotMatch(indexSource, /id="drawerSubtitle"/);
+  assert.match(drawerSource, /titleBlockEl\.innerHTML\s*=\s*segments\.join\(""\);/);
+  assert.match(drawerSource, /<h2\$\{titleAttrHtml\}>/);
+});
+
+test("ticket edit refreshes never retarget the drawer after the user switches cards", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const refreshBody = detailSource.match(/async function refreshTicketDetail[\s\S]*?\n}\n\n\/\*\*/)?.[0] || "";
+
+  assert.ok(refreshBody, "refreshTicketDetail helper should exist");
+  assert.doesNotMatch(refreshBody, /state\.selectedTicketId\s*=\s*ticketId;/);
+  assert.match(refreshBody, /\/api\/tickets\/\$\{ticketId\}\/context\?depth=1/);
+  assert.match(refreshBody, /if \(state\.detailMode !== "ticket" \|\| state\.selectedTicketId !== ticketId\) return;/);
+  assert.match(refreshBody, /if \(context\.ticket\?\.id !== ticketId\) return;/);
+});
+
 test("ticket title editor is explicit, keyboard friendly, and exits edit mode on outside clicks", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
   const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
@@ -254,7 +284,7 @@ test("ticket title editor is explicit, keyboard friendly, and exits edit mode on
   assert.match(detailSource, /editor\.blur\(\)/);
   assert.match(settingsSource, /title: project\.name/);
   assert.doesNotMatch(settingsSource, /data-edit-field="title"/);
-  assert.match(drawerSource, /if \(titleAttrs\)/);
+  assert.match(drawerSource, /titleAttrs\?\.class/);
   const previewBoardPatchAllowed = localBackendSource.match(/async function handleBoardPatch[\s\S]*?const ALLOWED = \[([\s\S]*?)\];/);
   assert.ok(previewBoardPatchAllowed);
   assert.match(previewBoardPatchAllowed[1], /"name"/);
@@ -1213,8 +1243,8 @@ test("ticket detail mutations avoid full bootstrap reloads", () => {
 
   assert.match(stateSource, /export function upsertTicket\(/);
   assert.match(detailSource, /async function refreshTicketDetail\(/);
-  assert.match(detailSource, /\/api\/tickets\/\$\{ticketId\}\/context\?depth=1/);
-  assert.match(detailSource, /\/api\/tickets\/\$\{ticketId\}\/comments/);
+  assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/context\?depth=1/);
+  assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/comments/);
   assert.match(detailSource, /upsertTicket\(context\.ticket\)/);
   assert.match(detailSource, /comments\.map\(renderComment\)/);
   assert.match(detailSource, /if \(renderBoardAfter\) renderBoard\(\);/);

@@ -142,8 +142,10 @@ function createBoardAtRoot(root) {
   if (fresh) { syncRegistryFromBoardDb(fresh, db); setSessionBoard(fresh); }
 }
 
-initMcpSessionBoard();
-closeAllConnections();
+if (orbitClient.mode !== "remote") {
+  initMcpSessionBoard();
+  closeAllConnections();
+}
 
 /** Build a ctx for the session board (or a board the tool argument selected). */
 function ctxFor(boardRow, actor) {

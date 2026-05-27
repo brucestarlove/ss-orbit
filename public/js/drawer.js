@@ -36,19 +36,9 @@ export function closeDrawer() {
     drawer.hidden = true;
     drawerBackdrop.hidden = true;
     drawerInner.innerHTML = "";
-    const eyebrowEl = document.getElementById("drawerEyebrow");
-    const titleEl = document.getElementById("drawerTitle");
-    const subtitleEl = document.getElementById("drawerSubtitle");
+    const titleBlockEl = document.getElementById("drawerTitleBlock");
     const tabsEl = document.getElementById("drawerTabs");
-    if (eyebrowEl) { eyebrowEl.textContent = ""; eyebrowEl.hidden = true; }
-    if (titleEl) {
-      for (const attr of Array.from(titleEl.attributes)) {
-        if (attr.name !== "id") titleEl.removeAttribute(attr.name);
-      }
-      titleEl.className = "drawer-title-text";
-      titleEl.textContent = "";
-    }
-    if (subtitleEl) { subtitleEl.innerHTML = ""; subtitleEl.hidden = true; }
+    if (titleBlockEl) titleBlockEl.innerHTML = "";
     if (tabsEl) { tabsEl.innerHTML = ""; tabsEl.hidden = true; }
     drawer.classList.remove("is-wide");
   };
@@ -77,40 +67,24 @@ export function closeDrawer() {
 export function renderDrawerShell({ eyebrow, title, titleAttrs, subtitleHtml, tabs, activeTab, onTabSelect, body, mode }) {
   drawer.classList.toggle("is-settings", mode === "settings");
   drawer.classList.toggle("is-wide", mode === "ticket" || mode === "settings");
-  const eyebrowEl = document.getElementById("drawerEyebrow");
-  const titleEl = document.getElementById("drawerTitle");
-  const subtitleEl = document.getElementById("drawerSubtitle");
+  const titleBlockEl = document.getElementById("drawerTitleBlock");
   const tabsEl = document.getElementById("drawerTabs");
 
-  if (eyebrow) {
-    eyebrowEl.textContent = eyebrow;
-    eyebrowEl.hidden = false;
-  } else {
-    eyebrowEl.textContent = "";
-    eyebrowEl.hidden = true;
+  // Rebuild the eyebrow / title / subtitle wholesale each render. Like
+  // drawerInner.innerHTML below, this means any listeners the caller attached
+  // last render (e.g. the inline title editor's click handler) die with the
+  // old nodes, instead of stacking on persistent shell elements.
+  const extraTitleClass = titleAttrs?.class ? ` ${titleAttrs.class}` : "";
+  let titleAttrHtml = ` class="drawer-title-text${extraTitleClass}"`;
+  for (const [key, value] of Object.entries(titleAttrs || {})) {
+    if (key === "class") continue;
+    titleAttrHtml += ` ${key}="${escapeHtml(String(value))}"`;
   }
-
-  if (subtitleHtml) {
-    subtitleEl.innerHTML = subtitleHtml;
-    subtitleEl.hidden = false;
-  } else {
-    subtitleEl.innerHTML = "";
-    subtitleEl.hidden = true;
-  }
-
-  // Reset prior edit-attrs / classes each render so different modes don't
-  // carry state from one another.
-  for (const attr of Array.from(titleEl.attributes)) {
-    if (attr.name !== "id") titleEl.removeAttribute(attr.name);
-  }
-  titleEl.className = "drawer-title-text";
-  if (titleAttrs) {
-    for (const [key, value] of Object.entries(titleAttrs)) {
-      if (key === "class") titleEl.className = `drawer-title-text ${value}`;
-      else titleEl.setAttribute(key, value);
-    }
-  }
-  titleEl.textContent = title ?? "";
+  const segments = [];
+  if (eyebrow) segments.push(`<span class="drawer-eyebrow">${escapeHtml(eyebrow)}</span>`);
+  segments.push(`<h2${titleAttrHtml}>${escapeHtml(title ?? "")}</h2>`);
+  if (subtitleHtml) segments.push(`<div class="drawer-subtitle">${subtitleHtml}</div>`);
+  titleBlockEl.innerHTML = segments.join("");
 
   if (tabs && tabs.length) {
     tabsEl.hidden = false;
