@@ -391,6 +391,7 @@ function renderProjectRepositoryTab(context) {
 
     <div class="section">
       <h3>Board Snapshot</h3>
+      <p class="description">Import accepts Orbit snapshots or Trello board JSON exports. The default import creates a separate board and leaves this board untouched.</p>
       ${features.attachments ? `
         <label class="orbit-check">
           <input type="checkbox" id="exportProjectImages" />
@@ -404,8 +405,23 @@ function renderProjectRepositoryTab(context) {
       <div class="deployment-actions">
         <button type="button" class="ghost" id="exportProject">Export</button>
         <label class="import-button">
-          <input type="file" id="importSnapshotFile" accept=".orbit.json,.json,application/json" />
-          <span>Import</span>
+          <input type="file" id="importSnapshotAsNewFile" accept=".orbit.json,.json,application/json" />
+          <span>Import as New Board</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section repository-danger-zone">
+      <h3>Replace Current Board</h3>
+      <p class="description">Advanced: replace this board from an Orbit snapshot or Trello export after making the normal pre-import backup. Type <strong>${escapeHtml(project.slug || "")}</strong> to enable replacement.</p>
+      <label class="repository-confirm-field">
+        <span>Board slug</span>
+        <input id="replaceImportConfirmInput" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(project.slug || "")}" />
+      </label>
+      <div class="deployment-actions">
+        <label class="import-button danger-button">
+          <input type="file" id="replaceCurrentBoardImportFile" accept=".orbit.json,.json,application/json" disabled />
+          <span>Replace Current Board</span>
         </label>
       </div>
     </div>
@@ -609,6 +625,18 @@ function renderProjectJournalTab(context) {
   `;
 }
 
+function parseImportSnapshotText(text) {
+  const trimmed = String(text || "").trimStart();
+  if (trimmed.startsWith("<")) {
+    throw new Error("That file looks like an HTML page instead of JSON. In Trello, use Export JSON/download the board JSON, not Save Page As.");
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(error?.message || "invalid JSON");
+  }
+}
+
 function bindProjectTabHandlers(context, tab) {
   const project = context.board;
 
@@ -638,19 +666,63 @@ function bindProjectTabHandlers(context, tab) {
       toast.success(`Renamed board to ${nextName}. Canonical slug unchanged: ${project.slug}`);
     });
 
-    $("#importSnapshotFile")?.addEventListener("change", async (event) => {
-      const file = event.currentTarget.files?.[0];
-      if (!file) return;
+    const importSnapshotFile = async (file, bodyForSnapshot) => {
       const text = await file.text();
-      const snapshot = JSON.parse(text);
-      await api("/api/admin/import", {
+      const snapshot = parseImportSnapshotText(text);
+      return api("/api/admin/import", {
         method: "POST",
-        body: { snapshot, replace_existing: true, board_id: project.id }
+        body: bodyForSnapshot(snapshot)
       });
-      await load();
-      state.detailMode = "settings";
-      toast.success("Board imported");
-      event.currentTarget.value = "";
+    };
+
+    $("#importSnapshotAsNewFile")?.addEventListener("change", async (event) => {
+      const input = event.currentTarget;
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const result = await importSnapshotFile(file, (snapshot) => ({ snapshot, create_new: true, board_id: project.id }));
+        state.boardId = result.imported_board_id;
+        state.boardSlug = result.imported_board_slug;
+        state.detailMode = "empty";
+        await load();
+        await navigate({ boardId: result.imported_board_id, view: "board" });
+        const counts = result.imported_counts || {};
+        const cardCount = Number.isFinite(Number(counts.tickets)) ? ` (${counts.tickets} cards)` : "";
+        toast.success(result.source_format === "trello-board-export" ? `Trello board imported as new board${cardCount}` : "Board imported as new board");
+      } catch (err) {
+        toast.error(`Import failed: ${err?.message || "invalid JSON"}`);
+      } finally {
+        input.value = "";
+      }
+    });
+
+    const replaceImportConfirmInput = $("#replaceImportConfirmInput");
+    const replaceCurrentBoardImportFile = $("#replaceCurrentBoardImportFile");
+    replaceImportConfirmInput?.addEventListener("input", () => {
+      if (replaceCurrentBoardImportFile) replaceCurrentBoardImportFile.disabled = replaceImportConfirmInput.value.trim() !== project.slug;
+    });
+
+    replaceCurrentBoardImportFile?.addEventListener("change", async (event) => {
+      const input = event.currentTarget;
+      const file = input.files?.[0];
+      if (!file) return;
+      if (replaceImportConfirmInput.value.trim() !== project.slug) {
+        toast.error("Type the board slug before replacing this board.");
+        input.value = "";
+        return;
+      }
+      try {
+        const result = await importSnapshotFile(file, (snapshot) => ({ snapshot, replace_existing: true, board_id: project.id }));
+        await load();
+        state.detailMode = "settings";
+        const counts = result.imported_counts || {};
+        const cardCount = Number.isFinite(Number(counts.tickets)) ? ` (${counts.tickets} cards)` : "";
+        toast.success(result.source_format === "trello-board-export" ? `Trello board replaced from Trello import${cardCount}` : "Board replaced from snapshot");
+      } catch (err) {
+        toast.error(`Import failed: ${err?.message || "invalid JSON"}`);
+      } finally {
+        input.value = "";
+      }
     });
 
     $("#deleteBoardStart")?.addEventListener("click", async () => {

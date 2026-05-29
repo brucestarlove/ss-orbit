@@ -1,16 +1,19 @@
-import { resetBoard, tx } from "./db.js";
+import { resetBoard, tx, getRegistry } from "./db.js";
 import { backupBoardDatabase } from "./backups.js";
 import { boardById, labelsForTicket } from "./queries.js";
 import { requireBoardAccess } from "./auth.js";
 import { recordEvent } from "./events.js";
-import { syncRegistryFromBoardDb } from "./registry.js";
+import { computeNewBoardDbPath, ensureBoardDbFileAndSchema, syncRegistryFromBoardDb } from "./registry.js";
 import {
   httpError,
+  id,
   normalizePriority,
   normalizeProjectEntryType,
   normalizeTicketType,
   now,
-  requiredString
+  normalizePath,
+  requiredString,
+  slugify
 } from "./util.js";
 import { reindexAllTickets } from "./tickets.js";
 import {
@@ -90,7 +93,7 @@ export function exportBoard(boardId, ctx, options = {}) {
 
 export function importBoardSnapshot(body, ctx) {
   const { db, actor, board } = ctx;
-  const snapshot = body?.snapshot || body;
+  const snapshot = normalizeImportSnapshot(body?.snapshot || body, ctx);
   const format = snapshot?.format;
   if (!snapshot || format !== "orbit-board-export") throw httpError(400, "invalid_import_snapshot");
   if (!snapshot.board) throw httpError(400, "snapshot_missing_board");
@@ -166,8 +169,8 @@ export function importBoardSnapshot(body, ctx) {
         `INSERT INTO tickets
          (id, board_id, number, title, description, type, parent_ticket_id, ai_plan,
           implementation_summary, implementation_updates, state_id, priority,
-          created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          created_by, created_at, updated_at, archived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         ticket.id,
         targetBoardId,
@@ -183,7 +186,8 @@ export function importBoardSnapshot(body, ctx) {
         normalizePriority(ticket.priority),
         ticket.created_by || "import",
         ticket.created_at || now(),
-        ticket.updated_at || now()
+        ticket.updated_at || now(),
+        ticket.archived_at || null
       );
 
       for (const label of ticket.labels || []) {
@@ -287,7 +291,14 @@ export function importBoardSnapshot(body, ctx) {
       ok: true,
       imported_board_id: targetBoardId,
       imported_board_slug: importedBoard.slug,
-      replace_existing: replaceExisting
+      replace_existing: replaceExisting,
+      source_format: snapshot.source_format || "orbit-board-export",
+      imported_counts: snapshot.imported_counts || {
+        states: (snapshot.states || []).length,
+        tickets: (snapshot.tickets || []).length,
+        comments: (snapshot.comments || []).length,
+        labels: (snapshot.labels || []).length
+      }
     };
   });
 
@@ -295,4 +306,382 @@ export function importBoardSnapshot(body, ctx) {
   // it runs after the board-DB transaction commits, not inside it.
   syncRegistryFromBoardDb(board, db);
   return result;
+}
+
+export function importBoardSnapshotAsNewBoard(body, ctx) {
+  const rawSnapshot = body?.snapshot || body;
+  const actor = ctx.actor;
+  const sourceBoard = ctx.board || {};
+  const repoPath = normalizePath(body?.repo_path || body?.system_path || sourceBoard.repo_path || sourceBoard.system_path || process.cwd());
+  const sourceFormatSnapshot = normalizeImportSnapshot(rawSnapshot, {
+    ...ctx,
+    board: {
+      id: id(),
+      slug: "",
+      name: "",
+      repo_path: repoPath,
+      system_path: repoPath,
+      repo_url: sourceBoard.repo_url || "",
+      default_branch: sourceBoard.default_branch || "main"
+    }
+  });
+  const format = sourceFormatSnapshot?.format;
+  if (!sourceFormatSnapshot || format !== "orbit-board-export") throw httpError(400, "invalid_import_snapshot");
+  if (!sourceFormatSnapshot.board) throw httpError(400, "snapshot_missing_board");
+
+  const boardName = cleanText(sourceFormatSnapshot.board.name) || cleanText(rawSnapshot?.name) || "Imported Board";
+  const boardSlug = uniqueImportedBoardSlug(body?.slug || sourceFormatSnapshot.board.slug || rawSnapshot?.name || boardName);
+  const boardId = id();
+  const dbPath = computeNewBoardDbPath(repoPath, boardSlug);
+  const db = ensureBoardDbFileAndSchema(dbPath);
+  const newBoardCtx = {
+    actor,
+    board: {
+      id: boardId,
+      slug: boardSlug,
+      name: boardName,
+      repo_path: repoPath,
+      db_path: dbPath,
+      system_path: repoPath,
+      repo_url: sourceBoard.repo_url || sourceFormatSnapshot.board.repo_url || "",
+      default_branch: sourceBoard.default_branch || sourceFormatSnapshot.board.default_branch || "main"
+    },
+    db
+  };
+  const normalizedSnapshot = normalizeImportSnapshot(rawSnapshot, newBoardCtx);
+  const snapshotForNewBoard = {
+    ...normalizedSnapshot,
+    board: {
+      ...normalizedSnapshot.board,
+      id: boardId,
+      slug: boardSlug,
+      name: cleanText(normalizedSnapshot.board?.name) || boardName,
+      repo_url: normalizedSnapshot.board?.repo_url || sourceBoard.repo_url || "",
+      system_path: normalizedSnapshot.board?.system_path || repoPath,
+      default_branch: normalizedSnapshot.board?.default_branch || sourceBoard.default_branch || "main"
+    }
+  };
+
+  return {
+    ...importBoardSnapshot({ snapshot: snapshotForNewBoard, replace_existing: false }, newBoardCtx),
+    created_new_board: true
+  };
+}
+
+function uniqueImportedBoardSlug(value) {
+  const base = slugify(value) || `imported-board-${id().slice(0, 8)}`;
+  const reg = getRegistry();
+  if (!reg.prepare("SELECT id FROM boards WHERE slug = ?").get(base)) return base;
+  for (let i = 2; i < 1000; i += 1) {
+    const candidate = `${base}-${i}`;
+    if (!reg.prepare("SELECT id FROM boards WHERE slug = ?").get(candidate)) return candidate;
+  }
+  return `${base}-${id().slice(0, 8)}`;
+}
+
+function normalizeImportSnapshot(snapshot, ctx) {
+  if (snapshot?.format === "orbit-board-export") return snapshot;
+  if (looksLikeTrelloExport(snapshot)) return trelloExportToOrbitSnapshot(snapshot, ctx);
+  return snapshot;
+}
+
+function looksLikeTrelloExport(value) {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      Array.isArray(value.cards) &&
+      Array.isArray(value.lists) &&
+      (typeof value.id === "string" || typeof value.name === "string")
+  );
+}
+
+const TRELLO_LABEL_COLORS = {
+  green: "#61bd4f",
+  yellow: "#f2d600",
+  orange: "#ff9f1a",
+  red: "#eb5a46",
+  purple: "#c377e0",
+  blue: "#0079bf",
+  sky: "#00c2e0",
+  lime: "#51e898",
+  pink: "#ff78cb",
+  black: "#344563"
+};
+
+function trelloExportToOrbitSnapshot(trello, ctx) {
+  const time = now();
+  const targetBoard = ctx.board || {};
+  const boardName = cleanText(trello.name) || "Imported Trello Board";
+  const boardSlug = targetBoard.slug || slugify(boardName) || `trello-${id().slice(0, 8)}`;
+  const labelsById = buildTrelloLabelMap(trello, time);
+  const checklistsByCard = groupTrelloChecklists(trello);
+  const commentsByCard = groupTrelloComments(trello);
+  const sortedLists = [...(trello.lists || [])].sort(compareTrelloPosition);
+  const states = buildTrelloStates(sortedLists, time);
+  const fallbackStateId = states[0]?.id;
+  const stateIdsByTrelloListId = new Map(sortedLists.map((list, index) => [list.id, states[index]?.id || fallbackStateId]));
+  const sortedCards = [...(trello.cards || [])].sort(compareTrelloPosition);
+  const tickets = [];
+  const comments = [];
+
+  sortedCards.forEach((card, index) => {
+    const ticketId = trelloScopedId("card", card.id || `${index + 1}`);
+    const stateId = stateIdsByTrelloListId.get(card.idList) || fallbackStateId;
+    if (!stateId) return;
+    const cardUpdatedAt = cleanText(card.dateLastActivity) || time;
+    const cardCreatedAt = dateFromTrelloObjectId(card.id) || cardUpdatedAt;
+    const cardComments = commentsByCard.get(card.id) || [];
+    const ticketLabels = trelloLabelsForCard(card, labelsById);
+    const importedDescription = renderTrelloCardDescription(card, {
+      listName: listNameForCard(trello.lists, card.idList),
+      checklists: checklistsByCard.get(card.id) || []
+    });
+    tickets.push({
+      id: ticketId,
+      number: index + 1,
+      title: cleanText(card.name) || `Untitled Trello card ${index + 1}`,
+      description: importedDescription,
+      type: "task",
+      parent_ticket_id: null,
+      ai_plan: "",
+      implementation_summary: "",
+      implementation_updates: "",
+      state_id: stateId,
+      priority: priorityFromTrelloCard(card),
+      created_by: "trello-import",
+      created_at: cardCreatedAt,
+      updated_at: cardUpdatedAt,
+      archived_at: card.closed ? cardUpdatedAt : null,
+      labels: ticketLabels
+    });
+
+    cardComments.forEach((action, commentIndex) => {
+      const commentId = trelloScopedId("comment", action.id || `${card.id}-${commentIndex + 1}`);
+      comments.push({
+        id: commentId,
+        ticket_id: ticketId,
+        author: trelloMemberName(action.memberCreator),
+        kind: "human_comment",
+        body: cleanText(action.data?.text) || "",
+        created_at: cleanText(action.date) || cardUpdatedAt
+      });
+    });
+  });
+
+  return {
+    format: "orbit-board-export",
+    source_format: "trello-board-export",
+    version: 7,
+    exported_at: time,
+    include_attachments: false,
+    imported_counts: {
+      states: states.length,
+      tickets: tickets.length,
+      comments: comments.length,
+      labels: labelsById.size
+    },
+    board: {
+      id: targetBoard.id || trelloScopedId("board", trello.id || id()),
+      slug: boardSlug,
+      name: boardName,
+      repo_url: targetBoard.repo_url || "",
+      system_path: targetBoard.system_path || targetBoard.repo_path || "",
+      default_branch: targetBoard.default_branch || "main",
+      project_notes: cleanText(trello.desc) ? `Imported from Trello.\n\n${cleanText(trello.desc)}` : "Imported from Trello.",
+      agent_instructions: "",
+      ai_enabled: 1,
+      created_at: cleanText(trello.dateLastActivity) || time,
+      updated_at: time
+    },
+    states,
+    labels: [...labelsById.values()],
+    tickets,
+    comments: comments.filter((comment) => comment.body),
+    review_verdicts: [],
+    relations: [],
+    attachments: [],
+    board_entries: [],
+    events: []
+  };
+}
+
+function buildTrelloStates(lists = [], time) {
+  const sorted = [...lists].sort(compareTrelloPosition);
+  const rolesSeen = new Set();
+  const firstOpenIndex = sorted.findIndex((list) => !list.closed);
+  const defaultIndex = firstOpenIndex >= 0 ? firstOpenIndex : 0;
+  return sorted.map((list, index) => {
+    const role = uniqueTrelloStateRole(inferTrelloStateRole(list.name), rolesSeen);
+    return {
+      id: trelloScopedId("list", list.id || `${index + 1}`),
+      name: cleanText(list.name) || `Trello List ${index + 1}`,
+      position: index,
+      is_default: index === defaultIndex ? 1 : 0,
+      role,
+      created_at: dateFromTrelloObjectId(list.id) || time
+    };
+  });
+}
+
+function buildTrelloLabelMap(trello, time) {
+  const labels = new Map();
+  const addLabel = (raw) => {
+    if (!raw) return;
+    const key = raw.id || `${raw.color || "label"}-${raw.name || ""}`;
+    const name = trelloLabelName(raw, trello.labelNames);
+    if (!name || labels.has(key)) return;
+    labels.set(key, {
+      id: trelloScopedId("label", key),
+      name,
+      color: TRELLO_LABEL_COLORS[String(raw.color || "").toLowerCase()] || "#64748b",
+      created_at: dateFromTrelloObjectId(raw.id) || time
+    });
+  };
+  for (const label of trello.labels || []) addLabel(label);
+  for (const card of trello.cards || []) for (const label of card.labels || []) addLabel(label);
+  return labels;
+}
+
+function groupTrelloChecklists(trello) {
+  const grouped = new Map();
+  const add = (cardId, checklist) => {
+    if (!cardId || !checklist) return;
+    if (!grouped.has(cardId)) grouped.set(cardId, []);
+    grouped.get(cardId).push(checklist);
+  };
+  for (const checklist of trello.checklists || []) add(checklist.idCard, checklist);
+  for (const card of trello.cards || []) for (const checklist of card.checklists || []) add(card.id, checklist);
+  return grouped;
+}
+
+function groupTrelloComments(trello) {
+  const grouped = new Map();
+  for (const action of trello.actions || []) {
+    if (action.type !== "commentCard") continue;
+    const cardId = action.data?.card?.id;
+    if (!cardId) continue;
+    if (!grouped.has(cardId)) grouped.set(cardId, []);
+    grouped.get(cardId).push(action);
+  }
+  for (const actions of grouped.values()) actions.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  return grouped;
+}
+
+function trelloLabelsForCard(card, labelsById) {
+  const result = [];
+  const seen = new Set();
+  const addByRawId = (rawId) => {
+    const label = labelsById.get(rawId);
+    if (label && !seen.has(label.id)) {
+      seen.add(label.id);
+      result.push(label);
+    }
+  };
+  for (const label of card.labels || []) addByRawId(label.id || `${label.color || "label"}-${label.name || ""}`);
+  for (const labelId of card.idLabels || []) addByRawId(labelId);
+  return result;
+}
+
+function renderTrelloCardDescription(card, { listName, checklists }) {
+  const parts = [];
+  const desc = cleanText(card.desc);
+  if (desc) parts.push(desc);
+  const meta = [];
+  if (card.idShort) meta.push(`Trello card #${card.idShort}`);
+  if (listName) meta.push(`List: ${listName}`);
+  if (card.shortUrl || card.url) meta.push(`URL: ${card.shortUrl || card.url}`);
+  if (card.due) meta.push(`Due: ${card.due}${card.dueComplete ? " (complete)" : ""}`);
+  if (card.closed) meta.push("Archived in Trello: yes");
+  if (meta.length) parts.push(["Imported from Trello:", ...meta.map((line) => `- ${line}`)].join("\n"));
+
+  const checklistText = renderTrelloChecklists(checklists);
+  if (checklistText) parts.push(checklistText);
+  const attachmentText = renderTrelloAttachments(card.attachments || []);
+  if (attachmentText) parts.push(attachmentText);
+  return parts.join("\n\n");
+}
+
+function renderTrelloChecklists(checklists = []) {
+  const rendered = checklists
+    .map((checklist) => {
+      const items = [...(checklist.checkItems || [])].sort(compareTrelloPosition);
+      if (!items.length) return "";
+      return [`Checklist: ${cleanText(checklist.name) || "Untitled"}`, ...items.map((item) => `- [${item.state === "complete" ? "x" : " "}] ${cleanText(item.name) || "Untitled item"}`)].join("\n");
+    })
+    .filter(Boolean);
+  return rendered.join("\n\n");
+}
+
+function renderTrelloAttachments(attachments = []) {
+  const rendered = attachments
+    .map((attachment) => {
+      const name = cleanText(attachment.name) || cleanText(attachment.fileName) || "Attachment";
+      const url = cleanText(attachment.url);
+      return url ? `- ${name}: ${url}` : `- ${name}`;
+    })
+    .filter(Boolean);
+  return rendered.length ? ["Trello attachments:", ...rendered].join("\n") : "";
+}
+
+function trelloLabelName(label, labelNames = {}) {
+  const explicit = cleanText(label.name);
+  if (explicit) return explicit;
+  const color = cleanText(label.color);
+  const namedColor = color ? cleanText(labelNames[color]) : "";
+  if (namedColor) return namedColor;
+  return color ? `Trello ${color}` : "";
+}
+
+function listNameForCard(lists = [], idList) {
+  return cleanText(lists.find((list) => list.id === idList)?.name);
+}
+
+function priorityFromTrelloCard(card) {
+  const names = (card.labels || []).map((label) => cleanText(label.name || label.color).toLowerCase()).join(" ");
+  if (/urgent|critical|blocker|high|red/.test(names)) return 4;
+  if (/low|someday|backlog/.test(names)) return 1;
+  return 2;
+}
+
+function inferTrelloStateRole(name) {
+  const normalized = cleanText(name).toLowerCase();
+  if (!normalized) return null;
+  if (/^ai ready$|ai[- ]ready/.test(normalized)) return "ai_ready";
+  if (/review|qa|verify|validation/.test(normalized)) return "review";
+  if (/doing|in progress|active|working|wip/.test(normalized)) return "in_progress";
+  if (/done|complete|completed|shipped|closed/.test(normalized)) return "done";
+  return null;
+}
+
+function uniqueTrelloStateRole(role, rolesSeen) {
+  if (!role || rolesSeen.has(role)) return null;
+  rolesSeen.add(role);
+  return role;
+}
+
+function trelloMemberName(member) {
+  return cleanText(member?.fullName) || cleanText(member?.username) || "Trello";
+}
+
+function compareTrelloPosition(a, b) {
+  const pa = Number(a?.pos ?? Number.MAX_SAFE_INTEGER);
+  const pb = Number(b?.pos ?? Number.MAX_SAFE_INTEGER);
+  if (pa !== pb) return pa - pb;
+  return String(a?.id || "").localeCompare(String(b?.id || ""));
+}
+
+function dateFromTrelloObjectId(value) {
+  const idValue = String(value || "");
+  if (!/^[0-9a-fA-F]{8}/.test(idValue)) return null;
+  const seconds = Number.parseInt(idValue.slice(0, 8), 16);
+  if (!Number.isFinite(seconds)) return null;
+  return new Date(seconds * 1000).toISOString();
+}
+
+function cleanText(value) {
+  return String(value ?? "").replace(/\r\n/g, "\n").trim();
+}
+
+function trelloScopedId(prefix, value) {
+  return `trello-${prefix}-${String(value || id()).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }

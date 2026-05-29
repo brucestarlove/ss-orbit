@@ -28,7 +28,7 @@ import {
   updateBoard,
   updateBoardEntry
 } from "./boards.js";
-import { exportBoard, importBoardSnapshot } from "./snapshots.js";
+import { exportBoard, importBoardSnapshot, importBoardSnapshotAsNewBoard } from "./snapshots.js";
 import {
   createState,
   deleteState,
@@ -497,13 +497,22 @@ export async function handleApi(req, res, url) {
     return;
   }
 
-  // /api/admin/import — body.board_id required so we know which DB to import
-  // into. Imports replace within one board's DB only.
+  // /api/admin/import — by default callers import into a brand-new board.
+  // Legacy/advanced replace imports require body.board_id so we know which
+  // board DB to replace. Replacement is destructive within that one board DB.
   if (req.method === "POST" && url.pathname === "/api/admin/import") {
     const body = await readJson(req);
     const hintId = body.board_id || url.searchParams.get("board_id");
     const hintSlug = body.board || url.searchParams.get("board");
     const row = resolveBoardFromHint(hintId, hintSlug);
+    if (body.create_new) {
+      const seedCtx = row ? ctxFromBoardRow(row, actor) : { actor, board: {}, db: null };
+      const result = importBoardSnapshotAsNewBoard(body, seedCtx);
+      sendJson(res, 201, result);
+      const newRow = getBoardByRegistryId(result.imported_board_id);
+      if (newRow) scheduleAutomaticBoardBackup(newRow, openBoardDb(newRow));
+      return;
+    }
     if (!row) throw httpError(400, "board_id_required");
     const ctx = ctxFromBoardRow(row, actor);
     sendMutationJson(res, 201, importBoardSnapshot(body, ctx), ctx);
