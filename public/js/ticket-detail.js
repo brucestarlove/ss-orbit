@@ -71,11 +71,62 @@ async function patchTicket(ticketId, body) {
  *   - initialValue: text shown in the editor on open.
  *   - ariaLabel: full label for screen readers.
  *   - emptyMessage: if set, an empty trimmed value triggers a warning toast and cancels.
+ *   - sourceEvent: optional pointer/click event used to seed the textarea caret near the clicked text.
  *   - rerender: async fn called on cancel / no-change to put the static node back.
  *   - commit: async fn called with the new value when the user accepts a real change.
  *             Receives the *raw* editor value; the caller is responsible for any
  *             trimming, cleanText, or PATCH wiring.
  */
+function inlineTextOffsetFromPoint(node, sourceEvent, maxLength) {
+  if (!node || !sourceEvent || typeof sourceEvent.clientX !== "number" || typeof sourceEvent.clientY !== "number") return null;
+
+  let range = null;
+  if (document.caretPositionFromPoint) {
+    const position = document.caretPositionFromPoint(sourceEvent.clientX, sourceEvent.clientY);
+    if (position?.offsetNode && (position.offsetNode === node || node.contains(position.offsetNode))) {
+      range = document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(position.offsetNode, position.offset);
+    }
+  } else if (document.caretRangeFromPoint) {
+    const caretRange = document.caretRangeFromPoint(sourceEvent.clientX, sourceEvent.clientY);
+    if (caretRange?.startContainer && (caretRange.startContainer === node || node.contains(caretRange.startContainer))) {
+      range = document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(caretRange.startContainer, caretRange.startOffset);
+    }
+  }
+
+  if (!range) return null;
+  return Math.max(0, Math.min(maxLength, range.toString().length));
+}
+
+function captureInlineEditScrollState(node) {
+  const scrollContainer = node?.closest?.(".drawer-inner");
+  if (!scrollContainer) return null;
+  return {
+    scrollContainer,
+    nodeRect: node.getBoundingClientRect(),
+    scrollTop: scrollContainer.scrollTop
+  };
+}
+
+function restoreInlineEditScroll(scrollState, editor) {
+  if (!scrollState?.scrollContainer || !editor?.isConnected) return;
+  const editorRect = editor.getBoundingClientRect();
+  const nextScrollTop = Math.max(0, scrollState.scrollContainer.scrollTop + (editorRect.top - scrollState.nodeRect.top));
+  if (Number.isFinite(nextScrollTop)) scrollState.scrollContainer.scrollTop = nextScrollTop;
+  else scrollState.scrollContainer.scrollTop = scrollState.scrollTop;
+}
+
+function focusWithoutScrolling(editor) {
+  try {
+    editor.focus({ preventScroll: true });
+  } catch {
+    editor.focus();
+  }
+}
+
 export function startInlineEdit(node, opts) {
   if (!node || node.dataset.editing === "true") return;
   const {
@@ -84,15 +135,20 @@ export function startInlineEdit(node, opts) {
     initialValue = "",
     ariaLabel,
     emptyMessage,
+    sourceEvent,
     rerender,
     commit: commitHandler
   } = opts;
+
+  const scrollState = multiline ? captureInlineEditScrollState(node) : null;
+  const initialString = String(initialValue);
+  const clickedCaretOffset = multiline ? inlineTextOffsetFromPoint(node, sourceEvent, initialString.length) : null;
 
   node.dataset.editing = "true";
 
   const editor = document.createElement(multiline ? "textarea" : "input");
   editor.className = multiline ? "inline-desc-editor" : "inline-title-editor";
-  editor.value = initialValue;
+  editor.value = initialString;
   if (fieldName) editor.setAttribute("data-editing-field", fieldName);
   if (ariaLabel) editor.setAttribute("aria-label", ariaLabel);
   if (!multiline) {
@@ -101,13 +157,22 @@ export function startInlineEdit(node, opts) {
     editor.autocomplete = "off";
     editor.spellcheck = true;
   } else {
-    editor.rows = Math.max(3, String(initialValue).split("\n").length + 1);
+    editor.rows = Math.max(3, initialString.split("\n").length + 1);
+    const sourceHeight = node.getBoundingClientRect().height;
+    if (Number.isFinite(sourceHeight) && sourceHeight > 0) {
+      editor.style.minHeight = `${Math.ceil(sourceHeight)}px`;
+    }
   }
 
   node.replaceWith(editor);
-  editor.focus();
-  if (!multiline) editor.select();
-  else editor.setSelectionRange(editor.value.length, editor.value.length);
+  focusWithoutScrolling(editor);
+  if (!multiline) {
+    editor.select();
+  } else {
+    const selectionStart = clickedCaretOffset ?? 0;
+    editor.setSelectionRange(selectionStart, selectionStart);
+    restoreInlineEditScroll(scrollState, editor);
+  }
 
   let done = false;
 
@@ -207,12 +272,13 @@ function wireTicketDetailEditors(ticket) {
   }
 
   const descEl = drawerInner.querySelector('[data-edit-field="description"]');
-  const editDescription = () =>
+  const editDescription = (sourceEvent) =>
     startInlineEdit(descEl, {
       fieldName: "description",
       multiline: true,
       initialValue: ticket.description || "",
       ariaLabel: "Edit ticket description",
+      sourceEvent,
       rerender: () => renderDetail(),
       commit: (next) => patchTicket(ticketId, { description: cleanText(next) })
     });
@@ -220,7 +286,7 @@ function wireTicketDetailEditors(ticket) {
   if (descEl) {
     descEl.addEventListener("click", (event) => {
       event.preventDefault();
-      editDescription();
+      editDescription(event);
     });
     descEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -243,18 +309,19 @@ function wireTicketDetailEditors(ticket) {
   for (const { key, label } of AI_FIELDS) {
     const fieldEl = drawerInner.querySelector(`[data-edit-field="${key}"]`);
     if (!fieldEl) continue;
-    const edit = () =>
+    const edit = (sourceEvent) =>
       startInlineEdit(fieldEl, {
         fieldName: key,
         multiline: true,
         initialValue: ticket[key] || "",
         ariaLabel: `Edit ${label}`,
+        sourceEvent,
         rerender: () => renderDetail(),
         commit: (next) => patchTicket(ticketId, { [key]: cleanText(next) })
       });
     fieldEl.addEventListener("click", (event) => {
       event.preventDefault();
-      edit();
+      edit(event);
     });
     fieldEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {

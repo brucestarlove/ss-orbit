@@ -1823,8 +1823,10 @@ h1 {
 [data-theme="dark"] .card {
   border-color: rgba(var(--starlight-rgb),0.12);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  /* No backdrop-filter: --card is 85% opaque so the blur showed through ~15%
+     (near-invisible) yet forced every card to re-blur the animated starfield
+     behind it on every frame — the page's biggest GPU cost. The opaque fill
+     carries the surface; the starfield still animates in the gaps. */
 }
 
 [data-theme="dark"] .card.type-epic {

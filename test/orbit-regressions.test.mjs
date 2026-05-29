@@ -310,6 +310,20 @@ test("ticket title editor is explicit, keyboard friendly, and exits edit mode on
   assert.match(settingsToolSchema[1], /name: \{ type: "string" \}/);
 });
 
+test("multiline inline edit opens without forcing the drawer to the field bottom", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+
+  assert.match(detailSource, /const editDescription = \(sourceEvent\)[\s\S]*sourceEvent,/);
+  assert.match(detailSource, /editDescription\(event\)/);
+  assert.match(detailSource, /const edit = \(sourceEvent\)[\s\S]*sourceEvent,/);
+  assert.match(detailSource, /edit\(event\)/);
+  assert.match(detailSource, /focus\(\{\s*preventScroll:\s*true\s*\}\)/);
+  assert.match(detailSource, /scrollContainer\.scrollTop\s*=\s*nextScrollTop/);
+  assert.match(detailSource, /editor\.style\.minHeight\s*=\s*`\$\{Math\.ceil\(sourceHeight\)\}px`/);
+  assert.match(detailSource, /caretPositionFromPoint|caretRangeFromPoint/);
+  assert.doesNotMatch(detailSource, /setSelectionRange\(editor\.value\.length,\s*editor\.value\.length\)/);
+});
+
 test("ticket detail exposes dependency-free image attachment controls", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
   const configSource = readFileSync(join(repoRoot, "public", "js", "config.js"), "utf8");
