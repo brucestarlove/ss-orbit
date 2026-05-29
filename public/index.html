@@ -15,9 +15,129 @@
             sizes="180x180"
             href="./apple-touch-icon.png"
         />
+        <!-- Apply the stored theme + motion preference before first paint, so
+             the app underneath the splash paints in the right theme (no flash)
+             and the splash respects an explicit reduce-motion choice. Mirrors
+             theme-preference.js (mab_theme) and motion-preference.js
+             (mab_reduce_motion → data-motion); main.js reconciles on load. -->
+        <script>
+            try {
+                var t = localStorage.getItem("mab_theme");
+                if (t === "light" || t === "dark")
+                    document.documentElement.setAttribute("data-theme", t);
+                var rm = localStorage.getItem("mab_reduce_motion");
+                if (rm === "true")
+                    document.documentElement.setAttribute("data-motion", "reduce");
+                else if (rm === "false")
+                    document.documentElement.setAttribute("data-motion", "full");
+            } catch (e) {}
+        </script>
+        <link rel="preload" as="image" href="./orbits-logo.png" />
         <link rel="stylesheet" href="/styles.css" />
+        <!-- Boot splash — the canonical ss-ui loading screen (see the package's
+             components/loader.css). Inline critical CSS so it paints before
+             /js/main.js loads. The logo grows in then breathes; no spinner.
+             Keyframes namespaced `ss-loader-*`. Under reduced motion the grow-in
+             is dropped and the dot grid stops; the gentle breathe stays. -->
+        <style>
+            .ss-loader {
+                position: fixed;
+                inset: 0;
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 2rem;
+                overflow: hidden;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                transition: opacity 0.4s ease;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            .ss-loader::before {
+                content: "";
+                position: absolute;
+                width: 200%;
+                height: 200%;
+                background-image: radial-gradient(
+                    circle,
+                    rgba(168, 192, 255, 0.15) 1px,
+                    transparent 1px
+                );
+                background-size: 50px 50px;
+                will-change: transform;
+                animation: ss-loader-drift 20s linear infinite;
+            }
+            .ss-loader.is-hiding {
+                opacity: 0;
+                pointer-events: none;
+            }
+            .ss-loader__logo {
+                width: 120px;
+                height: 120px;
+                object-fit: contain;
+                filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
+                transform-origin: center;
+                will-change: transform;
+                animation:
+                    ss-loader-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both,
+                    ss-loader-breathe 3s ease-in-out 0.6s infinite;
+            }
+            .ss-loader__label {
+                margin: 0;
+                color: #fff;
+                font-size: 1.25rem;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            }
+            @keyframes ss-loader-drift {
+                from { transform: translate(0, 0); }
+                to { transform: translate(-50px, -50px); }
+            }
+            @keyframes ss-loader-grow {
+                from { transform: scale(0); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+            }
+            @keyframes ss-loader-breathe {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.06); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                :root:not([data-motion="full"]) .ss-loader::before {
+                    animation: none;
+                }
+                :root:not([data-motion="full"]) .ss-loader__logo {
+                    animation: ss-loader-breathe 3s ease-in-out infinite;
+                }
+            }
+            [data-motion="reduce"] .ss-loader::before {
+                animation: none;
+            }
+            [data-motion="reduce"] .ss-loader__logo {
+                animation: ss-loader-breathe 3s ease-in-out infinite;
+            }
+        </style>
     </head>
     <body>
+        <!-- Boot splash - shown immediately, removed once the app is ready. -->
+        <div id="ss-loader" class="ss-loader" role="status" aria-live="polite">
+            <img
+                class="ss-loader__logo"
+                src="./orbits-logo.png"
+                alt="Orbit"
+                width="120"
+                height="120"
+            />
+            <p class="ss-loader__label">Loading Orbit…</p>
+        </div>
+
         <div class="grain">
             <div class="milky-way" aria-hidden="true"></div>
         </div>
@@ -301,5 +421,39 @@
         </dialog>
 
         <script src="/js/main.js" type="module"></script>
+        <!-- Fade out the boot splash once the DOM is ready. The /js/main.js
+             module runs before DOMContentLoaded, so theme/motion + wiring are
+             already applied by the time this fires. -->
+        <script>
+            (function () {
+                function hideSplash() {
+                    var splash = document.getElementById("ss-loader");
+                    if (!splash) return;
+                    // Keep the splash up for a minimum of 786ms (measured from
+                    // navigation start) so a fast load doesn't flash it in and out.
+                    var wait = Math.max(0, 786 - performance.now());
+                    setTimeout(function () {
+                        splash.classList.add("is-hiding");
+                        splash.addEventListener(
+                            "transitionend",
+                            function () {
+                                splash.remove();
+                            },
+                            { once: true }
+                        );
+                        setTimeout(function () {
+                            splash.remove();
+                        }, 600);
+                    }, wait);
+                }
+                if (document.readyState === "loading") {
+                    document.addEventListener("DOMContentLoaded", hideSplash, {
+                        once: true
+                    });
+                } else {
+                    hideSplash();
+                }
+            })();
+        </script>
     </body>
 </html>

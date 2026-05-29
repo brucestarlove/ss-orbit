@@ -44,19 +44,27 @@ test("stored reduced motion preference overrides browser default", () => {
   assert.equal(effectiveReducedMotionPreference({ storage, mediaMatcher: mediaMatcher(false) }), true);
 });
 
-test("applyReducedMotionPreference writes the effective motion state to the document", () => {
+test("applyReducedMotionPreference writes the data-motion state to the document", () => {
   const storage = new MemoryStorage();
   const attributes = new Map();
   const doc = {
     documentElement: {
-      setAttribute(name, value) { attributes.set(name, value); }
+      setAttribute(name, value) { attributes.set(name, value); },
+      removeAttribute(name) { attributes.delete(name); }
     }
   };
 
+  // No stored preference → no attribute, so CSS follows the OS preference.
   applyReducedMotionPreference({ doc, storage, mediaMatcher: mediaMatcher(true) });
-  assert.equal(attributes.get("data-reduced-motion"), "reduce");
+  assert.equal(attributes.has("data-motion"), false);
 
+  // Explicit reduce → data-motion="reduce" (reduces regardless of OS).
+  setReducedMotionPreference(true, storage);
+  applyReducedMotionPreference({ doc, storage, mediaMatcher: mediaMatcher(false) });
+  assert.equal(attributes.get("data-motion"), "reduce");
+
+  // Explicit allow → data-motion="full" (full motion even when OS prefers reduce).
   setReducedMotionPreference(false, storage);
   applyReducedMotionPreference({ doc, storage, mediaMatcher: mediaMatcher(true) });
-  assert.equal(attributes.get("data-reduced-motion"), "allow");
+  assert.equal(attributes.get("data-motion"), "full");
 });

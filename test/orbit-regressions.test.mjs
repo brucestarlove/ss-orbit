@@ -1334,6 +1334,24 @@ test("kanban horizontal wheel gestures stay inside the board scroller", () => {
   assert.match(stylesSource, /\.kanban\s*\{[\s\S]*overscroll-behavior-x:\s*contain;/);
 });
 
+test("kanban lane items skip offscreen layout and paint", () => {
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+  const displayLockRule = stylesSource.match(/\.column > \.card,\s*\.column > \.epic-mini-header\[data-ticket-id\]\s*\{[\s\S]*?\n\}/)?.[0] || "";
+  const miniHeaderSizeRule = stylesSource.match(/\.column > \.epic-mini-header\[data-ticket-id\]\s*\{[\s\S]*?\n\}/g)?.pop() || "";
+
+  assert.ok(displayLockRule, "kanban lane item display-locking CSS should exist");
+  assert.match(displayLockRule, /content-visibility:\s*auto;/);
+  // A card-height first guess keeps the silhouette skeleton from jumping the lane.
+  assert.match(displayLockRule, /contain-intrinsic-size:\s*auto 7\.5rem;/);
+  assert.match(miniHeaderSizeRule, /contain-intrinsic-size:\s*auto 3rem;/);
+
+  // Transparent grouping containers and the decorative empty-state must NOT be
+  // display-locked: collapsing them produced the blank "loading" voids on scroll.
+  // Locked items paint their own background, so they read as a card skeleton.
+  assert.doesNotMatch(stylesSource, /content-visibility:\s*auto;[\s\S]{0,120}\.epic-children/);
+  assert.doesNotMatch(displayLockRule, /\.epic-children|\.column-empty-state/);
+});
+
 test("card action submenus render as viewport-layered panels", () => {
   const cardActionsSource = readFileSync(join(repoRoot, "public", "js", "card-actions.js"), "utf8");
   const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");

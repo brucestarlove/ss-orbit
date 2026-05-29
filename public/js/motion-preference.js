@@ -47,7 +47,18 @@ export function applyReducedMotionPreference({
   storage = safeStorage(),
   mediaMatcher = defaultMediaMatcher
 } = {}) {
-  const reduce = effectiveReducedMotionPreference({ storage, mediaMatcher });
-  doc?.documentElement?.setAttribute("data-reduced-motion", reduce ? "reduce" : "allow");
-  return reduce;
+  // Starscape v3 `data-motion` contract (three-state; shared with the
+  // ui-system-v3 package and ss-nebula). Replaces the legacy two-state
+  // `data-reduced-motion="reduce|allow"`:
+  //   • stored reduce → data-motion="reduce" (always reduce)
+  //   • stored allow  → data-motion="full"   (ignore OS reduce)
+  //   • no stored pref → no attribute        (follow OS prefers-reduced-motion)
+  const root = doc?.documentElement;
+  const stored = storedReducedMotionPreference(storage);
+  if (root) {
+    if (stored === true) root.setAttribute("data-motion", "reduce");
+    else if (stored === false) root.setAttribute("data-motion", "full");
+    else root.removeAttribute("data-motion");
+  }
+  return effectiveReducedMotionPreference({ storage, mediaMatcher });
 }
