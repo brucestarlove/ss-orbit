@@ -1265,39 +1265,6 @@ h1 {
     background 180ms ease;
 }
 
-/*
-  Lane-local display locking: kanban cards pile up vertically inside each
-  independently scrolling column. Keep every card addressable in the DOM for
-  drag/drop, action menus, and selection, but let the browser skip layout and
-  paint work for offscreen cards until they enter the column viewport.
-
-  Only the high-volume, self-contained items are locked: standalone cards and
-  the thin cross-column epic headers. Each paints its OWN background, border and
-  shadow while locked (content-visibility only skips an element's *contents*),
-  so an offscreen card reads as a tidy "loading" card silhouette — the skeleton —
-  instead of a blank gap, and fills with text the instant it nears the viewport.
-
-  Deliberately NOT locked:
-    - .epic-children — a transparent container wrapping several cards. Locking it
-      collapsed a whole group into one empty void (the ugly blank gap on scroll).
-      Its child cards aren't direct .column children, so they were never locked
-      anyway; letting the group render normally keeps epic grouping seamless.
-    - .column-empty-state — one decorative glow+icon per lane. No volume to
-      optimise, and blanking it just looked broken.
-*/
-.column > .card,
-.column > .epic-mini-header[data-ticket-id] {
-  content-visibility: auto;
-  /* First-paint guess only: the `auto` keyword makes the browser remember each
-     item's real measured height after it renders once, so the scroll height
-     barely shifts and the skeleton-to-content reveal doesn't jump the lane. */
-  contain-intrinsic-size: auto 7.5rem;
-}
-
-.column > .epic-mini-header[data-ticket-id] {
-  contain-intrinsic-size: auto 3rem;
-}
-
 .column.drag-over {
   outline: 2px solid var(--accent-focus-border);
   outline-offset: 2px;

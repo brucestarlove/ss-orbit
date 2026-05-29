@@ -1334,22 +1334,34 @@ test("kanban horizontal wheel gestures stay inside the board scroller", () => {
   assert.match(stylesSource, /\.kanban\s*\{[\s\S]*overscroll-behavior-x:\s*contain;/);
 });
 
-test("kanban lane items skip offscreen layout and paint", () => {
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-  const displayLockRule = stylesSource.match(/\.column > \.card,\s*\.column > \.epic-mini-header\[data-ticket-id\]\s*\{[\s\S]*?\n\}/)?.[0] || "";
-  const miniHeaderSizeRule = stylesSource.match(/\.column > \.epic-mini-header\[data-ticket-id\]\s*\{[\s\S]*?\n\}/g)?.pop() || "";
+test("renderBoard stays cheap: delegated listeners, no per-card rebind or rescan", () => {
+  const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
+  const renderBoardFn = kanbanSource.match(/export function renderBoard\(\)\s*\{[\s\S]*?\n\}/)?.[0] || "";
 
-  assert.ok(displayLockRule, "kanban lane item display-locking CSS should exist");
-  assert.match(displayLockRule, /content-visibility:\s*auto;/);
-  // A card-height first guess keeps the silhouette skeleton from jumping the lane.
-  assert.match(displayLockRule, /contain-intrinsic-size:\s*auto 7\.5rem;/);
-  assert.match(miniHeaderSizeRule, /contain-intrinsic-size:\s*auto 3rem;/);
+  assert.ok(renderBoardFn, "renderBoard should exist");
+  // The hot path must not re-attach listeners or linear-scan tickets per card.
+  assert.doesNotMatch(renderBoardFn, /addEventListener/);
+  assert.doesNotMatch(renderBoardFn, /querySelectorAll/);
+  assert.doesNotMatch(renderBoardFn, /tickets\.find\(/);
+  // It builds an id->ticket Map so delegated handlers resolve in O(1).
+  assert.match(renderBoardFn, /boardTicketsById\s*=\s*new Map\(/);
 
-  // Transparent grouping containers and the decorative empty-state must NOT be
-  // display-locked: collapsing them produced the blank "loading" voids on scroll.
-  // Locked items paint their own background, so they read as a card skeleton.
-  assert.doesNotMatch(stylesSource, /content-visibility:\s*auto;[\s\S]{0,120}\.epic-children/);
-  assert.doesNotMatch(displayLockRule, /\.epic-children|\.column-empty-state/);
+  // Interaction wiring is attached once to the persistent container.
+  assert.match(kanbanSource, /export function enableKanbanInteractions\(\)/);
+  assert.match(kanbanSource, /bindCardContextMenuDelegated\(kanban/);
+});
+
+test("kanban card markdown is parsed lazily, only for expanded cards", () => {
+  const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
+  const renderCardFn = kanbanSource.match(/function renderCard\(ticket[\s\S]*?\n\}/)?.[0] || "";
+
+  assert.ok(renderCardFn, "renderCard should exist");
+  // Collapsed cards (the common case) must not run the markdown parser.
+  assert.doesNotMatch(renderCardFn, /renderMarkdown\(/);
+  // The expandable body is emitted only when already expanded...
+  assert.match(renderCardFn, /isExpanded \? renderCardExpandable\(ticket\)/);
+  // ...and injected on first open via the toggle handler.
+  assert.match(kanbanSource, /function toggleCardExpansion[\s\S]*?renderCardExpandable\(ticket\)/);
 });
 
 test("card action submenus render as viewport-layered panels", () => {

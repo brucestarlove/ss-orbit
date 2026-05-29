@@ -245,6 +245,25 @@ export function bindCardContextMenu(card, ticket, { handlers = createCardActionH
   });
 }
 
+// Delegated variant: a single listener on the board container resolves the card
+// and its ticket per event. Lets renderBoard() swap innerHTML freely without
+// re-binding a contextmenu listener onto every card on every render.
+export function bindCardContextMenuDelegated(container, resolveTicket, { handlers = createCardActionHandlers(), onBeforeOpen = null } = {}) {
+  container.addEventListener("contextmenu", (event) => {
+    const card = event.target instanceof Element ? event.target.closest(".card") : null;
+    if (!card) return;
+    const ticket = resolveTicket(card.dataset.ticketId);
+    if (!ticket) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (dragInFlight) {
+      closeCardActionMenu();
+      return;
+    }
+    openCardActionMenu({ ticket, anchor: card, x: event.clientX, y: event.clientY, handlers, onBeforeOpen });
+  });
+}
+
 function renderMenuItems(items) {
   return `<ul class="card-action-menu-list" role="none">${items.map(renderMenuItem).join("")}</ul>`;
 }

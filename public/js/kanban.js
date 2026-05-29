@@ -19,106 +19,162 @@ import { api, withBoardQuery } from "./api.js";
 import { navigate } from "./router.js";
 import { closeCreateFlyout, openCreateFlyout } from "./create-card.js";
 import { load } from "./app.js";
-import { bindCardContextMenu, closeCardActionMenu, createCardActionHandlers, setCardActionDragInFlight } from "./card-actions.js";
+import { bindCardContextMenuDelegated, closeCardActionMenu, createCardActionHandlers, setCardActionDragInFlight } from "./card-actions.js";
 import { unreadCount } from "./unread.js";
 
+// Lookup for the current board's tickets, keyed by id. Refreshed on every
+// renderBoard() so the single, persistent set of delegated listeners can
+// resolve a card's ticket in O(1) without re-binding anything per render.
+let boardTicketsById = new Map();
+// Created once (lazily) and reused — handlers are stateless w.r.t. a given card.
+let cardActionHandlers = null;
+// HTML5 DnD ends with a synthetic click on the drag source; this flag lets the
+// delegated click handler swallow that one click so a drop doesn't also open
+// the ticket drawer. Module-scoped because there's now one shared listener.
+let suppressClickAfterDrag = false;
+
+// renderBoard() is hot: it runs on every drag-drop, every SSE board event, and
+// every settings toggle. Keep it to a single innerHTML write plus a Map refresh.
+// All interaction wiring lives in enableKanbanInteractions(), attached ONCE to
+// the persistent `kanban` element (see below), so re-rendering never re-binds
+// per-card/column/button listeners or rescans the ticket list.
 export function renderBoard() {
   const states = visibleStatesForProject();
   const tickets = ticketsForProject();
+  boardTicketsById = new Map(tickets.map((ticket) => [ticket.id, ticket]));
   kanban.innerHTML = states.map((column) => renderColumn(column, tickets)).join("");
+}
 
-  kanban.querySelectorAll(".column").forEach((column) => {
-    column.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      column.classList.add("drag-over");
-    });
-    column.addEventListener("dragleave", () => column.classList.remove("drag-over"));
-    column.addEventListener("drop", async (event) => {
-      event.preventDefault();
-      column.classList.remove("drag-over");
-      const ticketId = event.dataTransfer.getData("text/plain");
-      if (!ticketId) return;
-      closeCreateFlyout();
-      await api(withBoardQuery(`/api/tickets/${ticketId}`), {
-        method: "PATCH",
-        body: { state_id: column.dataset.stateId }
-      });
-      // Refresh board only; do not open the ticket drawer (DnD also fires a
-      // synthetic click on the card — suppressed in the card listener).
-      await load();
-    });
-  });
-
-  kanban.querySelectorAll("[data-add-to-state]").forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openCreateFlyout(btn.dataset.addToState || "");
-    });
-  });
-
-  kanban.querySelectorAll(".epic-mini-header[data-ticket-id]").forEach((header) => {
-    header.addEventListener("click", () => {
-      closeCreateFlyout();
-      navigate({
-        boardId: state.boardId,
-        view: "ticket",
-        ticketId: header.dataset.ticketId
-      });
-    });
-  });
-
-  const cardActionHandlers = createCardActionHandlers({ navigator: navigate });
-  kanban.querySelectorAll(".card").forEach((card) => {
-    const ticket = tickets.find((item) => item.id === card.dataset.ticketId);
-    if (ticket) bindCardContextMenu(card, ticket, { handlers: cardActionHandlers, onBeforeOpen: closeCreateFlyout });
-    // HTML5 DnD ends with a synthetic click on the source element; ignore that
-    // follow-up click so dropping a card does not also open the detail drawer.
-    let suppressClickAfterDrag = false;
-    card.addEventListener("click", async (event) => {
-      const clickTarget = event.target instanceof Element ? event.target : event.target?.parentElement;
-      if (clickTarget?.closest("a")) {
-        event.stopPropagation();
-        return;
-      }
-      if (suppressClickAfterDrag) {
-        suppressClickAfterDrag = false;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      closeCreateFlyout();
-      navigate({
-        boardId: state.boardId,
-        view: "ticket",
-        ticketId: card.dataset.ticketId
-      });
-    });
-    const toggleBtn = card.querySelector("button.card-expand-trigger");
-    if (toggleBtn) {
-      toggleBtn.addEventListener("click", (event) => {
-        event.stopPropagation();
-        event.preventDefault();
-        const id = card.dataset.ticketId;
-        if (state.expandedCardIds.has(id)) state.expandedCardIds.delete(id);
-        else state.expandedCardIds.add(id);
-        const expanded = card.classList.toggle("is-expanded");
-        toggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
-      });
+function toggleCardExpansion(card) {
+  if (!card) return;
+  const id = card.dataset.ticketId;
+  const willExpand = !state.expandedCardIds.has(id);
+  if (willExpand) {
+    state.expandedCardIds.add(id);
+    // Build the expandable body (markdown parse + labels + relations) the first
+    // time a card opens. Collapsed cards — the overwhelming majority on render —
+    // never pay this cost. Once built it stays cached in the DOM for re-toggles.
+    if (!card.querySelector(".card-expandable")) {
+      const ticket = boardTicketsById.get(id);
+      const meta = card.querySelector(".card-meta");
+      if (ticket && meta) meta.insertAdjacentHTML("afterend", renderCardExpandable(ticket));
     }
-    card.addEventListener("dragstart", (event) => {
-      closeCardActionMenu();
-      setCardActionDragInFlight(true);
-      event.dataTransfer.setData("text/plain", card.dataset.ticketId);
-      event.dataTransfer.effectAllowed = "move";
+  } else {
+    state.expandedCardIds.delete(id);
+  }
+  card.classList.toggle("is-expanded", willExpand);
+  const toggleBtn = card.querySelector("button.card-expand-trigger");
+  if (toggleBtn) toggleBtn.setAttribute("aria-expanded", willExpand ? "true" : "false");
+}
+
+// One-time setup: attach delegated listeners to the persistent board container.
+// Because events bubble to `kanban`, these survive every innerHTML swap, so
+// renderBoard() does zero listener work regardless of card count.
+export function enableKanbanInteractions() {
+  cardActionHandlers = cardActionHandlers || createCardActionHandlers({ navigator: navigate });
+
+  // --- Drag & drop (HTML5 DnD events bubble, so one set covers all cards) ---
+  let dragOverColumn = null;
+  const setDragOverColumn = (column) => {
+    if (dragOverColumn === column) return;
+    if (dragOverColumn) dragOverColumn.classList.remove("drag-over");
+    dragOverColumn = column;
+    if (dragOverColumn) dragOverColumn.classList.add("drag-over");
+  };
+
+  kanban.addEventListener("dragstart", (event) => {
+    const card = event.target instanceof Element ? event.target.closest(".card") : null;
+    if (!card) return;
+    closeCardActionMenu();
+    setCardActionDragInFlight(true);
+    event.dataTransfer.setData("text/plain", card.dataset.ticketId);
+    event.dataTransfer.effectAllowed = "move";
+  });
+
+  kanban.addEventListener("dragover", (event) => {
+    const column = event.target instanceof Element ? event.target.closest(".column") : null;
+    if (!column) return;
+    event.preventDefault();
+    setDragOverColumn(column);
+  });
+
+  kanban.addEventListener("dragend", () => {
+    setCardActionDragInFlight(false);
+    setDragOverColumn(null);
+    suppressClickAfterDrag = true;
+    // If no synthetic click follows (e.g. drag cancelled oddly), don't eat the
+    // next real click.
+    setTimeout(() => {
+      suppressClickAfterDrag = false;
+    }, 0);
+  });
+
+  kanban.addEventListener("drop", async (event) => {
+    const column = event.target instanceof Element ? event.target.closest(".column") : null;
+    if (!column) return;
+    event.preventDefault();
+    setDragOverColumn(null);
+    const ticketId = event.dataTransfer.getData("text/plain");
+    if (!ticketId) return;
+    closeCreateFlyout();
+    await api(withBoardQuery(`/api/tickets/${ticketId}`), {
+      method: "PATCH",
+      body: { state_id: column.dataset.stateId }
     });
-    card.addEventListener("dragend", () => {
-      setCardActionDragInFlight(false);
-      suppressClickAfterDrag = true;
-      // If no click follows (e.g. drag cancelled oddly), do not eat the next real click.
-      setTimeout(() => {
-        suppressClickAfterDrag = false;
-      }, 0);
-    });
+    // Refresh board only; do not open the ticket drawer (DnD also fires a
+    // synthetic click on the card — suppressed by suppressClickAfterDrag).
+    await load();
+  });
+
+  // --- Clicks (precedence: add-button > expand toggle > link > epic header > card) ---
+  kanban.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    if (!target) return;
+
+    const addBtn = target.closest("[data-add-to-state]");
+    if (addBtn) {
+      event.stopPropagation();
+      openCreateFlyout(addBtn.dataset.addToState || "");
+      return;
+    }
+
+    const toggle = target.closest("button.card-expand-trigger");
+    if (toggle) {
+      event.stopPropagation();
+      event.preventDefault();
+      toggleCardExpansion(toggle.closest(".card"));
+      return;
+    }
+
+    // Anchors inside a card keep their native behavior.
+    if (target.closest("a")) {
+      event.stopPropagation();
+      return;
+    }
+
+    const epicHeader = target.closest(".epic-mini-header[data-ticket-id]");
+    if (epicHeader) {
+      closeCreateFlyout();
+      navigate({ boardId: state.boardId, view: "ticket", ticketId: epicHeader.dataset.ticketId });
+      return;
+    }
+
+    const card = target.closest(".card");
+    if (!card) return;
+    if (suppressClickAfterDrag) {
+      suppressClickAfterDrag = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    closeCreateFlyout();
+    navigate({ boardId: state.boardId, view: "ticket", ticketId: card.dataset.ticketId });
+  });
+
+  // --- Context menu ---
+  bindCardContextMenuDelegated(kanban, (id) => boardTicketsById.get(id), {
+    handlers: cardActionHandlers,
+    onBeforeOpen: closeCreateFlyout
   });
 }
 
@@ -388,15 +444,24 @@ function renderCard(ticket, { asEpicChild = false } = {}) {
           : `<div class="card-expand-trigger card-expand-trigger--static">${triggerInner}</div>`}
       </div>
 
-      ${hasExpandable ? `
-        <div class="card-expandable">
-          ${hasDescription ? `<div class="card-description markdown-body">${renderMarkdown(ticket.description)}</div>` : ""}
-          ${renderLabels(ticket.labels)}
-          ${ticket.parent_ticket ? `<div class="parent-line">-> ${escapeHtml(ticketLabel(ticket.parent_ticket))}</div>` : ""}
-          ${ticket.child_count ? `<div class="child-count">${ticket.child_count} feature${ticket.child_count === 1 ? "" : "s"} inside</div>` : ""}
-        </div>
-      ` : ""}
+      ${hasExpandable && isExpanded ? renderCardExpandable(ticket) : ""}
     </article>
+  `;
+}
+
+// The expandable body holds the only genuinely expensive per-card work: a full
+// markdown parse of the description. It's rendered eagerly only for cards that
+// are already expanded; collapsed cards get it injected on first open (see
+// toggleCardExpansion). Kept as its own function so both paths share one source.
+function renderCardExpandable(ticket) {
+  const hasDescription = Boolean(String(ticket.description || "").trim());
+  return `
+    <div class="card-expandable">
+      ${hasDescription ? `<div class="card-description markdown-body">${renderMarkdown(ticket.description)}</div>` : ""}
+      ${renderLabels(ticket.labels)}
+      ${ticket.parent_ticket ? `<div class="parent-line">-> ${escapeHtml(ticketLabel(ticket.parent_ticket))}</div>` : ""}
+      ${ticket.child_count ? `<div class="child-count">${ticket.child_count} feature${ticket.child_count === 1 ? "" : "s"} inside</div>` : ""}
+    </div>
   `;
 }
 

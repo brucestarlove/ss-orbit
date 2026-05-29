@@ -36,7 +36,7 @@ import {
   closeCreateFlyout,
   isCreateFlyoutOpen
 } from "./create-card.js";
-import { enableKanbanDragScroll } from "./kanban.js";
+import { enableKanbanDragScroll, enableKanbanInteractions } from "./kanban.js";
 import { runSearch, hideSearch } from "./search.js";
 import { load } from "./app.js";
 import { edition } from "./config.js";
@@ -131,6 +131,7 @@ async function init() {
   });
 
   enableKanbanDragScroll();
+  enableKanbanInteractions();
 
   const initialRoute = currentRoute();
   if (initialRoute.boardSlug) state.boardSlug = initialRoute.boardSlug;
