@@ -75,7 +75,7 @@ export function renderDrawerShell({ eyebrow, title, titleAttrs, subtitleHtml, ta
   // last render (e.g. the inline title editor's click handler) die with the
   // old nodes, instead of stacking on persistent shell elements.
   const extraTitleClass = titleAttrs?.class ? ` ${titleAttrs.class}` : "";
-  let titleAttrHtml = ` class="drawer-title-text${extraTitleClass}"`;
+  let titleAttrHtml = ` class="drawer-title drawer-title-text${extraTitleClass}"`;
   for (const [key, value] of Object.entries(titleAttrs || {})) {
     if (key === "class") continue;
     titleAttrHtml += ` ${key}="${escapeHtml(String(value))}"`;

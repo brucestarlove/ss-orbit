@@ -242,7 +242,7 @@ function renderMcpSetupSection(context) {
               <strong data-mcp-output-title>${escapeHtml(client.label)} setup</strong>
               <p class="description" data-mcp-helper>${escapeHtml(client.helper)}</p>
             </div>
-            <button type="button" class="ghost" data-copy-mcp="config">Copy setup</button>
+            <button type="button" data-variant="secondary" data-copy-mcp="config">Copy setup</button>
           </div>
           <div class="mcp-terminal">
             <div class="mcp-terminal-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -258,7 +258,7 @@ function renderMcpSetupSection(context) {
               <strong>Manual run command</strong>
               <p class="description">Use this only when an app asks you to start the MCP server yourself.</p>
             </div>
-            <button type="button" class="ghost" data-copy-mcp="command">Copy command</button>
+            <button type="button" data-variant="secondary" data-copy-mcp="command">Copy command</button>
           </div>
           <div class="mcp-terminal">
             <div class="mcp-terminal-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -403,11 +403,9 @@ function renderProjectRepositoryTab(context) {
         <p class="description">Image exports are embedded in the .orbit.json snapshot and may be much larger.</p>
       ` : ""}
       <div class="deployment-actions">
-        <button type="button" class="ghost" id="exportProject">Export</button>
-        <label class="import-button">
-          <input type="file" id="importSnapshotAsNewFile" accept=".orbit.json,.json,application/json" />
-          <span>Import as New Board</span>
-        </label>
+        <button type="button" data-variant="secondary" id="exportProject">Export</button>
+        <input type="file" id="importSnapshotAsNewFile" class="import-file-input" accept=".orbit.json,.json,application/json" />
+        <button type="button" data-variant="secondary" id="importSnapshotAsNewButton">Import as New Board</button>
       </div>
     </div>
 
@@ -419,10 +417,8 @@ function renderProjectRepositoryTab(context) {
         <input id="replaceImportConfirmInput" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(project.slug || "")}" />
       </label>
       <div class="deployment-actions">
-        <label class="import-button danger-button">
-          <input type="file" id="replaceCurrentBoardImportFile" accept=".orbit.json,.json,application/json" disabled />
-          <span>Replace Current Board</span>
-        </label>
+        <input type="file" id="replaceCurrentBoardImportFile" class="import-file-input" accept=".orbit.json,.json,application/json" disabled />
+        <button type="button" data-variant="secondary" id="replaceCurrentBoardImportButton" disabled>Replace Current Board</button>
       </div>
     </div>
 
@@ -440,7 +436,7 @@ function renderBoardRenameSection(project) {
           <span>Display name</span>
           <input name="name" value="${escapeHtml(project.name || "")}" maxlength="120" required />
         </label>
-        <button type="submit">Rename Board</button>
+        <button type="submit" data-variant="secondary">Rename Board</button>
       </form>
     </div>
   `;
@@ -454,9 +450,9 @@ function renderDeleteBoardSection(project) {
         <h3>Delete Board</h3>
         <p class="description">Delete this board from Orbit and remove its repo-local Orbit files. Export a snapshot first if you may need this board again.</p>
         <div class="repository-delete-actions">
-          <button type="button" class="ghost" id="deleteBoardExportFirst">Export first</button>
-          <button type="button" class="ghost danger-button" id="deleteBoardSkipExport">Delete without exporting</button>
-          <button type="button" class="ghost" id="deleteBoardCancel">Cancel</button>
+          <button type="button" data-variant="secondary" id="deleteBoardExportFirst">Export first</button>
+          <button type="button" data-variant="ghost" class="danger-button" id="deleteBoardSkipExport">Delete without exporting</button>
+          <button type="button" data-variant="ghost" id="deleteBoardCancel">Cancel</button>
         </div>
       </div>
     `;
@@ -476,8 +472,8 @@ function renderDeleteBoardSection(project) {
           <input id="deleteBoardConfirmInput" autocomplete="off" spellcheck="false" placeholder="${slug}" autofocus />
         </label>
         <div class="repository-delete-actions">
-          <button type="button" class="danger-button" id="deleteBoardConfirm" disabled>Delete board permanently</button>
-          <button type="button" class="ghost" id="deleteBoardCancel">Cancel</button>
+          <button type="button" data-variant="primary" class="danger-button" id="deleteBoardConfirm" disabled>Delete board permanently</button>
+          <button type="button" data-variant="ghost" id="deleteBoardCancel">Cancel</button>
         </div>
       </div>
     `;
@@ -487,7 +483,7 @@ function renderDeleteBoardSection(project) {
     <div class="section repository-danger-zone">
       <h3>Delete Board</h3>
       <p class="description">Remove this board from Orbit and delete its repo-local Orbit files. This cannot be undone without an exported snapshot.</p>
-      <button type="button" class="ghost danger-button" id="deleteBoardStart">Delete Board</button>
+      <button type="button" data-variant="ghost" class="danger-button" id="deleteBoardStart">Delete Board</button>
     </div>
   `;
 }
@@ -536,7 +532,7 @@ function renderProjectLanesTab() {
       ${renderLaneManager()}
       <form id="laneCreateForm" class="lane-create-form">
         <input name="name" placeholder="New lane name..." required />
-        <button type="submit">Add Lane</button>
+        <button type="submit" data-variant="primary">Add Lane</button>
       </form>
     </div>
   `;
@@ -619,7 +615,7 @@ function renderProjectJournalTab(context) {
         </select>
         <input name="title" placeholder="Entry title..." required />
         <textarea name="body" placeholder="Decision rationale or lesson: do X instead of Y when working with Z." required></textarea>
-        <button type="submit">Add Entry</button>
+        <button type="submit" data-variant="primary">Add Entry</button>
       </form>
     </div>
   `;
@@ -675,7 +671,12 @@ function bindProjectTabHandlers(context, tab) {
       });
     };
 
-    $("#importSnapshotAsNewFile")?.addEventListener("change", async (event) => {
+    const importSnapshotAsNewFile = $("#importSnapshotAsNewFile");
+    $("#importSnapshotAsNewButton")?.addEventListener("click", () => {
+      importSnapshotAsNewFile?.click();
+    });
+
+    importSnapshotAsNewFile?.addEventListener("change", async (event) => {
       const input = event.currentTarget;
       const file = input.files?.[0];
       if (!file) return;
@@ -698,8 +699,16 @@ function bindProjectTabHandlers(context, tab) {
 
     const replaceImportConfirmInput = $("#replaceImportConfirmInput");
     const replaceCurrentBoardImportFile = $("#replaceCurrentBoardImportFile");
+    const replaceCurrentBoardImportButton = $("#replaceCurrentBoardImportButton");
     replaceImportConfirmInput?.addEventListener("input", () => {
-      if (replaceCurrentBoardImportFile) replaceCurrentBoardImportFile.disabled = replaceImportConfirmInput.value.trim() !== project.slug;
+      const disabled = replaceImportConfirmInput.value.trim() !== project.slug;
+      if (replaceCurrentBoardImportFile) replaceCurrentBoardImportFile.disabled = disabled;
+      if (replaceCurrentBoardImportButton) replaceCurrentBoardImportButton.disabled = disabled;
+    });
+
+    replaceCurrentBoardImportButton?.addEventListener("click", () => {
+      if (replaceCurrentBoardImportButton.disabled || replaceCurrentBoardImportFile?.disabled) return;
+      replaceCurrentBoardImportFile?.click();
     });
 
     replaceCurrentBoardImportFile?.addEventListener("change", async (event) => {
@@ -1054,7 +1063,8 @@ function renderProjectEntries(entries = []) {
               <span>${escapeHtml(entry.created_by)} - ${formatDate(entry.created_at)}</span>
               <button
                 type="button"
-                class="ghost project-entry-strike"
+                data-variant="ghost"
+                class="project-entry-strike"
                 data-entry-action="toggle-struck"
                 data-entry-id="${escapeHtml(entry.id)}"
                 data-struck="${isStruck ? "true" : "false"}"
@@ -1122,14 +1132,14 @@ function renderLaneManager() {
             : "";
           return `
             <div class="lane-row${isAiReady ? " lane-row--locked" : ""}" data-lane-id="${lane.id}">
-              <button type="button" class="lane-icon-btn" data-lane-action="up" ${index === 0 ? "disabled" : ""} title="Move lane left" aria-label="Move lane left">↑</button>
-              <button type="button" class="lane-icon-btn" data-lane-action="down" ${index === lanes.length - 1 ? "disabled" : ""} title="Move lane right" aria-label="Move lane right">↓</button>
+              <button type="button" data-variant="ghost" class="settings-lane-icon-btn" data-lane-action="up" ${index === 0 ? "disabled" : ""} title="Move lane left" aria-label="Move lane left">↑</button>
+              <button type="button" data-variant="ghost" class="settings-lane-icon-btn" data-lane-action="down" ${index === lanes.length - 1 ? "disabled" : ""} title="Move lane right" aria-label="Move lane right">↓</button>
               <input name="name" value="${escapeHtml(lane.name)}" aria-label="Lane name" ${isAiReady ? `readonly title="${escapeHtml(nameTitle)}"` : ""} />
-              <button type="button" class="lane-new-toggle ${lane.is_default ? "is-on" : ""}" data-lane-action="toggle-default" aria-pressed="${lane.is_default ? "true" : "false"}" title="${lane.is_default ? "Default lane for new cards — click another lane to move it" : "Make this the default lane for new cards"}" aria-label="Default lane for new cards">
+              <button type="button" data-variant="${lane.is_default ? "secondary" : "ghost"}" class="settings-lane-new-toggle ${lane.is_default ? "is-on" : ""}" data-lane-action="toggle-default" aria-pressed="${lane.is_default ? "true" : "false"}" title="${lane.is_default ? "Default lane for new cards — click another lane to move it" : "Make this the default lane for new cards"}" aria-label="Default lane for new cards">
                 <span class="lane-new-sun" aria-hidden="true"></span>
                 <span class="lane-new-label">New</span>
               </button>
-              <button type="button" class="lane-delete-btn" data-lane-action="delete" ${deleteDisabled(lane, counts, aiEnabled) ? "disabled" : ""} title="${deleteTitle(lane, counts, aiEnabled)}" aria-label="Delete lane">×</button>
+              <button type="button" data-variant="ghost" class="settings-lane-delete-btn danger-button" data-lane-action="delete" ${deleteDisabled(lane, counts, aiEnabled) ? "disabled" : ""} title="${deleteTitle(lane, counts, aiEnabled)}" aria-label="Delete lane">×</button>
             </div>
           `;
         })
@@ -1158,9 +1168,11 @@ async function handleLaneAction(button) {
     if (wasOn) return;
     drawerInner.querySelectorAll('[data-lane-action="toggle-default"]').forEach((btn) => {
       btn.setAttribute("aria-pressed", "false");
+      btn.setAttribute("data-variant", "ghost");
       btn.classList.remove("is-on");
     });
     button.setAttribute("aria-pressed", "true");
+    button.setAttribute("data-variant", "secondary");
     button.classList.add("is-on");
     await updateLane(row, { silent: true });
     toast.success("Default lane updated");

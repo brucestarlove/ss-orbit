@@ -23,11 +23,25 @@ export function closeMenuFlyouts() {
   closeBoardFlyout();
 }
 
+const boardChipIcon = `
+  <svg
+    class="topbar-icon"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+  >
+    <rect x="4" y="4" width="6" height="16" rx="0.75" stroke="currentColor" stroke-width="2" />
+    <rect x="14" y="4" width="6" height="16" rx="0.75" stroke="currentColor" stroke-width="2" />
+  </svg>`;
+
 export function updateTopbarChips() {
   if (!state.data) return;
   const board = (state.data.boards || []).find((b) => b.id === state.boardId);
   if (boardMenuBtn) {
-    boardMenuBtn.textContent = board?.name || "Board";
+    const label = board?.name || "Board";
+    boardMenuBtn.innerHTML = `${boardChipIcon}<span class="topbar-chip-label">${escapeHtml(label)}</span>`;
     boardMenuBtn.title = board ? `${board.name} — slug: ${board.slug}` : "Choose board";
   }
 }
@@ -37,7 +51,7 @@ function renderBoardFlyoutInner() {
   const rows = boards
     .map(
       (b) => `
-      <button type="button" class="menu-flyout-item ${b.id === state.boardId ? "is-current" : ""}" data-pick-board="${escapeHtml(b.id)}" role="menuitem">
+      <button type="button" class="menu-flyout-item ${b.id === state.boardId ? "is-current" : ""}" data-variant="menu-item" data-pick-board="${escapeHtml(b.id)}" role="menuitem">
         <span class="menu-flyout-item-title">${escapeHtml(b.name)}</span>
         <span class="menu-flyout-item-meta">${escapeHtml(b.slug)}</span>
       </button>`

@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { bundleCss } from "../src/core/css-bundle.js";
 import { folderPickerCommands, pickFolder } from "../src/core/system-picker.js";
 import { readJson } from "../src/core/http.js";
 import { normalizePath } from "../src/core/util.js";
@@ -186,12 +187,12 @@ test("ticket search renders state badges with shared state pill classes", () => 
 
   assert.match(formatSource, /export function stateClassFor/);
   assert.match(searchSource, /stateClassFor\(ticket\)/);
-  assert.match(searchSource, /search-hit-state state-pill-/);
+  assert.match(searchSource, /search-hit-state" data-variant=/);
   assert.match(searchSource, /search-hit-title/);
   assert.match(stylesSource, /\.search-hit\s*\{[\s\S]*display:\s*flex;/);
   assert.match(stylesSource, /\.search-hit-title\s*\{[\s\S]*text-overflow:\s*ellipsis;/);
-  assert.match(stylesSource, /\.search-hit-state\.state-pill-in-progress/);
-  assert.match(stylesSource, /\[data-theme="dark"\] \.search-hit-state\.state-pill-in-progress/);
+  assert.match(stylesSource, /\.search-hit-state\[data-variant="in-progress"\]/);
+  assert.match(stylesSource, /\[data-theme="dark"\] \.search-hit-state\[data-variant="in-progress"\]/);
 });
 
 test("ticket detail preview cards render state badges with shared state pill classes", () => {
@@ -199,11 +200,11 @@ test("ticket detail preview cards render state badges with shared state pill cla
   const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   assert.match(detailSource, /stateClassFor\(ticket\)/);
-  assert.match(detailSource, /detail-card-state state-pill-/);
+  assert.match(detailSource, /detail-card-state" data-variant=/);
   assert.match(detailSource, /ticket\.state_name \|\| "State"/);
   assert.match(stylesSource, /\.detail-card-state\s*\{/);
-  assert.match(stylesSource, /\.detail-card-state\.state-pill-in-progress/);
-  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-card-state\.state-pill-in-progress/);
+  assert.match(stylesSource, /\.detail-card-state\[data-variant="in-progress"\]/);
+  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-card-state\[data-variant="in-progress"\]/);
 });
 
 test("ticket detail moves state, type, and priority controls into header badge dropdowns", () => {
@@ -223,8 +224,8 @@ test("ticket detail moves state, type, and priority controls into header badge d
   assert.match(detailSource, /drawer\.querySelectorAll\("\.meta-select\[data-meta-field\]"\)/);
   assert.match(stylesSource, /\.detail-meta-badge/);
   assert.match(stylesSource, /\.detail-state-badge/);
-  assert.match(stylesSource, /\.detail-priority-badge\.priority-pill-med\s*\{[\s\S]*background-color:\s*rgba\(var\(--amber-rgb\), 0\.16\);/);
-  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-priority-badge\.priority-pill-high\s*\{[\s\S]*background-color:\s*rgba\(var\(--coral-rgb\), 0\.2\);/);
+  assert.match(stylesSource, /\.detail-priority-badge\[data-variant="med"\]\s*\{[\s\S]*background-color:\s*rgba\(var\(--amber-rgb\), 0\.16\);/);
+  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-priority-badge\[data-variant="high"\]\s*\{[\s\S]*background-color:\s*rgba\(var\(--coral-rgb\), 0\.2\);/);
 });
 
 test("ticket detail ignores stale async renders after rapid ticket switches", () => {
@@ -308,6 +309,133 @@ test("ticket title editor is explicit, keyboard friendly, and exits edit mode on
   const settingsToolSchema = mcpServerSource.match(/name: "board_update_settings"[\s\S]*?inputSchema: \{([\s\S]*?)\n    handler:/);
   assert.ok(settingsToolSchema);
   assert.match(settingsToolSchema[1], /name: \{ type: "string" \}/);
+});
+
+test("Orbit CSS imports published Starscape UI chrome through the bundling seam", async () => {
+  const stylesPath = join(repoRoot, "public", "styles.css");
+  const stylesSource = readFileSync(stylesPath, "utf8");
+
+  for (const importPath of [
+    "@starlove/ui/tokens",
+    "@starlove/ui/components/button",
+    "@starlove/ui/components/button-arc",
+    "@starlove/ui/components/input",
+    "@starlove/ui/components/topbar-btn",
+    "@starlove/ui/components/topbar-search",
+    "@starlove/ui/components/topbar-chip",
+    "@starlove/ui/components/menu-flyout",
+    "@starlove/ui/components/create-flyout",
+    "@starlove/ui/components/card",
+    "@starlove/ui/components/lane",
+    "@starlove/ui/components/drawer",
+    "@starlove/ui/components/state-pill",
+    "@starlove/ui/components/priority-pill",
+    "@starlove/ui/components/card-accordion",
+    "@starlove/ui/components/dot",
+    "@starlove/ui/components/search-results",
+    "@starlove/ui/components/lightbox"
+  ]) {
+    assert.match(stylesSource, new RegExp(`@import "${importPath.replaceAll("/", "\\/")}";`));
+  }
+
+  const { cssFile } = await bundleCss({
+    entryPoint: stylesPath,
+    outfile: join(tmpdir(), "orbit-styles.css"),
+    minify: false
+  });
+  const bundled = Buffer.from(cssFile.contents).toString("utf8");
+
+  assert.doesNotMatch(bundled, /@import\s+"@starlove\/ui/);
+  assert.match(bundled, /\.topbar-chip/);
+  assert.match(bundled, /button\[data-variant=primary\]|button\[data-variant="primary"\]/);
+  assert.match(bundled, /\.state-pill\[data-variant="?ai-ready"?\]/);
+  assert.match(bundled, /\.priority-pill\[data-variant="?urgent"?\]/);
+  assert.match(bundled, /\.agent-dot/);
+  assert.match(bundled, /\.search-hit-title/);
+  assert.match(bundled, /\.attachment-lightbox/);
+  assert.match(bundled, /\.lane\[data-accent=ai-ready\]|\.lane\[data-accent="ai-ready"\]/);
+  assert.match(bundled, /\.lane\[data-flat\]/);
+  assert.match(bundled, /\.drawer/);
+  assert.match(bundled, /--field-padding-y:\s*0\.62rem;/);
+  assert.match(bundled, /url\("?\.\/cursors\/live_link\.cur"?\)/);
+  assert.match(bundled, /button\.card-expand-trigger\[data-variant=("card-accordion"|card-accordion)\]/);
+  assert.match(bundled, /button\.card-expand-trigger[\s\S]*box-shadow:\s*none/);
+  assert.match(bundled, /button\.card-expand-trigger:not\(\.card-expand-trigger--static\):hover[\s\S]*transform:\s*none/);
+  assert.doesNotMatch(stylesSource, /button\.card-expand-trigger\s*,[\s\S]*box-shadow:\s*none/);
+});
+
+test("Settings drawer controls use explicit Starscape UI variants", () => {
+  const indexSource = readFileSync(join(repoRoot, "public", "index.html"), "utf8");
+  const boardMenuSource = readFileSync(join(repoRoot, "public", "js", "board-menu.js"), "utf8");
+  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+  const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.match(indexSource, /id="boardMenuBtn"[\s\S]*data-variant="board-chip"/);
+  assert.match(indexSource, /<span class="btn-plus" aria-hidden="true">\+<\/span>/);
+  assert.match(boardMenuSource, /data-variant="menu-item"/);
+  assert.match(boardMenuSource, /rx="0\.75"/);
+  assert.match(settingsSource, /data-variant="primary"/);
+  assert.match(settingsSource, /data-variant="secondary"/);
+  assert.match(settingsSource, /data-variant="ghost"/);
+  assert.match(settingsSource, /<button type="submit" data-variant="secondary">Rename Board<\/button>/);
+  assert.match(settingsSource, /<button type="button" data-variant="secondary" id="importSnapshotAsNewButton">Import as New Board<\/button>/);
+  assert.match(settingsSource, /<button type="button" data-variant="secondary" id="replaceCurrentBoardImportButton" disabled>Replace Current Board<\/button>/);
+  assert.doesNotMatch(settingsSource, /class="import-button/);
+  assert.match(settingsSource, /importSnapshotAsNewFile\?\.click\(\)/);
+  assert.match(settingsSource, /replaceCurrentBoardImportFile\?\.click\(\)/);
+  assert.match(settingsSource, /class="select-chevron-field"/);
+  assert.match(kanbanSource, /class="column-add-btn"\s+data-variant="plus"/);
+  assert.doesNotMatch(kanbanSource, /column-add-btn ghost/);
+  assert.match(kanbanSource, /data-variant="card-accordion"/);
+  assert.match(kanbanSource, /data-accent="ai-ready"/);
+  assert.match(stylesSource, /--menu-flyout-item-radius/);
+  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*background:\s*transparent/);
+  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*translateY\(-0\.02em\)/);
+  assert.match(stylesSource, /\.btn-sun,[\s\S]*\.column-add-btn,[\s\S]*\.add-card-phantom\s*\{[\s\S]*inset 0 0 0 2px rgba\(var\(--amber-rgb\),0\.45\)/);
+  assert.doesNotMatch(stylesSource, /button\.column-add-btn\s*\{[^}]*background:\s*var\(--btn-gradient\)/);
+  assert.match(stylesSource, /button\.column-add-btn\s*\{[\s\S]*min-height:\s*1\.85rem/);
+  assert.match(stylesSource, /button\.column-add-btn::before,[\s\S]*button\.column-add-btn::after\s*\{[\s\S]*content:\s*none/);
+  assert.match(stylesSource, /\.add-card-phantom\s*\{[\s\S]*border-radius:\s*var\(--radius-control\)/);
+  assert.match(stylesSource, /button\.add-card-phantom::before,[\s\S]*button\.add-card-phantom::after[\s\S]*content:\s*none/);
+  assert.match(stylesSource, /@import "@starlove\/ui\/components\/card-accordion";/);
+  assert.doesNotMatch(stylesSource, /card-expand-trigger\[data-variant="card-accordion"\]::after[\s\S]*content:\s*none/);
+  assert.doesNotMatch(stylesSource, /card-expand-trigger:not\(\.card-expand-trigger--static\):hover[\s\S]*transform:\s*none/);
+  assert.doesNotMatch(settingsSource, /class="ghost"/);
+  assert.doesNotMatch(settingsSource, /class="lane-icon-btn"/);
+  assert.doesNotMatch(settingsSource, /class="lane-delete-btn"/);
+  assert.doesNotMatch(settingsSource, /class="lane-new-toggle/);
+  assert.match(stylesSource, /@import "@starlove\/ui\/components\/button";/);
+  assert.match(stylesSource, /@import "@starlove\/ui\/components\/button-arc";/);
+  assert.match(stylesSource, /@import "@starlove\/ui\/components\/input";/);
+  assert.match(stylesSource, /button:not\(\[data-variant\]\)\s*\{/);
+  assert.doesNotMatch(stylesSource, /\nbutton\s*\{\s*\n\s*border:\s*0;/);
+  assert.match(stylesSource, /button\[type="submit"\]:not\(\[data-variant\]\)/);
+});
+
+test("X-only controls stay compact instead of inheriting default button chrome", () => {
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+  const compactClasses = [
+    "drawer-close",
+    "create-flyout-close",
+    "settings-lane-delete-btn",
+    "label-pill-remove",
+    "related-add-clear",
+    "card-detach-btn",
+    "attachment-delete",
+    "attachment-lightbox-close",
+    "toast-close"
+  ];
+
+  for (const className of compactClasses) {
+    assert.match(stylesSource, new RegExp(`button\\.${className}[\\s\\S]*?\\{[\\s\\S]*?min-height:\\s*0`), `${className} should reset default button min-height`);
+    assert.match(stylesSource, new RegExp(`button\\.${className}[\\s\\S]*?\\{[\\s\\S]*?padding:\\s*0`), `${className} should reset default button padding`);
+    assert.match(stylesSource, new RegExp(`button\\.${className}::after[\\s\\S]*?content:\\s*none`), `${className} should suppress ARC pseudo-elements`);
+  }
+
+  assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*transform:\s*none/);
+  assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*filter:\s*none/);
+  assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*box-shadow:\s*none/);
 });
 
 test("multiline inline edit opens without forcing the drawer to the field bottom", () => {

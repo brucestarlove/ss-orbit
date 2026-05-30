@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import { extname, resolve as resolvePath } from "node:path";
-import { PUBLIC_DIR } from "./paths.js";
+import { extname, join, resolve as resolvePath } from "node:path";
+import { bundleCss } from "./css-bundle.js";
+import { PUBLIC_DIR, ROOT_DIR } from "./paths.js";
 import { httpError } from "./util.js";
 
 export function setCors(res) {
@@ -70,6 +71,10 @@ function contentType(filePath) {
   return types[extname(filePath)] || "application/octet-stream";
 }
 
+function shouldBundleSourceStyles(pathname, filePath) {
+  return pathname === "/styles.css" && filePath === join(ROOT_DIR, "public", "styles.css");
+}
+
 export async function serveStatic(req, res, pathname) {
   if (req.method !== "GET" && req.method !== "HEAD") {
     sendEmpty(res, 405);
@@ -84,7 +89,9 @@ export async function serveStatic(req, res, pathname) {
   }
 
   try {
-    const data = await readFile(filePath);
+    const data = shouldBundleSourceStyles(pathname, filePath)
+      ? Buffer.from((await bundleCss({ entryPoint: filePath, outfile: filePath })).cssFile.contents)
+      : await readFile(filePath);
     res.writeHead(200, {
       "Content-Type": contentType(filePath),
       "Cache-Control": "no-store"

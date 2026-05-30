@@ -32,7 +32,7 @@ export async function runSearch() {
             <strong>${escapeHtml(ticketLabel(ticket))}</strong>
             <span class="search-hit-title">${escapeHtml(ticket.title)}</span>
           </span>
-          <span class="search-hit-state state-pill-${escapeHtml(stateClassFor(ticket))}">${escapeHtml(ticket.state_name || "State")}</span>
+          <span class="search-hit-state" data-variant="${escapeHtml(stateClassFor(ticket))}">${escapeHtml(ticket.state_name || "State")}</span>
         </div>
       `
     )

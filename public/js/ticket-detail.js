@@ -480,9 +480,9 @@ export async function renderDetail(options = {}) {
   const detailSubtitleHtml = `
     <span class="ticket-number">${escapeHtml(ticketLabel(ticket))}</span>
     <div class="detail-meta-badge-row" aria-label="Ticket metadata controls">
-      <select class="detail-meta-badge detail-state-badge state-pill-${escapeHtml(stateClass)} meta-select" data-meta-field="state_id" aria-label="Ticket state">${stateOptions}</select>
+      <select class="detail-meta-badge detail-state-badge meta-select" data-variant="${escapeHtml(stateClass)}" data-meta-field="state_id" aria-label="Ticket state">${stateOptions}</select>
       <select class="detail-meta-badge detail-type-badge type-pill-${escapeHtml(detailCanonicalType)} meta-select" data-meta-field="type" aria-label="Ticket type">${typeOptions}</select>
-      <select class="detail-meta-badge detail-priority-badge priority-pill priority-pill-${escapeHtml(priorityKey)} meta-select" data-meta-field="priority" aria-label="Ticket priority">${priorityOptions}</select>
+      <select class="detail-meta-badge detail-priority-badge priority-pill meta-select" data-variant="${escapeHtml(priorityKey)}" data-meta-field="priority" aria-label="Ticket priority">${priorityOptions}</select>
     </div>
   `;
 
@@ -1110,7 +1110,7 @@ export function renderDetailCard(ticket, options = {}) {
       ? `<span class="card-unread-dot" role="status" aria-label="1 unread update"></span>`
       : `<span class="card-unread-dot has-count" role="status" aria-label="${unreadN} unread updates">${unreadN > 99 ? "99+" : unreadN}</span>`;
   return `
-    <article class="card card--detail type-${escapeHtml(canonicalType)} priority-${escapeHtml(priorityKey)}"${options.disableOpen ? "" : ` data-open-ticket="${escapeHtml(ticket.id)}"`}>
+    <article class="card card--detail type-${escapeHtml(canonicalType)} priority-${escapeHtml(priorityKey)}" data-variant="${escapeHtml(canonicalType)}"${options.disableOpen ? "" : ` data-open-ticket="${escapeHtml(ticket.id)}"`}>
       ${unreadDot}
       ${detachBtn}
       ${eyebrow}
@@ -1122,7 +1122,7 @@ export function renderDetailCard(ticket, options = {}) {
             ${renderTypeIcon(ticket.type)}
             <span class="card-type-label">${escapeHtml(typeText)}</span>
           </div>
-          <span class="detail-card-state state-pill-${escapeHtml(stateClass)}">${escapeHtml(ticket.state_name || "State")}</span>
+          <span class="detail-card-state" data-variant="${escapeHtml(stateClass)}">${escapeHtml(ticket.state_name || "State")}</span>
           ${state.showPriority ? renderPriorityPill(ticket.priority) : ""}
         </div>
       </div>

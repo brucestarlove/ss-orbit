@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Two-edition static build. Bundles public/js/main.js with esbuild, copies
-// HTML/CSS/images alongside, and rewrites the script tag to point at the
-// hashed bundle. Edition is selected via `--edition=full|preview`; preview
+// Two-edition static build. Bundles public/js/main.js and public/styles.css
+// with esbuild, copies HTML/images alongside, and rewrites asset tags to point
+// at hashed bundles. Edition is selected via `--edition=full|preview`; preview
 // substitutes `__ORBIT_EDITION__` so config.js reports edition="preview".
 
 import { build } from "esbuild";
+import { bundleCss } from "./src/core/css-bundle.js";
 import {
   cpSync,
   existsSync,
@@ -143,9 +144,14 @@ async function run() {
   writeFileSync(join(outDir, "js", jsName), jsFile.contents);
   if (mapFile) writeFileSync(join(outDir, "js", `${jsName}.map`), mapFile.contents);
 
-  // 2. Hash + copy CSS.
+  // 2. Bundle CSS package imports, then hash + copy the flattened output.
   const cssSrc = join(PUBLIC_DIR, "styles.css");
-  const cssBuf = readFileSync(cssSrc);
+  const cssBundle = await bundleCss({
+    entryPoint: cssSrc,
+    outfile: join(outDir, "styles.css"),
+    minify: true
+  });
+  const cssBuf = cssBundle.cssFile.contents;
   const cssHash = hashContent(cssBuf);
   const cssName = `styles.${cssHash}.css`;
   writeFileSync(join(outDir, cssName), cssBuf);

@@ -159,6 +159,7 @@
                     id="newTicketBtn"
                     type="button"
                     class="topbar-btn btn-sun topbar-ctl-shrink"
+                    data-variant="cta"
                 >
                     <span class="btn-plus" aria-hidden="true">+</span>
                     <span class="btn-sun-label">New Card</span>
@@ -168,6 +169,7 @@
                         type="button"
                         id="boardMenuBtn"
                         class="topbar-chip topbar-ctl-shrink"
+                        data-variant="board-chip"
                         aria-expanded="false"
                         aria-haspopup="true"
                         aria-controls="boardFlyout"
@@ -185,7 +187,7 @@
                                 y="4"
                                 width="6"
                                 height="16"
-                                rx="1.5"
+                                rx="0.75"
                                 stroke="currentColor"
                                 stroke-width="2"
                             />
@@ -194,12 +196,12 @@
                                 y="4"
                                 width="6"
                                 height="16"
-                                rx="1.5"
+                                rx="0.75"
                                 stroke="currentColor"
                                 stroke-width="2"
                             />
                         </svg>
-                        Board
+                        <span class="topbar-chip-label">Board</span>
                     </button>
                     <div
                         id="boardFlyout"
@@ -211,7 +213,8 @@
                 <button
                     id="themeToggle"
                     type="button"
-                    class="topbar-btn ghost topbar-ctl-shrink"
+                    class="topbar-btn topbar-ctl-shrink"
+                    data-variant="theme"
                     aria-label="Toggle theme"
                 >
                     <svg
@@ -235,7 +238,8 @@
                 <button
                     id="settingsBtn"
                     type="button"
-                    class="topbar-btn ghost topbar-ctl-shrink"
+                    class="topbar-btn topbar-ctl-shrink"
+                    data-variant="translucent"
                 >
                     <svg
                         class="topbar-icon"

@@ -389,11 +389,10 @@ export function typeLabel(type) {
   return labels[canonicalTicketType(type)] || "Task";
 }
 
-// Long, hierarchy-aware label for dropdowns where we have the room. Epic/Story
-// pairs older vocabulary so existing terminology still resonates.
+// Long, hierarchy-aware label for dropdowns where we have the room.
 export function typeLabelLong(type) {
   const labels = {
-    epic: "Epic / Story",
+    epic: "Epic",
     feature: "Feature",
     task: "Task",
     bug: "Bug"

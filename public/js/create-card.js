@@ -86,7 +86,7 @@ function renderCreateForm(preselectedLaneId) {
         <label>
           Type
           <select id="createTicketType" name="type" class="select-chevron-field" aria-label="Ticket type">
-            <option value="epic">Epic / Story</option>
+            <option value="epic">Epic</option>
             <option value="feature">Feature</option>
             <option value="task" selected>Task</option>
             <option value="bug">Bug</option>

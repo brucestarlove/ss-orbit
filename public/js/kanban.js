@@ -269,17 +269,18 @@ function renderColumn(column, tickets) {
   // are the queue the claim-next MCP tool pulls from. Mark it so humans can
   // instantly see where agent-facing staging lives.
   const isAiReady = column.name === "AI Ready";
-  const columnClasses = ["column"];
+  const columnClasses = ["column", "lane"];
   if (isAiReady) columnClasses.push("column--ai-ready");
+  const accentAttr = isAiReady ? ' data-accent="ai-ready"' : "";
 
   return `
-    <section class="${columnClasses.join(" ")}" data-state-id="${column.id}" data-state-name="${escapeHtml(column.name)}">
-      <div class="column-head">
-        <h2${isAiReady ? ' title="Agent staging — cards here are picked up by the claim-next tool when unblocked"' : ""}>
+    <section class="${columnClasses.join(" ")}" data-flat${accentAttr} data-state-id="${column.id}" data-state-name="${escapeHtml(column.name)}">
+      <div class="column-head lane-head">
+        <h2 class="lane-title"${isAiReady ? ' title="Agent staging — cards here are picked up by the claim-next tool when unblocked"' : ""}>
           ${isAiReady ? '<span class="agent-dot" aria-hidden="true"></span>' : ""}${escapeHtml(column.name)}
         </h2>
-        <div class="column-head-actions">
-          <button type="button" class="column-add-btn ghost" data-add-to-state="${escapeHtml(column.id)}" title="New card">+</button>
+        <div class="column-head-actions lane-actions">
+          <button type="button" class="column-add-btn" data-variant="plus" data-add-to-state="${escapeHtml(column.id)}" title="New card">+</button>
           <span class="count">${columnTickets.length}</span>
         </div>
       </div>
@@ -375,7 +376,7 @@ function renderEpicMiniHeader(epic) {
 export function renderPriorityPill(priority) {
   const key = priorityKeyFor(priority);
   const label = priorityLabel(priority);
-  return `<div class="card-priority-id priority-pill priority-pill-${escapeHtml(key)}"><span class="card-priority-label">${escapeHtml(label)}</span></div>`;
+  return `<div class="card-priority-id priority-pill" data-variant="${escapeHtml(key)}"><span class="card-priority-label">${escapeHtml(label)}</span></div>`;
 }
 
 export function renderTypeIcon(type) {
@@ -434,13 +435,13 @@ function renderCard(ticket, { asEpicChild = false } = {}) {
       : `<span class="card-unread-dot has-count" role="status" aria-label="${unreadN} unread updates">${unreadN > 99 ? "99+" : unreadN}</span>`;
 
   return `
-    <article class="card type-${escapeHtml(canonicalType)} priority-${escapeHtml(priorityKey)}${isExpanded ? " is-expanded" : ""}${asEpicChild ? " is-epic-child" : ""} ${ticket.id === state.selectedTicketId ? "selected" : ""}" draggable="true" data-ticket-id="${ticket.id}">
+    <article class="card type-${escapeHtml(canonicalType)} priority-${escapeHtml(priorityKey)}${isExpanded ? " is-expanded" : ""}${asEpicChild ? " is-epic-child" : ""} ${ticket.id === state.selectedTicketId ? "selected" : ""}" data-variant="${escapeHtml(canonicalType)}" draggable="true" data-ticket-id="${ticket.id}">
       ${unreadDot}
       <h3>${escapeHtml(ticket.title)}</h3>
 
       <div class="card-meta">
         ${hasExpandable
-          ? `<button type="button" class="card-expand-trigger" data-card-toggle aria-expanded="${isExpanded ? "true" : "false"}">${triggerInner}</button>`
+          ? `<button type="button" class="card-expand-trigger" data-variant="card-accordion" data-card-toggle aria-expanded="${isExpanded ? "true" : "false"}">${triggerInner}</button>`
           : `<div class="card-expand-trigger card-expand-trigger--static">${triggerInner}</div>`}
       </div>
 
