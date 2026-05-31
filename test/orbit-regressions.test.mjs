@@ -391,7 +391,7 @@ test("Settings drawer controls use explicit Starscape UI variants", () => {
   assert.match(kanbanSource, /data-accent="ai-ready"/);
   assert.match(stylesSource, /--menu-flyout-item-radius/);
   assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*background:\s*transparent/);
-  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*translateY\(-0\.02em\)/);
+  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*translateY\(-3px\)/);
   assert.match(stylesSource, /\.btn-sun,[\s\S]*\.column-add-btn,[\s\S]*\.add-card-phantom\s*\{[\s\S]*inset 0 0 0 2px rgba\(var\(--amber-rgb\),0\.45\)/);
   assert.doesNotMatch(stylesSource, /button\.column-add-btn\s*\{[^}]*background:\s*var\(--btn-gradient\)/);
   assert.match(stylesSource, /button\.column-add-btn\s*\{[\s\S]*min-height:\s*1\.85rem/);

@@ -974,7 +974,7 @@ button[data-variant="cta"] .btn-plus {
   box-shadow: none;
   color: currentColor;
   line-height: 0.95;
-  transform: translateY(-0.02em);
+  transform: translateY(-3px);
 }
 
 .btn-sun .btn-sun-label {
