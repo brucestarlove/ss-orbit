@@ -258,7 +258,7 @@ test("orbit dispatch redacts URL-bearing environment values in run-record.json",
   initGitRepo(h.projectRoot);
   runOrbit(["init", "--example", "--cwd", h.projectRoot], h);
 
-  const secretApiUrl = "https://alice:secret-token@private.internal:3337/api?token=abc123#frag";
+  const secretApiUrl = "https://alice:secret-token@private.internal:13701/api?token=abc123#frag";
   const secretServerUrl = "https://bob:server-pass@orbit.lan/run?access_token=xyz#session";
   const stdout = runOrbit([
     "dispatch",

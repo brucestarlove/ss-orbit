@@ -529,6 +529,14 @@ function freePort() {
   });
 }
 
+function holdPort(port) {
+  return new Promise((resolvePromise) => {
+    const server = createServer();
+    server.once("error", () => resolvePromise(null));
+    server.listen(port, () => resolvePromise(server));
+  });
+}
+
 function waitForOutput(child, pattern, timeoutMs = 3000) {
   return new Promise((resolvePromise, rejectPromise) => {
     let buffer = "";
@@ -631,6 +639,30 @@ test("orbit serve honors --port before loading server paths", async () => {
     assert.deepEqual(await response.json(), { ok: true });
   } finally {
     child.kill("SIGTERM");
+  }
+});
+
+test("orbit serve auto-increments the default port when it is busy", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const blocker = await holdPort(13701);
+  const env = { ...process.env, DATA_DIR: h.dataDir };
+  delete env.PORT;
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot], {
+    cwd: repoRoot,
+    env,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    const output = await waitForOutput(child, /Starscape Orbit listening on http:\/\/localhost:\d+/);
+    const port = Number(output.match(/Starscape Orbit listening on http:\/\/localhost:(\d+)/)?.[1]);
+    assert.ok(port > 13701, `expected fallback above 13701, got ${port}`);
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`);
+    assert.equal(response.status, 200);
+  } finally {
+    child.kill("SIGTERM");
+    blocker?.close();
   }
 });
 

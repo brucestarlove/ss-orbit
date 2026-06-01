@@ -56,7 +56,7 @@ orbit serve   # host runtime, uses ~/.orbit, refreshes managed SKILL-ORBIT.md co
 orbit docker  # Docker runtime, uses <repo>/.orbit/docker-data
 ```
 
-Both serve `http://localhost:3337`. Use `--port 3400` to change ports and `--cwd path/to/repo` to bind a specific repo.
+Both serve from `http://localhost:13701` by default; `orbit serve` auto-increments if that port is busy. Use `--port <n>` to force an exact port and `--cwd path/to/repo` to bind a specific repo.
 
 `orbit serve` and `orbit docker` run the same app but use different registries by default. A board registered in one mode will not appear in the other unless you share `DATA_DIR`, re-register it, or import a snapshot.
 
@@ -65,8 +65,8 @@ For multiple boards, run your chosen runtime once. In another terminal, `cd` int
 Docker options:
 
 ```bash
-orbit docker                 # builds starscape-orbit:local, then serves http://localhost:3337
-orbit docker --port 3400     # same container flow on a different port
+orbit docker                 # builds starscape-orbit:local, then serves http://localhost:13701
+orbit docker --port 13702    # force a different published port
 orbit docker --no-build      # reuse an existing starscape-orbit:local image
 ```
 
@@ -139,7 +139,7 @@ pnpm test
 pnpm run build
 ```
 
-Open `http://localhost:3337`.
+Open the URL printed by `orbit serve` (normally `http://localhost:13701`).
 
 If you want an AI agent to work this board, point it at [SKILL-ORBIT.md](SKILL-ORBIT.md). Agent-facing HTTP/MCP details live in [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md).
 
@@ -209,7 +209,6 @@ BOARD_NAME="My App" BOARD_SLUG=my-app REPO_URL=https://github.com/you/my-app orb
 
 - **UI loads but lanes are blank** — usually a cached `app.js`. Hard-refresh the page (Ctrl+Shift+R) and check the browser console.
 - **`node:sqlite` is not a known module** — you're on Node < 22. Upgrade to Node 22+.
-- **Port 3337 already in use** — run `orbit serve --port 3340` or `orbit docker --port 3340`.
 - **Windows says `.orbit/board.db` is busy during cleanup** - an Orbit web server, MCP helper, editor, or terminal still has the SQLite file open. Stop `orbit serve`, close or restart AI clients with Orbit MCP enabled, then retry delete from Settings or run `orbit reset --cwd <repo>` before recloning or deleting the folder.
 
 ## Data

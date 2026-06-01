@@ -11,4 +11,5 @@ dist/
 .orbit/
 .tmp/
 package-lock.json
+.claude/
 

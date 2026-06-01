@@ -40,8 +40,30 @@ const server = createServer(async (req, res) => {
   }
 });
 
-const summary = startupSummary();
-server.listen(boardRuntime.port, () => {
+const requestedPort = boardRuntime.port;
+const hasExplicitPort = Boolean(process.env.PORT);
+const maxAutoPort = requestedPort + 99;
+let currentPort = requestedPort;
+
+server.on("error", (error) => {
+  if (!hasExplicitPort && error?.code === "EADDRINUSE" && currentPort < maxAutoPort) {
+    currentPort += 1;
+    console.warn(`[orbit] Port ${currentPort - 1} is in use; trying ${currentPort}.`);
+    server.listen(currentPort);
+    return;
+  }
+
+  console.error(error);
+  closeAllConnections();
+  process.exit(1);
+});
+
+server.listen(currentPort);
+
+server.on("listening", () => {
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : currentPort;
+  const summary = startupSummary(port);
   console.log(`Starscape Orbit listening on ${summary.url}`);
   console.log(`Registry: ${summary.registryPath}`);
   console.log(`Boards (${summary.boardCount}):`);

@@ -4,7 +4,14 @@
 // related cards. Also owns the small render helpers (status history,
 // comments, detail-card) that are only used inside the drawer.
 
-import { state, ticketsForProject, selectableStatesForProject, boardLabelCatalog, currentBoard, upsertTicket } from "./state.js";
+import {
+  state,
+  ticketsForProject,
+  selectableStatesForProject,
+  boardLabelCatalog,
+  currentBoard,
+  upsertTicket,
+} from "./state.js";
 import { drawerInner, drawer, $ } from "./dom.js";
 import {
   escapeHtml,
@@ -18,7 +25,7 @@ import {
   priorityKeyFor,
   renderPreservedText,
   stateClassFor,
-  cleanText
+  cleanText,
 } from "./format.js";
 import { renderTypeIcon, renderPriorityPill, renderBoard } from "./kanban.js";
 import { renderDrawerShell, openDrawer, closeDrawer } from "./drawer.js";
@@ -38,17 +45,25 @@ import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
  * board card itself changed, also rebuild the board from the patched local
  * cache; otherwise leave the board DOM alone.
  */
-async function refreshTicketDetail(ticketId, { renderBoardAfter = false } = {}) {
+async function refreshTicketDetail(
+  ticketId,
+  { renderBoardAfter = false } = {},
+) {
   const [context, statusHistory, commentsResult] = await Promise.all([
     api(withBoardQuery(`/api/tickets/${ticketId}/context?depth=1`)),
     api(withBoardQuery(`/api/tickets/${ticketId}/history`)),
-    api(withBoardQuery(`/api/tickets/${ticketId}/comments`))
+    api(withBoardQuery(`/api/tickets/${ticketId}/comments`)),
   ]);
   if (context.ticket?.id !== ticketId) return;
   upsertTicket(context.ticket);
   if (renderBoardAfter) renderBoard();
-  if (state.detailMode !== "ticket" || state.selectedTicketId !== ticketId) return;
-  await renderDetail({ context, statusHistory, comments: commentsResult.comments || [] });
+  if (state.detailMode !== "ticket" || state.selectedTicketId !== ticketId)
+    return;
+  await renderDetail({
+    context,
+    statusHistory,
+    comments: commentsResult.comments || [],
+  });
 }
 
 /**
@@ -57,7 +72,10 @@ async function refreshTicketDetail(ticketId, { renderBoardAfter = false } = {}) 
  * every drawer edit.
  */
 async function patchTicket(ticketId, body) {
-  await api(withBoardQuery(`/api/tickets/${ticketId}`), { method: "PATCH", body });
+  await api(withBoardQuery(`/api/tickets/${ticketId}`), {
+    method: "PATCH",
+    body,
+  });
   await refreshTicketDetail(ticketId, { renderBoardAfter: true });
 }
 
@@ -78,19 +96,38 @@ async function patchTicket(ticketId, body) {
  *             trimming, cleanText, or PATCH wiring.
  */
 function inlineTextOffsetFromPoint(node, sourceEvent, maxLength) {
-  if (!node || !sourceEvent || typeof sourceEvent.clientX !== "number" || typeof sourceEvent.clientY !== "number") return null;
+  if (
+    !node ||
+    !sourceEvent ||
+    typeof sourceEvent.clientX !== "number" ||
+    typeof sourceEvent.clientY !== "number"
+  )
+    return null;
 
   let range = null;
   if (document.caretPositionFromPoint) {
-    const position = document.caretPositionFromPoint(sourceEvent.clientX, sourceEvent.clientY);
-    if (position?.offsetNode && (position.offsetNode === node || node.contains(position.offsetNode))) {
+    const position = document.caretPositionFromPoint(
+      sourceEvent.clientX,
+      sourceEvent.clientY,
+    );
+    if (
+      position?.offsetNode &&
+      (position.offsetNode === node || node.contains(position.offsetNode))
+    ) {
       range = document.createRange();
       range.setStart(node, 0);
       range.setEnd(position.offsetNode, position.offset);
     }
   } else if (document.caretRangeFromPoint) {
-    const caretRange = document.caretRangeFromPoint(sourceEvent.clientX, sourceEvent.clientY);
-    if (caretRange?.startContainer && (caretRange.startContainer === node || node.contains(caretRange.startContainer))) {
+    const caretRange = document.caretRangeFromPoint(
+      sourceEvent.clientX,
+      sourceEvent.clientY,
+    );
+    if (
+      caretRange?.startContainer &&
+      (caretRange.startContainer === node ||
+        node.contains(caretRange.startContainer))
+    ) {
       range = document.createRange();
       range.setStart(node, 0);
       range.setEnd(caretRange.startContainer, caretRange.startOffset);
@@ -107,15 +144,20 @@ function captureInlineEditScrollState(node) {
   return {
     scrollContainer,
     nodeRect: node.getBoundingClientRect(),
-    scrollTop: scrollContainer.scrollTop
+    scrollTop: scrollContainer.scrollTop,
   };
 }
 
 function restoreInlineEditScroll(scrollState, editor) {
   if (!scrollState?.scrollContainer || !editor?.isConnected) return;
   const editorRect = editor.getBoundingClientRect();
-  const nextScrollTop = Math.max(0, scrollState.scrollContainer.scrollTop + (editorRect.top - scrollState.nodeRect.top));
-  if (Number.isFinite(nextScrollTop)) scrollState.scrollContainer.scrollTop = nextScrollTop;
+  const nextScrollTop = Math.max(
+    0,
+    scrollState.scrollContainer.scrollTop +
+      (editorRect.top - scrollState.nodeRect.top),
+  );
+  if (Number.isFinite(nextScrollTop))
+    scrollState.scrollContainer.scrollTop = nextScrollTop;
   else scrollState.scrollContainer.scrollTop = scrollState.scrollTop;
 }
 
@@ -137,12 +179,14 @@ export function startInlineEdit(node, opts) {
     emptyMessage,
     sourceEvent,
     rerender,
-    commit: commitHandler
+    commit: commitHandler,
   } = opts;
 
   const scrollState = multiline ? captureInlineEditScrollState(node) : null;
   const initialString = String(initialValue);
-  const clickedCaretOffset = multiline ? inlineTextOffsetFromPoint(node, sourceEvent, initialString.length) : null;
+  const clickedCaretOffset = multiline
+    ? inlineTextOffsetFromPoint(node, sourceEvent, initialString.length)
+    : null;
 
   node.dataset.editing = "true";
 
@@ -195,7 +239,8 @@ export function startInlineEdit(node, opts) {
   };
 
   function handleOutsidePointerDown(event) {
-    if (done || event.target === editor || editor.contains(event.target)) return;
+    if (done || event.target === editor || editor.contains(event.target))
+      return;
     // Some drawer/header surfaces are not focusable, so clicking them does not
     // reliably blur the input in every browser. Force the blur path used on
     // commit so the edit styling cannot get stuck.
@@ -257,7 +302,7 @@ function wireTicketDetailEditors(ticket) {
       ariaLabel: "Edit ticket title",
       emptyMessage: "Title cannot be empty",
       rerender: () => renderDetail(),
-      commit: (next) => patchTicket(ticketId, { title: next })
+      commit: (next) => patchTicket(ticketId, { title: next }),
     });
 
   const titleEl = drawer.querySelector('[data-edit-field="title"]');
@@ -280,7 +325,7 @@ function wireTicketDetailEditors(ticket) {
       ariaLabel: "Edit ticket description",
       sourceEvent,
       rerender: () => renderDetail(),
-      commit: (next) => patchTicket(ticketId, { description: cleanText(next) })
+      commit: (next) => patchTicket(ticketId, { description: cleanText(next) }),
     });
 
   if (descEl) {
@@ -304,7 +349,10 @@ function wireTicketDetailEditors(ticket) {
   const AI_FIELDS = [
     { key: "ai_plan", label: "AI plan" },
     { key: "implementation_summary", label: "Implementation summary" },
-    { key: "implementation_updates", label: "Implementation updates / lessons" }
+    {
+      key: "implementation_updates",
+      label: "Implementation updates / lessons",
+    },
   ];
   for (const { key, label } of AI_FIELDS) {
     const fieldEl = drawerInner.querySelector(`[data-edit-field="${key}"]`);
@@ -317,7 +365,7 @@ function wireTicketDetailEditors(ticket) {
         ariaLabel: `Edit ${label}`,
         sourceEvent,
         rerender: () => renderDetail(),
-        commit: (next) => patchTicket(ticketId, { [key]: cleanText(next) })
+        commit: (next) => patchTicket(ticketId, { [key]: cleanText(next) }),
       });
     fieldEl.addEventListener("click", (event) => {
       event.preventDefault();
@@ -359,7 +407,9 @@ function wireTicketDetailEditors(ticket) {
   drawerInner.querySelectorAll("[data-remove-label]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const removeName = btn.getAttribute("data-remove-label");
-      const names = (ticket.labels || []).map((l) => l.name).filter((n) => n !== removeName);
+      const names = (ticket.labels || [])
+        .map((l) => l.name)
+        .filter((n) => n !== removeName);
       await applyLabelPatch(names);
     });
   });
@@ -379,15 +429,19 @@ function wireTicketDetailEditors(ticket) {
     await applyLabelPatch(names);
   };
 
-  drawerInner.querySelector("[data-label-add]")?.addEventListener("click", () => {
-    void addLabel();
-  });
-  drawerInner.querySelector("[data-label-input]")?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
+  drawerInner
+    .querySelector("[data-label-add]")
+    ?.addEventListener("click", () => {
       void addLabel();
-    }
-  });
+    });
+  drawerInner
+    .querySelector("[data-label-input]")
+    ?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void addLabel();
+      }
+    });
 }
 
 export async function renderDetail(options = {}) {
@@ -407,27 +461,41 @@ export async function renderDetail(options = {}) {
   const [context, statusHistory, comments, attachmentList] = await Promise.all([
     hasOption("context")
       ? Promise.resolve(options.context)
-      : api(withBoardQuery(`/api/tickets/${requestedTicketId}/context?depth=1`)),
+      : api(
+          withBoardQuery(`/api/tickets/${requestedTicketId}/context?depth=1`),
+        ),
     hasOption("statusHistory")
       ? Promise.resolve(options.statusHistory)
       : api(withBoardQuery(`/api/tickets/${requestedTicketId}/history`)),
     hasOption("comments")
       ? Promise.resolve(options.comments)
-      : api(withBoardQuery(`/api/tickets/${requestedTicketId}/comments`)).then((result) => result.comments || []),
+      : api(withBoardQuery(`/api/tickets/${requestedTicketId}/comments`)).then(
+          (result) => result.comments || [],
+        ),
     hasOption("attachmentList")
       ? Promise.resolve(options.attachmentList)
       : features.attachments
-        ? api(withBoardQuery(`/api/tickets/${requestedTicketId}/attachments`)).catch(() => ({ attachments: [] }))
-        : Promise.resolve({ attachments: [] })
+        ? api(
+            withBoardQuery(`/api/tickets/${requestedTicketId}/attachments`),
+          ).catch(() => ({ attachments: [] }))
+        : Promise.resolve({ attachments: [] }),
   ]);
-  if (state.detailMode !== "ticket" || state.selectedTicketId !== requestedTicketId) return;
+  if (
+    state.detailMode !== "ticket" ||
+    state.selectedTicketId !== requestedTicketId
+  )
+    return;
   if (context.ticket?.id !== requestedTicketId) return;
   const ticket = context.ticket;
   // Acknowledge the read receipt: clear the unread dot on this card.
   // Also wipe the dot from the already-rendered card in the board so the
   // user doesn't see it lingering until the next full re-render.
   markRead(ticket.id, ticket.updated_at);
-  document.querySelector(`.card[data-ticket-id="${CSS.escape(ticket.id)}"] .card-unread-dot`)?.remove();
+  document
+    .querySelector(
+      `.card[data-ticket-id="${CSS.escape(ticket.id)}"] .card-unread-dot`,
+    )
+    ?.remove();
   const states = selectableStatesForProject(ticket.state_id);
 
   // Ordered by the canonical hierarchy so the dropdown visually reinforces scale:
@@ -435,21 +503,21 @@ export async function renderDetail(options = {}) {
   const typeOptions = ["epic", "feature", "task", "bug"]
     .map(
       (value) =>
-        `<option value="${escapeHtml(value)}" ${canonicalTicketType(ticket.type) === value ? "selected" : ""}>${escapeHtml(typeLabelLong(value))}</option>`
+        `<option value="${escapeHtml(value)}" ${canonicalTicketType(ticket.type) === value ? "selected" : ""}>${escapeHtml(typeLabelLong(value))}</option>`,
     )
     .join("");
 
   const stateOptions = states
     .map(
       (s) =>
-        `<option value="${escapeHtml(s.id)}" ${s.id === ticket.state_id ? "selected" : ""}>${escapeHtml(s.name)}</option>`
+        `<option value="${escapeHtml(s.id)}" ${s.id === ticket.state_id ? "selected" : ""}>${escapeHtml(s.name)}</option>`,
     )
     .join("");
 
   const priorityOptions = [0, 1, 2, 3, 4]
     .map(
       (p) =>
-        `<option value="${p}" ${Number(ticket.priority) === p ? "selected" : ""}>${escapeHtml(priorityLabel(p))}</option>`
+        `<option value="${p}" ${Number(ticket.priority) === p ? "selected" : ""}>${escapeHtml(priorityLabel(p))}</option>`,
     )
     .join("");
 
@@ -459,7 +527,7 @@ export async function renderDetail(options = {}) {
       <span class="label-pill-removable" style="--label-color: ${escapeHtml(label.color)}">
         ${escapeHtml(label.name)}
         <button type="button" class="label-pill-remove" data-remove-label="${escapeHtml(label.name)}" title="Remove label">×</button>
-      </span>`
+      </span>`,
     )
     .join("");
 
@@ -467,13 +535,17 @@ export async function renderDetail(options = {}) {
     .map((l) => l.name)
     .filter((name) => !ticket.labels?.some((tl) => tl.name === name));
 
-  const datalistOptions = catalogNames.map((name) => `<option value="${escapeHtml(name)}"></option>`).join("");
+  const datalistOptions = catalogNames
+    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+    .join("");
 
   const detailCanonicalType = canonicalTicketType(ticket.type);
   const priorityKey = priorityKeyFor(ticket.priority);
   const currentState = states.find((s) => s.id === ticket.state_id);
   const stateClass = stateClassFor(currentState);
-  const descriptionHtml = ticket.description ? renderPreservedText(ticket.description) : escapeHtml("No description yet.");
+  const descriptionHtml = ticket.description
+    ? renderPreservedText(ticket.description)
+    : escapeHtml("No description yet.");
   const descriptionClass = ticket.description
     ? "description preserved-text-body editable-field"
     : "description editable-field is-placeholder";
@@ -495,7 +567,7 @@ export async function renderDetail(options = {}) {
       role: "button",
       tabindex: "0",
       title: "Click or press Enter to edit ticket title",
-      "aria-label": "Edit ticket title"
+      "aria-label": "Edit ticket title",
     },
     subtitleHtml: detailSubtitleHtml,
     body: `
@@ -528,7 +600,9 @@ export async function renderDetail(options = {}) {
       ${renderRelated(context.relations, ticket)}
     </div>
 
-    ${currentBoard()?.ai_enabled !== 0 ? `
+    ${
+      currentBoard()?.ai_enabled !== 0
+        ? `
     <details class="section ai-fields" data-ai-plan-toggle data-ticket-id="${escapeHtml(ticket.id)}"${aiPlanOpen(ticket.id) ? " open" : ""}>
       <summary><h3>AI Plan / Implementation Record</h3></summary>
       <div class="ai-fields-grid">
@@ -536,22 +610,24 @@ export async function renderDetail(options = {}) {
           fieldName: "ai_plan",
           label: "AI-Written Plan",
           value: ticket.ai_plan,
-          placeholder: "Paste or let an AI write the plan..."
+          placeholder: "Paste or let an AI write the plan...",
         })}
         ${renderInlinePreservedTextField({
           fieldName: "implementation_summary",
           label: "Implementation Summary",
           value: ticket.implementation_summary,
-          placeholder: "What changed, what shipped, what remains..."
+          placeholder: "What changed, what shipped, what remains...",
         })}
         ${renderInlinePreservedTextField({
           fieldName: "implementation_updates",
           label: "Implementation Updates / Lessons",
           value: ticket.implementation_updates,
-          placeholder: "Progress notes, mistakes to avoid, discoveries..."
+          placeholder: "Progress notes, mistakes to avoid, discoveries...",
         })}
       </div>
-    </details>` : ""}
+    </details>`
+        : ""
+    }
 
     <div class="section">
       <h3>Status History</h3>
@@ -566,7 +642,7 @@ export async function renderDetail(options = {}) {
         <button type="submit">Comment</button>
       </form>
     </div>
-  `
+  `,
   });
 
   wireTicketDetailEditors(ticket);
@@ -574,22 +650,29 @@ export async function renderDetail(options = {}) {
 
   $("#detailCommentForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const body = cleanText(new FormData(event.currentTarget).get("body")).trim();
+    const body = cleanText(
+      new FormData(event.currentTarget).get("body"),
+    ).trim();
     if (!body) return;
     await api(withBoardQuery(`/api/tickets/${ticket.id}/comments`), {
       method: "POST",
-      body: { body }
+      body: { body },
     });
     await refreshTicketDetail(ticket.id);
   });
 
   drawerInner.querySelectorAll("[data-open-ticket]").forEach((card) => {
     card.addEventListener("click", async (event) => {
-      if (event.target.closest("[data-detach-child],[data-detach-parent],[data-detach-relation]")) return;
+      if (
+        event.target.closest(
+          "[data-detach-child],[data-detach-parent],[data-detach-relation]",
+        )
+      )
+        return;
       navigate({
         boardId: state.boardId,
         view: "ticket",
-        ticketId: card.dataset.openTicket
+        ticketId: card.dataset.openTicket,
       });
     });
   });
@@ -601,7 +684,7 @@ export async function renderDetail(options = {}) {
       try {
         await api(withBoardQuery(`/api/tickets/${childId}`), {
           method: "PATCH",
-          body: { parent_ticket_id: null }
+          body: { parent_ticket_id: null },
         });
       } catch (err) {
         toast.error(err.message || "Failed to remove child");
@@ -618,7 +701,7 @@ export async function renderDetail(options = {}) {
       try {
         await api(withBoardQuery(`/api/tickets/${ticket.id}`), {
           method: "PATCH",
-          body: { parent_ticket_id: null }
+          body: { parent_ticket_id: null },
         });
       } catch (err) {
         toast.error(err.message || "Failed to remove parent");
@@ -634,7 +717,9 @@ export async function renderDetail(options = {}) {
       event.stopPropagation();
       const relationId = btn.dataset.detachRelation;
       try {
-        await api(withBoardQuery(`/api/relations/${relationId}`), { method: "DELETE" });
+        await api(withBoardQuery(`/api/relations/${relationId}`), {
+          method: "DELETE",
+        });
       } catch (err) {
         toast.error(err.message || "Failed to remove relation");
         return;
@@ -656,9 +741,14 @@ export async function renderDetail(options = {}) {
   const parentEpicForm = drawerInner.querySelector("#parentEpicForm");
   if (parentEpicForm) {
     const parentInput = parentEpicForm.querySelector("[name=target]");
-    const parentClear = parentEpicForm.querySelector("[data-parent-epic-clear]");
+    const parentClear = parentEpicForm.querySelector(
+      "[data-parent-epic-clear]",
+    );
     const syncParentClear = () => {
-      parentEpicForm.classList.toggle("has-value", parentInput.value.length > 0);
+      parentEpicForm.classList.toggle(
+        "has-value",
+        parentInput.value.length > 0,
+      );
     };
     parentInput.addEventListener("input", syncParentClear);
     syncParentClear();
@@ -669,7 +759,9 @@ export async function renderDetail(options = {}) {
     });
     parentEpicForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const targetLabel = String(new FormData(event.currentTarget).get("target") || "").trim();
+      const targetLabel = String(
+        new FormData(event.currentTarget).get("target") || "",
+      ).trim();
       if (!targetLabel) return;
       const targetId = resolveTicketIdFromLabel(targetLabel, ticket.id);
       if (!targetId) {
@@ -684,7 +776,7 @@ export async function renderDetail(options = {}) {
       try {
         await api(withBoardQuery(`/api/tickets/${ticket.id}`), {
           method: "PATCH",
-          body: { parent_ticket_id: targetId }
+          body: { parent_ticket_id: targetId },
         });
       } catch (err) {
         toast.error(err.message || "Failed to set parent epic");
@@ -700,7 +792,10 @@ export async function renderDetail(options = {}) {
     const relatedInput = relatedAddForm.querySelector("[name=target]");
     const relatedClear = relatedAddForm.querySelector("[data-related-clear]");
     const syncRelatedClear = () => {
-      relatedAddForm.classList.toggle("has-value", relatedInput.value.length > 0);
+      relatedAddForm.classList.toggle(
+        "has-value",
+        relatedInput.value.length > 0,
+      );
     };
     relatedInput.addEventListener("input", syncRelatedClear);
     syncRelatedClear();
@@ -723,7 +818,11 @@ export async function renderDetail(options = {}) {
       try {
         await api(withBoardQuery(`/api/relations`), {
           method: "POST",
-          body: { source_ticket_id: ticket.id, target_ticket_id: targetId, type: relationType }
+          body: {
+            source_ticket_id: ticket.id,
+            target_ticket_id: targetId,
+            type: relationType,
+          },
         });
       } catch (err) {
         toast.error(err.message || "Failed to add relation");
@@ -774,7 +873,10 @@ function renderAttachmentCard(ticket, attachment) {
       </article>
     `;
   }
-  const src = withBoardQuery(attachment.content_url || `/api/tickets/${ticket.id}/attachments/${attachment.id}/content`);
+  const src = withBoardQuery(
+    attachment.content_url ||
+      `/api/tickets/${ticket.id}/attachments/${attachment.id}/content`,
+  );
   return `
     <article class="attachment-card">
       <button type="button" class="attachment-thumb-button" data-open-lightbox="${escapeHtml(src)}" data-lightbox-title="${name}">
@@ -794,7 +896,9 @@ function formatBytes(value) {
 }
 
 function imageFilesFromList(files) {
-  return [...(files || [])].filter((file) => file && String(file.type || "").startsWith("image/"));
+  return [...(files || [])].filter(
+    (file) => file && String(file.type || "").startsWith("image/"),
+  );
 }
 
 async function uploadAttachmentFiles(ticket, files) {
@@ -804,22 +908,33 @@ async function uploadAttachmentFiles(ticket, files) {
     return;
   }
   for (const file of imageFiles) {
-    const response = await fetch(withBoardQuery(`/api/tickets/${ticket.id}/attachments?filename=${encodeURIComponent(file.name || "image")}`), {
-      method: "POST",
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-        "X-File-Name": file.name || "image"
+    const response = await fetch(
+      withBoardQuery(
+        `/api/tickets/${ticket.id}/attachments?filename=${encodeURIComponent(file.name || "image")}`,
+      ),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "X-File-Name": file.name || "image",
+        },
+        body: file,
       },
-      body: file
-    });
+    );
     if (!response.ok) {
       let payload = {};
-      try { payload = await response.json(); } catch {}
+      try {
+        payload = await response.json();
+      } catch {}
       throw new Error(payload.error || `Upload failed (${response.status})`);
     }
   }
   await refreshTicketDetail(ticket.id);
-  toast.success(imageFiles.length === 1 ? "Image attached" : `${imageFiles.length} images attached`);
+  toast.success(
+    imageFiles.length === 1
+      ? "Image attached"
+      : `${imageFiles.length} images attached`,
+  );
 }
 
 function wireAttachmentControls(ticket) {
@@ -840,7 +955,9 @@ function wireAttachmentControls(ticket) {
     event.preventDefault();
     dropzone.classList.add("is-dragover");
   });
-  dropzone?.addEventListener("dragleave", () => dropzone.classList.remove("is-dragover"));
+  dropzone?.addEventListener("dragleave", () =>
+    dropzone.classList.remove("is-dragover"),
+  );
   dropzone?.addEventListener("drop", async (event) => {
     event.preventDefault();
     dropzone.classList.remove("is-dragover");
@@ -852,7 +969,8 @@ function wireAttachmentControls(ticket) {
   });
 
   drawerInner.onpaste = async (event) => {
-    if (event.target.closest("input, textarea, [contenteditable='true']")) return;
+    if (event.target.closest("input, textarea, [contenteditable='true']"))
+      return;
     const files = imageFilesFromList(event.clipboardData?.files || []);
     if (!files.length) return;
     event.preventDefault();
@@ -866,7 +984,12 @@ function wireAttachmentControls(ticket) {
   section.querySelectorAll("[data-delete-attachment]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       try {
-        await api(withBoardQuery(`/api/tickets/${ticket.id}/attachments/${btn.dataset.deleteAttachment}`), { method: "DELETE" });
+        await api(
+          withBoardQuery(
+            `/api/tickets/${ticket.id}/attachments/${btn.dataset.deleteAttachment}`,
+          ),
+          { method: "DELETE" },
+        );
         await refreshTicketDetail(ticket.id);
         toast.success("Image removed");
       } catch (err) {
@@ -876,7 +999,12 @@ function wireAttachmentControls(ticket) {
   });
 
   section.querySelectorAll("[data-open-lightbox]").forEach((btn) => {
-    btn.addEventListener("click", () => openAttachmentLightbox(btn.dataset.openLightbox, btn.dataset.lightboxTitle || "Image"));
+    btn.addEventListener("click", () =>
+      openAttachmentLightbox(
+        btn.dataset.openLightbox,
+        btn.dataset.lightboxTitle || "Image",
+      ),
+    );
   });
 }
 
@@ -900,7 +1028,11 @@ function openAttachmentLightbox(src, title) {
     if (event.key === "Escape") close();
   }
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay || event.target.closest(".attachment-lightbox-close")) close();
+    if (
+      event.target === overlay ||
+      event.target.closest(".attachment-lightbox-close")
+    )
+      close();
   });
   document.addEventListener("keydown", onKeyDown);
   document.body.append(overlay);
@@ -932,8 +1064,8 @@ function renderStatusHistory(history) {
         formatActorLabel({
           actor: event.actor,
           actorType: body.actor_type || "human",
-          actorId: body.actor_id
-        })
+          actorId: body.actor_id,
+        }),
       );
       return `<div class="comment status-change">
         <div class="comment-meta">
@@ -963,10 +1095,17 @@ function renderComment(comment) {
  * a textarea on click. The wiring (event handlers + commit) lives in
  * wireTicketDetailEditors so this helper stays a pure template.
  */
-export function renderInlinePreservedTextField({ fieldName, label, value, placeholder }) {
+export function renderInlinePreservedTextField({
+  fieldName,
+  label,
+  value,
+  placeholder,
+}) {
   const text = value || "";
   const hasValue = Boolean(text.trim());
-  const inner = hasValue ? renderPreservedText(text) : escapeHtml(placeholder || "");
+  const inner = hasValue
+    ? renderPreservedText(text)
+    : escapeHtml(placeholder || "");
   const placeholderClass = hasValue ? "" : "is-placeholder";
   return `
     <div class="inline-md-field">
@@ -993,10 +1132,13 @@ function renderRelated(relations = [], ticket) {
     }
   }
   const candidates = ticketsForProject().filter(
-    (t) => t.id !== ticket?.id && !relatedIds.has(t.id) && !hierarchyIds.has(t.id)
+    (t) =>
+      t.id !== ticket?.id && !relatedIds.has(t.id) && !hierarchyIds.has(t.id),
   );
   const datalistOptions = candidates
-    .map((t) => `<option value="#${t.number} — ${escapeHtml(t.title)}"></option>`)
+    .map(
+      (t) => `<option value="#${t.number} — ${escapeHtml(t.title)}"></option>`,
+    )
     .join("");
 
   const list = relations.length
@@ -1042,9 +1184,13 @@ function renderHierarchySection(ticket, context) {
 function renderParentEpicSection(ticket, context) {
   if (canonicalTicketType(ticket.type) === "epic") return "";
 
-  const epics = ticketsForProject().filter((t) => t.type === "epic" && t.id !== ticket.id);
+  const epics = ticketsForProject().filter(
+    (t) => t.type === "epic" && t.id !== ticket.id,
+  );
   const datalistOptions = epics
-    .map((t) => `<option value="#${t.number} — ${escapeHtml(t.title)}"></option>`)
+    .map(
+      (t) => `<option value="#${t.number} — ${escapeHtml(t.title)}"></option>`,
+    )
     .join("");
 
   const body = context.parent_ticket
@@ -1104,11 +1250,12 @@ export function renderDetailCard(ticket, options = {}) {
     `;
   }
   const unreadN = unreadCount(ticket);
-  const unreadDot = unreadN === 0
-    ? ""
-    : unreadN === 1
-      ? `<span class="card-unread-dot" role="status" aria-label="1 unread update"></span>`
-      : `<span class="card-unread-dot has-count" role="status" aria-label="${unreadN} unread updates">${unreadN > 99 ? "99+" : unreadN}</span>`;
+  const unreadDot =
+    unreadN === 0
+      ? ""
+      : unreadN === 1
+        ? `<span class="card-unread-dot" role="status" aria-label="1 unread update"></span>`
+        : `<span class="card-unread-dot has-count" role="status" aria-label="${unreadN} unread updates">${unreadN > 99 ? "99+" : unreadN}</span>`;
   return `
     <article class="card card--detail type-${escapeHtml(canonicalType)} priority-${escapeHtml(priorityKey)}" data-variant="${escapeHtml(canonicalType)}"${options.disableOpen ? "" : ` data-open-ticket="${escapeHtml(ticket.id)}"`}>
       ${unreadDot}
@@ -1135,6 +1282,6 @@ function renderRelatedCard(relation) {
   const direction = relation.direction === "incoming" ? "from" : "to";
   return renderDetailCard(relation.other_ticket, {
     eyebrow: `${verb} ${direction}`,
-    detach: { mode: "relation", id: relation.id }
+    detach: { mode: "relation", id: relation.id },
   });
 }

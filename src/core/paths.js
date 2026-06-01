@@ -22,7 +22,7 @@ export const EXPORT_DIR = join(DATA_DIR, "exports");
 export const BACKUP_DIR = join(DATA_DIR, "backups");
 /** Central directory for dispatch run artifacts: DATA_DIR/dispatch-runs/<board-slug>/<run-id>/ */
 export const DISPATCH_RUNS_DIR = join(DATA_DIR, "dispatch-runs");
-export const PORT = Number(process.env.PORT || 3337);
+export const PORT = Number(process.env.PORT || 13701);
 
 mkdirSync(DATA_DIR, { recursive: true });
 mkdirSync(BOARDS_DIR, { recursive: true });

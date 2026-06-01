@@ -30,7 +30,7 @@ Options (init only):
   --example             Create example onboarding tickets
 
 Options (serve / docker):
-  --port <n>            HTTP port (default: 3337, or $PORT)
+  --port <n>            HTTP port (serve auto-starts at 13701; --port/$PORT is exact)
 
 Options (dispatch):
   --board <slug-or-id>  Local board to dispatch against (default: board for --cwd)
@@ -473,7 +473,7 @@ function buildDockerPlan(options) {
   const dataDir = resolve(options.dataDir || resolve(projectRoot, ".orbit", "docker-data"));
   const containerProjectRoot = containerPathFor(projectRoot, "/workspace");
   const containerDataDir = containerPathFor(dataDir, "/data");
-  const port = String(options.port || process.env.PORT || 3337);
+  const port = String(options.port || process.env.PORT || 13701);
 
   if (!existsSync(projectRoot)) {
     throw new Error(`Project root does not exist: ${projectRoot}`);

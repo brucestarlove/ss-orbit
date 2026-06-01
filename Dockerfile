@@ -4,7 +4,7 @@ FROM node:22-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production \
-    PORT=3337 \
+    PORT=13701 \
     DATA_DIR=/data
 
 COPY package.json ./
@@ -14,7 +14,7 @@ COPY src ./src
 COPY dist/full ./dist/full
 
 VOLUME ["/data"]
-EXPOSE 3337
+EXPOSE 13701
 
 ENTRYPOINT ["node", "/app/src/cli/orbit.js"]
 CMD ["serve", "--cwd", "/workspace"]
