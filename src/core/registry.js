@@ -60,8 +60,8 @@ export function insertBoard(row) {
   const t = row.created_at || now();
   getRegistry()
     .prepare(
-      `INSERT INTO boards (id, slug, name, repo_path, db_path, repo_url, default_branch, last_active_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO boards (id, slug, name, repo_path, db_path, repo_url, default_branch, manage_helper_files, last_active_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       row.id,
@@ -71,6 +71,7 @@ export function insertBoard(row) {
       row.db_path,
       row.repo_url || "",
       row.default_branch || "main",
+      row.manage_helper_files === undefined ? 1 : row.manage_helper_files ? 1 : 0,
       row.last_active_at || t,
       t,
       row.updated_at || t
@@ -80,7 +81,7 @@ export function insertBoard(row) {
 export function updateBoardMeta(boardId, patch) {
   const sets = [];
   const vals = [];
-  for (const k of ["slug", "name", "repo_path", "db_path", "repo_url", "default_branch"]) {
+  for (const k of ["slug", "name", "repo_path", "db_path", "repo_url", "default_branch", "manage_helper_files"]) {
     if (patch[k] !== undefined) {
       sets.push(`${k} = ?`);
       vals.push(patch[k]);

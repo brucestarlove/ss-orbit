@@ -9,8 +9,10 @@ import {
 import { requireBoardAccess, requirePermission } from "./auth.js";
 import { recordEvent } from "./events.js";
 import { buildBoardFromRepo } from "./seed.js";
+import { generateHelperFiles } from "./agents-md.js";
 import { httpError, id, now, normalizePath, normalizeProjectEntryType, requiredString, slugify } from "./util.js";
 import { DATA_DIR, MCP_SERVER_PATH, ROOT_DIR } from "./paths.js";
+import { resolve } from "node:path";
 
 /** Create a brand-new board on disk + register it. Does not require an
  *  existing ctx.board / ctx.db: this is registry-only. */
@@ -20,7 +22,13 @@ export function createBoard(body, ctx) {
 
   const name = requiredString(body.name, "name");
   const slug = slugify(body.slug || name);
-  const repoPath = normalizePath(requiredString(body.repo_path || body.system_path, "repo_path"));
+  // Folder is optional: a board without a repo_path is a pure kanban board (no
+  // agent dispatch, no managed helper files). When present it is the coding
+  // project where SKILL-ORBIT.md / AGENTS.md live for the AI agent's reference.
+  const repoPath = normalizePath(body.repo_path || body.system_path || "");
+  // Only meaningful with a folder; default on so the common "link my repo" path
+  // keeps writing the docs. Stored so the serve-time refresh respects opt-out.
+  const manageHelperFiles = repoPath ? body.manage_helper_files !== false : false;
   const reg = getRegistry();
   if (reg.prepare("SELECT id FROM boards WHERE slug = ?").get(slug)) {
     throw httpError(409, "board_slug_taken");
@@ -31,7 +39,7 @@ export function createBoard(body, ctx) {
 
   const boardId = id();
   const time = now();
-  const sniff = buildBoardFromRepo(repoPath);
+  const sniff = repoPath ? buildBoardFromRepo(repoPath) : { repoUrl: "", defaultBranch: "main" };
 
   const aiEnabled = body.ai_enabled === undefined ? true : Boolean(body.ai_enabled);
   const defaultStates = body.states || (aiEnabled ? [
@@ -92,10 +100,22 @@ export function createBoard(body, ctx) {
     db_path: dbPath,
     repo_url: body.repo_url || sniff.repoUrl || "",
     default_branch: body.default_branch || sniff.defaultBranch || "main",
+    manage_helper_files: manageHelperFiles ? 1 : 0,
     last_active_at: time,
     created_at: time,
     updated_at: time
   });
+
+  // Mirror `orbit init`: write SKILL-ORBIT.md + the AGENTS.md Orbit section into
+  // the project so the browser flow leaves the same files on disk. Best-effort —
+  // a board is still created if the files can't be written.
+  if (manageHelperFiles) {
+    try {
+      generateHelperFiles(repoPath, resolve(ROOT_DIR, "SKILL-ORBIT.md"));
+    } catch (error) {
+      console.warn(`[orbit] Could not write helper files in ${repoPath}: ${error.message}`);
+    }
+  }
 
   return boardById(db, boardId);
 }
@@ -232,24 +252,46 @@ export function updateBoard(boardId, body, ctx) {
     values.push(body.ai_enabled ? 1 : 0);
   }
 
-  if (sets.length === 0) return innerBoard;
-  sets.push("updated_at = ?");
-  values.push(now(), boardId);
-  tx(db, () => {
-    db.prepare(`UPDATE boards SET ${sets.join(", ")} WHERE id = ?`).run(...values);
-    if (aiTurningOn) ensureAgentLanes(db, boardId);
-    recordEvent(db, boardId, "board_updated", null, actor.name, { board_id: boardId, fields: Object.keys(body) });
-  });
+  // manage_helper_files lives on the registry row (not the per-board DB), so it
+  // is handled separately from `sets`. A request that only toggles it must
+  // still be processed even when no per-board columns change.
+  const manageHelperFiles =
+    body.manage_helper_files === undefined ? undefined : Boolean(body.manage_helper_files);
+
+  if (sets.length === 0 && manageHelperFiles === undefined) return innerBoard;
+
+  if (sets.length > 0) {
+    sets.push("updated_at = ?");
+    values.push(now(), boardId);
+    tx(db, () => {
+      db.prepare(`UPDATE boards SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+      if (aiTurningOn) ensureAgentLanes(db, boardId);
+      recordEvent(db, boardId, "board_updated", null, actor.name, { board_id: boardId, fields: Object.keys(body) });
+    });
+  }
 
   // Mirror the changed fields into the registry row so cross-board listings
   // stay coherent without needing a second source of truth.
   const after = boardById(db, boardId);
+  const repoPath = normalizePath(after.system_path || "");
   updateBoardMeta(boardId, {
     name: after.name,
     repo_url: after.repo_url,
     default_branch: after.default_branch,
-    repo_path: normalizePath(after.system_path || "")
+    repo_path: repoPath,
+    ...(manageHelperFiles === undefined ? {} : { manage_helper_files: manageHelperFiles ? 1 : 0 })
   });
+
+  // Generating the helper files is the active half of turning the toggle on:
+  // write them now rather than waiting for the next `orbit run` refresh.
+  // Turning it off just stops the managed refresh; existing files are left.
+  if (manageHelperFiles && repoPath) {
+    try {
+      generateHelperFiles(repoPath, resolve(ROOT_DIR, "SKILL-ORBIT.md"));
+    } catch (error) {
+      console.warn(`[orbit] Could not write helper files in ${repoPath}: ${error.message}`);
+    }
+  }
 
   return after;
 }
@@ -284,6 +326,7 @@ export function boardManual(boardId, ctx, options = {}) {
       project_notes: innerBoard.project_notes,
       agent_instructions: innerBoard.agent_instructions,
       ai_enabled: innerBoard.ai_enabled,
+      manage_helper_files: ctx.board.manage_helper_files,
       created_at: innerBoard.created_at,
       updated_at: innerBoard.updated_at
     },

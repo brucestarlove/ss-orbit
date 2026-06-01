@@ -105,14 +105,14 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.doesNotMatch(detailSource, /comment-body markdown-body/);
   assert.doesNotMatch(detailSource, /renderMarkdown\(comment\.body\)/);
   // New comments are cleanText'd on submit.
-  assert.match(detailSource, /cleanText\(new FormData\(event\.currentTarget\)\.get\("body"\)\)/);
+  assert.match(detailSource, /cleanText\(\s*new FormData\(event\.currentTarget\)\.get\("body"\),?\s*\)/);
 
   // AI Plan / Implementation Record uses three click-to-edit preserved-text
   // fields instead of markdown-rendered read-only bodies or a shared form.
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"ai_plan"/);
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_summary"/);
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_updates"/);
-  assert.match(detailSource, /const inner = hasValue \? renderPreservedText\(text\) : escapeHtml\(placeholder \|\| ""\)/);
+  assert.match(detailSource, /const inner = hasValue\s*\? renderPreservedText\(text\)\s*: escapeHtml\(placeholder \|\| ""\)/);
   assert.match(detailSource, /class="inline-md-field-body preserved-text-body editable-field/);
   assert.match(detailSource, /data-edit-field="\$\{escapeHtml\(fieldName\)\}"/);
   assert.doesNotMatch(detailSource, /id="aiFieldsForm"/);
@@ -175,7 +175,7 @@ test("ticket detail fetches comments from the dedicated endpoint", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
 
   assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/comments/);
-  assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{requestedTicketId\}\/comments`\)\)\.then\(\(result\) => result\.comments \|\| \[\]\)/);
+  assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{requestedTicketId\}\/comments`\)\)\.then\(\s*\(result\) => result\.comments \|\| \[\],?\s*\)/);
   assert.match(detailSource, /comments\.map\(renderComment\)/);
   assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
 });
@@ -233,7 +233,7 @@ test("ticket detail ignores stale async renders after rapid ticket switches", ()
 
   assert.match(detailSource, /const requestedTicketId = state\.selectedTicketId;/);
   assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/context\?depth=1/);
-  assert.match(detailSource, /if \(state\.detailMode !== "ticket" \|\| state\.selectedTicketId !== requestedTicketId\) return;/);
+  assert.match(detailSource, /if \(\s*state\.detailMode !== "ticket" \|\|\s*state\.selectedTicketId !== requestedTicketId\s*\)\s*return;/);
   assert.match(detailSource, /if \(context\.ticket\?\.id !== requestedTicketId\) return;/);
 });
 
@@ -263,7 +263,7 @@ test("ticket edit refreshes never retarget the drawer after the user switches ca
   assert.ok(refreshBody, "refreshTicketDetail helper should exist");
   assert.doesNotMatch(refreshBody, /state\.selectedTicketId\s*=\s*ticketId;/);
   assert.match(refreshBody, /\/api\/tickets\/\$\{ticketId\}\/context\?depth=1/);
-  assert.match(refreshBody, /if \(state\.detailMode !== "ticket" \|\| state\.selectedTicketId !== ticketId\) return;/);
+  assert.match(refreshBody, /if \(\s*state\.detailMode !== "ticket" \|\|\s*state\.selectedTicketId !== ticketId\s*\)\s*return;/);
   assert.match(refreshBody, /if \(context\.ticket\?\.id !== ticketId\) return;/);
 });
 
@@ -565,6 +565,28 @@ function delay(ms) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }
 
+async function stopProcess(pid) {
+  if (!pid) return;
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    return;
+  }
+  for (let i = 0; i < 20; i++) {
+    await delay(100);
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return;
+    }
+  }
+  try {
+    process.kill(pid, "SIGKILL");
+  } catch {
+    // Process already exited.
+  }
+}
+
 // A backup file's name can appear before its bytes are fully flushed, so
 // matching on the filename alone races the copy (intermittent "no such
 // table: tickets" / "file is not a database"). Poll until the newest
@@ -621,12 +643,12 @@ async function readStreamUntil(reader, predicate, timeoutMs = 1500) {
   throw new Error(`timed out waiting for SSE chunk; got ${buffer}`);
 }
 
-test("orbit serve honors --port before loading server paths", async () => {
+test("orbit run honors --port before loading server paths", async () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -642,13 +664,66 @@ test("orbit serve honors --port before loading server paths", async () => {
   }
 });
 
-test("orbit serve auto-increments the default port when it is busy", async () => {
+test("legacy runtime alias still starts the web app", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+
+  const port = await freePort();
+  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child, /Starscape Orbit listening/);
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`);
+    assert.equal(response.status, 200);
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("orbit run -d starts the web app in the background", async () => {
+  const h = makeHarness();
+  runOrbit(["init", "--cwd", h.projectRoot], h);
+  const port = await freePort();
+  const result = spawnSync(process.execPath, [orbitCli, "run", "-d", "--cwd", h.projectRoot, "--port", String(port)], {
+    cwd: repoRoot,
+    env: { ...process.env, DATA_DIR: h.dataDir },
+    encoding: "utf8"
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Started Orbit in detached mode/);
+  assert.match(result.stdout, /Log: /);
+  const pid = Number(result.stdout.match(/PID: (\d+)/)?.[1]);
+  assert.ok(pid > 0, `expected child PID in stdout, got ${result.stdout}`);
+
+  try {
+    let response;
+    for (let i = 0; i < 25; i++) {
+      try {
+        response = await fetch(`http://127.0.0.1:${port}/api/health`);
+        if (response.status === 200) break;
+      } catch {
+        // The detached process may need a short moment to bind the port.
+      }
+      await delay(100);
+    }
+    assert.equal(response?.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+  } finally {
+    await stopProcess(pid);
+  }
+});
+
+test("orbit run auto-increments the default port when it is busy", async () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
   const blocker = await holdPort(13701);
   const env = { ...process.env, DATA_DIR: h.dataDir };
   delete env.PORT;
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot], {
     cwd: repoRoot,
     env,
     stdio: ["ignore", "pipe", "pipe"]
@@ -674,7 +749,7 @@ test("board context exposes metadata needed by settings tabs", async () => {
   const board = db.prepare("SELECT id, slug, name, repo_url, system_path, default_branch, project_notes, ai_enabled FROM boards LIMIT 1").get();
   db.close();
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -709,7 +784,7 @@ test("board settings PATCH renames display name without changing canonical slug"
   db.close();
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -762,7 +837,7 @@ test("ticket read endpoint returns the lightweight agent ticket shape", async ()
   db.close();
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -850,7 +925,7 @@ test("ticket lookup endpoint resolves number and title exactly with the lightwei
   db.close();
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -936,7 +1011,7 @@ test("bootstrap exposes the selected default board separately from alphabetic bo
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -980,7 +1055,7 @@ test("bootstrap can select the initial board by slug", async () => {
   mkdirSync(secondProject, { recursive: true });
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -1020,7 +1095,7 @@ test("board delete removes registry row and local board database after slug conf
   db.close();
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -1085,7 +1160,7 @@ test("snapshot import after delete and re-init restores into the new board id", 
   originalDb.close();
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -1139,7 +1214,7 @@ test("ticket image attachments upload, export, missing-file listing, and import"
   db.close();
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -1209,7 +1284,7 @@ test("ticket image attachments upload, export, missing-file listing, and import"
     const targetBoard = importedDb.prepare("SELECT id FROM boards LIMIT 1").get();
     importedDb.close();
     const importPort = await freePort();
-    const importChild = spawn(process.execPath, [orbitCli, "serve", "--cwd", h2.projectRoot, "--port", String(importPort)], {
+    const importChild = spawn(process.execPath, [orbitCli, "run", "--cwd", h2.projectRoot, "--port", String(importPort)], {
       cwd: repoRoot,
       env: { ...process.env, DATA_DIR: h2.dataDir },
       stdio: ["ignore", "pipe", "pipe"]
@@ -1244,7 +1319,7 @@ test("successful writes schedule a debounced automatic board backup", async () =
   db.close();
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir, ORBIT_AUTO_BACKUP_DELAY_MS: "25" },
     stdio: ["ignore", "pipe", "pipe"]
@@ -1284,7 +1359,7 @@ test("SSE replay with Last-Event-ID does not crash the Orbit server", async () =
   ).run(anchorEventId, null, "owner", "board_updated", "{}", "2026-01-01T00:00:00.000Z");
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir },
     stdio: ["ignore", "pipe", "pipe"]
@@ -1314,7 +1389,7 @@ test("SSE streams events written by another Orbit process", async () => {
   const db = new DatabaseSync(boardDbPath(h));
   const board = db.prepare("SELECT id FROM boards LIMIT 1").get();
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir, ORBIT_SSE_POLL_MS: "50" },
     stdio: ["ignore", "pipe", "pipe"]
@@ -1353,7 +1428,7 @@ test("SSE external event polling uses insertion order when timestamps tie", asyn
   ).run("z-anchor", null, "agent", "board_updated", "{}", tiedTimestamp);
 
   const port = await freePort();
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", String(port)], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", String(port)], {
     cwd: repoRoot,
     env: { ...process.env, DATA_DIR: h.dataDir, ORBIT_SSE_POLL_MS: "50" },
     stdio: ["ignore", "pipe", "pipe"]

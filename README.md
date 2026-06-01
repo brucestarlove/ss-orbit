@@ -51,16 +51,16 @@ orbit init --no-ai    # optional: create or update the board with AI disabled
 Start one runtime and keep using it:
 
 ```bash
-orbit serve   # host runtime, uses ~/.orbit, refreshes managed SKILL-ORBIT.md copies
+orbit run     # host runtime, uses ~/.orbit, refreshes managed SKILL-ORBIT.md copies
 # or
 orbit docker  # Docker runtime, uses <repo>/.orbit/docker-data
 ```
 
-Both serve from `http://localhost:13701` by default; `orbit serve` auto-increments if that port is busy. Use `--port <n>` to force an exact port and `--cwd path/to/repo` to bind a specific repo.
+Both runtimes serve from `http://localhost:13701` by default; `orbit run` auto-increments if that port is busy. Use `--port <n>` to force an exact port and `--cwd path/to/repo` to bind a specific repo. Use `orbit run -d` to start the host runtime in the background.
 
-`orbit serve` and `orbit docker` run the same app but use different registries by default. A board registered in one mode will not appear in the other unless you share `DATA_DIR`, re-register it, or import a snapshot.
+`orbit run` and `orbit docker` run the same app but use different registries by default. A board registered in one mode will not appear in the other unless you share `DATA_DIR`, re-register it, or import a snapshot.
 
-For multiple boards, run your chosen runtime once. In another terminal, `cd` into another repo and run `orbit init`; the board joins that runtime's board picker without a restart. `SKILL-ORBIT.md` is Orbit-managed guidance and may be overwritten by `orbit init` or refreshed by `orbit serve`; keep repo/team-specific agent rules in `AGENTS.md` or board *Agent Instructions*.
+For multiple boards, run your chosen runtime once. In another terminal, `cd` into another repo and run `orbit init`; the board joins that runtime's board picker without a restart. `SKILL-ORBIT.md` is Orbit-managed guidance and may be overwritten by `orbit init` or refreshed by `orbit run`; keep repo/team-specific agent rules in `AGENTS.md` or board *Agent Instructions*.
 
 Docker options:
 
@@ -72,7 +72,7 @@ orbit docker --no-build      # reuse an existing starscape-orbit:local image
 
 `orbit docker` mounts the selected project into the container. Board data still lives in `.orbit/board.db`; Docker-only registry, exports, and backups live under `<repo>/.orbit/docker-data` by default.
 
-Wipe a single board and start over with `orbit reset` (deletes `.orbit/`, `SKILL-ORBIT.md`, and the registry row), then `orbit init` again. On Windows, close `orbit serve` terminals and restart any AI client using Orbit MCP before deleting or recloning a repo; those helper processes keep SQLite handles open while they are running.
+Wipe a single board and start over with `orbit reset` (deletes `.orbit/`, `SKILL-ORBIT.md`, and the registry row), then `orbit init` again. On Windows, close Orbit runtime terminals and restart any AI client using Orbit MCP before deleting or recloning a repo; those helper processes keep SQLite handles open while they are running.
 
 ## Use with AI
 
@@ -80,7 +80,7 @@ Orbit ships with everything an agent needs to claim work, read tickets, and writ
 
 1. **Confirm AI is enabled.** Open Settings (gear icon) → **AI** tab → toggle **Enable AI** if needed. Orbit provisions the `AI Ready`, `In Progress`, and `Review` lanes if they're missing, surfaces the agent-context fields, and reveals the MCP setup snippet.
 2. **Fill in agent context.** Settings → AI → *Agent Instructions* is the project-level briefing every agent reads before touching a ticket. Describe what the project is, who it serves, the stack, and any rules of the road.
-3. **Register the MCP server with your agent.** The AI tab generates copy-pasteable snippets for Claude Code, Cursor, Codex, OpenCode, OpenClaw, and other MCP-capable clients — pick your OS + client and paste the command into your agent's MCP config.
+3. **Register the MCP server with your agent.** The AI tab generates copy-pasteable snippets for Claude Code, VS Code, Cursor, Codex, OpenCode, OpenClaw, and other MCP-capable clients — pick your OS + client and paste the command into your agent's MCP config.
 4. **Restart the agent.** On its next boot it discovers the Orbit MCP tools (`board_claim_next`, `board_get_ticket_context`, `board_update_ticket`, etc.).
 5. **Point the agent at a ticket.** From inside the repo, ask the agent to read `SKILL-ORBIT.md` and then work on a ticket via the Orbit MCP — e.g., *"Use the Orbit MCP to claim the next AI-ready card and start work."* It pulls a focused context pack, claims the ticket, and updates the board as it goes.
 
@@ -115,7 +115,7 @@ Dispatch validates the local board, ticket, blockers, and Hermes availability be
 
 ## Requirements
 
-- **Node.js 22+**. The server uses the built-in `node:sqlite` module (an experimental Node feature). On boot you'll see a Node experimental-feature warning — that's expected.
+- **Node.js 22.13+**. The server uses the built-in `node:sqlite` module, which is available without an experimental flag starting in 22.13 (or 23.4+). You'll still see an experimental-feature warning on boot — that's expected until the module stabilizes.
 - **pnpm 10+ for development**. The repo pins pnpm through `packageManager`; use Corepack (`corepack enable`) to get the right version.
 
 Bun is not used as the Orbit runtime because Orbit depends on Node's built-in `node:sqlite` module.
@@ -124,9 +124,9 @@ Bun is not used as the Orbit runtime because Orbit depends on Node's built-in `n
 
 Each repo gets its own board database. Orbit keeps a small central registry that maps repo paths to their board files; the CLI, web app, and MCP server use explicit project roots when provided, then fall back to walking upward to find `.orbit/board.db`.
 
-- **Per-repo board** — `.orbit/board.db` lives in the repo it tracks. `orbit init` creates it, writes the managed `SKILL-ORBIT.md` at the repo root, and creates/updates `AGENTS.md` with a terse pointer so agents load the full Orbit protocol only when relevant. `orbit serve` refreshes managed `SKILL-ORBIT.md` copies for registered repos on startup. Add `--example` to create onboarding cards, or `--no-ai` to disable AI collaboration for the board.
-- **Central registry** — `registry.db` records each board's path, slug, and last-active timestamp. Host `orbit serve` uses `~/.orbit`; `orbit docker` uses `<repo>/.orbit/docker-data`. Keep one mode unless you intentionally share `DATA_DIR`, re-register boards, or import snapshots.
-- **Project-root discovery** — `orbit serve`, `orbit mcp`, and MCP-attached agents resolve a board from an explicit `--cwd` / `PROJECT_ROOT` first, then fall back to walking up from process cwd to find `.orbit/board.db`. Persistent MCP configs should use an explicit root so the right board attaches even when the agent launches elsewhere.
+- **Per-repo board** — `.orbit/board.db` lives in the repo it tracks. `orbit init` creates it, writes the managed `SKILL-ORBIT.md` at the repo root, and creates/updates `AGENTS.md` with a terse pointer so agents load the full Orbit protocol only when relevant. `orbit run` refreshes managed `SKILL-ORBIT.md` copies for registered repos on startup. Add `--example` to create onboarding cards, or `--no-ai` to disable AI collaboration for the board.
+- **Central registry** — `registry.db` records each board's path, slug, and last-active timestamp. Host `orbit run` uses `~/.orbit`; `orbit docker` uses `<repo>/.orbit/docker-data`. Keep one mode unless you intentionally share `DATA_DIR`, re-register boards, or import snapshots.
+- **Project-root discovery** — `orbit run`, `orbit mcp`, and MCP-attached agents resolve a board from an explicit `--cwd` / `PROJECT_ROOT` first, then fall back to walking up from process cwd to find `.orbit/board.db`. Persistent MCP configs should use an explicit root so the right board attaches even when the agent launches elsewhere.
 - **Two channels for AI** — `AGENTS.md` is the auto-loaded briefing, with an Orbit-managed pointer to `SKILL-ORBIT.md`; the *MCP config* tells the agent runtime how to launch Orbit's MCP server for the right project. The briefing travels with the repo; the MCP registration is per-agent-install.
 - **Snapshot-portable** — Settings → Repository → Export downloads a `.orbit.json` snapshot, with an option to embed attached images. Import on another install (or in the browser preview at [orbit.starscape.app/app](https://orbit.starscape.app/app)) to restore the same board.
 
@@ -139,7 +139,7 @@ pnpm test
 pnpm run build
 ```
 
-Open the URL printed by `orbit serve` (normally `http://localhost:13701`).
+Open the URL printed by `orbit run` (normally `http://localhost:13701`).
 
 If you want an AI agent to work this board, point it at [SKILL-ORBIT.md](SKILL-ORBIT.md). Agent-facing HTTP/MCP details live in [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md).
 
@@ -209,7 +209,7 @@ BOARD_NAME="My App" BOARD_SLUG=my-app REPO_URL=https://github.com/you/my-app orb
 
 - **UI loads but lanes are blank** — usually a cached `app.js`. Hard-refresh the page (Ctrl+Shift+R) and check the browser console.
 - **`node:sqlite` is not a known module** — you're on Node < 22. Upgrade to Node 22+.
-- **Windows says `.orbit/board.db` is busy during cleanup** - an Orbit web server, MCP helper, editor, or terminal still has the SQLite file open. Stop `orbit serve`, close or restart AI clients with Orbit MCP enabled, then retry delete from Settings or run `orbit reset --cwd <repo>` before recloning or deleting the folder.
+- **Windows says `.orbit/board.db` is busy during cleanup** - an Orbit web server, MCP helper, editor, or terminal still has the SQLite file open. Stop the Orbit runtime, close or restart AI clients with Orbit MCP enabled, then retry delete from Settings or run `orbit reset --cwd <repo>` before recloning or deleting the folder.
 
 ## Data
 
@@ -222,12 +222,12 @@ Orbit stores each board in the repo it belongs to:
 Override runtime data with:
 
 ```bash
-DATA_DIR=/path/to/data orbit serve
+DATA_DIR=/path/to/data orbit run
 orbit docker --data-dir /path/to/data
 ```
 
 ```powershell
-$env:DATA_DIR="C:\path\to\data"; orbit serve
+$env:DATA_DIR="C:\path\to\data"; orbit run
 ```
 
 The UI exposes **Export** and **Import** from **Settings → Repository**.

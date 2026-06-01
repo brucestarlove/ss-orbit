@@ -2,7 +2,7 @@
 
 Read this before repo work. This board is the repo-local memory and execution layer.
 
-This file is managed by Orbit and may be overwritten by `orbit init` or refreshed by `orbit serve`. Put repo/team-specific agent rules in `AGENTS.md` or board `agent_instructions`, not here.
+This file is managed by Orbit and may be overwritten by `orbit init` or refreshed by `orbit run`. Put repo/team-specific agent rules in `AGENTS.md` or board `agent_instructions`, not here.
 
 ## MCP, cwd, and this file
 

@@ -178,7 +178,7 @@ export function migrateInRepoBoards() {
     console.error(`\n[orbit] ⚠ Could not auto-migrate ${n} board${n > 1 ? "s" : ""} to central storage.`);
     console.error(`${sep} These boards continue to work from their current paths.`);
     console.error(`${sep} To complete the migration manually, run the commands below and`);
-    console.error(`${sep} restart orbit serve:\n`);
+    console.error(`${sep} restart orbit run:\n`);
     for (const r of failed) {
       const slash = process.platform === "win32" ? "\\" : "/";
       const destDir = dirname(r.newPath).replace(/\//g, slash);

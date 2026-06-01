@@ -41,10 +41,14 @@ import { runSearch, hideSearch } from "./search.js";
 import { load } from "./app.js";
 import { edition } from "./config.js";
 import { openModal, wireModal } from "./modal.js";
+import { wireTopbarFocus } from "./topbar-notes.js";
+import { wireHelpMenu } from "./help-menu.js";
 
 async function init() {
   const welcomeDialog = document.getElementById("welcomeDialog");
   wireModal(welcomeDialog);
+  wireTopbarFocus();
+  wireHelpMenu();
   if (edition === "preview") {
     openModal(welcomeDialog);
   }

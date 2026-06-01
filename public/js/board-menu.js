@@ -65,12 +65,18 @@ function renderBoardFlyoutInner() {
     <div class="menu-flyout-section">
       <h3 class="menu-flyout-heading">New board</h3>
       <form id="createBoardForm" class="menu-flyout-form">
+        <input name="name" type="text" required placeholder="Board name" autocomplete="off" />
         <div class="folder-picker-field">
-          <input id="repoPathInput" name="repo_path" type="text" required readonly placeholder="Choose a folder" autocomplete="off" />
+          <input id="repoPathInput" name="repo_path" type="text" readonly placeholder="Coding project folder (optional)" autocomplete="off" />
           <button type="button" id="pickRepoFolderBtn">Browse</button>
         </div>
-        <p class="menu-flyout-hint menu-flyout-hint--intro">Board data is stored in <code>.orbit/</code> under this folder.</p>
-        <input name="name" type="text" required placeholder="Board name" autocomplete="off" />
+        <div id="helperFilesReveal" hidden>
+          <p class="menu-flyout-hint menu-flyout-hint--intro">Orbit writes <code>SKILL-ORBIT.md</code> and <code>AGENTS.md</code> into this folder for your AI coding agent.</p>
+          <label class="menu-flyout-check">
+            <input id="helperFilesCheckbox" name="manage_helper_files" type="checkbox" checked />
+            <span>Generate AI helper files (<code>SKILL-ORBIT.md</code>, <code>AGENTS.md</code>)</span>
+          </label>
+        </div>
         <input name="slug" type="text" placeholder="Slug (optional)" autocomplete="off" />
         <input name="default_branch" type="text" placeholder="Default branch (optional)" autocomplete="off" />
         <input name="repo_url" type="text" placeholder="Repo URL (optional)" autocomplete="off" />
@@ -103,6 +109,14 @@ function wireBoardFlyout() {
   if (form) {
     const pickRepoFolderBtn = form.querySelector("#pickRepoFolderBtn");
     const repoPathInput = form.querySelector("#repoPathInput");
+    const helperFilesReveal = form.querySelector("#helperFilesReveal");
+    // The folder explanation and "Generate AI helper files" option only make
+    // sense once a folder is chosen — there's nowhere to write them otherwise.
+    // Reveal both with the folder value rather than disabling.
+    const syncHelperFilesVisibility = () => {
+      if (helperFilesReveal) helperFilesReveal.hidden = !repoPathInput.value.trim();
+    };
+    syncHelperFilesVisibility();
     pickRepoFolderBtn?.addEventListener("click", async (event) => {
       event.preventDefault();
       pickRepoFolderBtn.disabled = true;
@@ -111,6 +125,7 @@ function wireBoardFlyout() {
         if (result.path) {
           repoPathInput.value = result.path;
           repoPathInput.dispatchEvent(new Event("input", { bubbles: true }));
+          syncHelperFilesVisibility();
         }
       } catch (error) {
         toast.error(error?.message || "Folder picker unavailable");
@@ -125,15 +140,13 @@ function wireBoardFlyout() {
       const branch = String(fd.get("default_branch") || "").trim();
       const repo = String(fd.get("repo_url") || "").trim();
       const repoPath = String(fd.get("repo_path") || "").trim();
-      if (!repoPath) {
-        repoPathInput?.reportValidity();
-        return;
-      }
+      // Folder is optional. Only forward the helper-files choice when a folder
+      // is set; the server ignores it otherwise.
       const created = await api("/api/boards", {
         method: "POST",
         body: {
           name: fd.get("name"),
-          repo_path: repoPath,
+          ...(repoPath ? { repo_path: repoPath, manage_helper_files: fd.get("manage_helper_files") === "on" } : {}),
           ...(slug ? { slug } : {}),
           ...(branch ? { default_branch: branch } : {}),
           ...(repo ? { repo_url: repo } : {})

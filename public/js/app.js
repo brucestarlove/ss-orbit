@@ -2,7 +2,7 @@
 // modules can import `load` / `render` without pulling in the entry-point
 // init wiring (which would create import cycles).
 
-import { state, syncBoardSelection } from "./state.js";
+import { state, syncBoardSelection, currentBoard } from "./state.js";
 import { api, bootstrapPath } from "./api.js";
 import { renderBoard, renderBoardSelection } from "./kanban.js";
 import { renderDetail } from "./ticket-detail.js";
@@ -10,6 +10,7 @@ import { closeMenuFlyouts, updateTopbarChips } from "./board-menu.js";
 import { connectEventStream } from "./sse.js";
 import { seedReadIfNeeded } from "./unread.js";
 import { features } from "./config.js";
+import { renderTopbarFocus } from "./topbar-notes.js";
 
 let sseBoardId = null;
 
@@ -30,6 +31,7 @@ export async function load() {
 export async function render() {
   syncBoardSelection();
   updateTopbarChips();
+  renderTopbarFocus(currentBoard());
   renderBoard();
   await renderDetail();
 }
@@ -37,6 +39,7 @@ export async function render() {
 export async function renderDetailOnly() {
   syncBoardSelection();
   updateTopbarChips();
+  renderTopbarFocus(currentBoard());
   renderBoardSelection();
   await renderDetail();
 }

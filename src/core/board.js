@@ -8,7 +8,7 @@
 //   3. Iterate every registry board, ensuring the per-board schema exists
 //      and reindexing FTS for that board's DB. No "active board" singleton:
 //      each iteration opens its own connection.
-//   4. When launched through `orbit serve`, refresh Orbit-managed
+//   4. When launched through `orbit run`, refresh Orbit-managed
 //      SKILL-ORBIT.md copies for registered repo paths.
 //
 // Beyond startup this module just re-exports per-domain functions for
@@ -67,6 +67,9 @@ function syncManagedSkillOrbitFiles() {
   const skillSrc = resolve(ROOT_DIR, "SKILL-ORBIT.md");
   for (const row of listBoards()) {
     if (!row.repo_path) continue;
+    // Respect boards created without "Generate AI helper files" — don't
+    // re-push SKILL-ORBIT.md into a repo the user opted out of.
+    if (row.manage_helper_files === 0) continue;
     try {
       const result = syncSkillOrbitMd(row.repo_path, skillSrc);
       if (result.status === "missing_source") {

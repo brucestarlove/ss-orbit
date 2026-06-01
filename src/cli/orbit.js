@@ -4,8 +4,9 @@
  * copies managed SKILL-ORBIT.md into the target repo. Does not import board.js.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { removeOrbitAgentsSection, syncAgentsMd, syncSkillOrbitMd } from "../core/agents-md.js";
@@ -17,20 +18,23 @@ function printUsage() {
   orbit -v, --version      Print the Orbit CLI version
   orbit init  [options]    Provision .orbit/board.db + SKILL-ORBIT.md + AGENTS.md
   orbit reset [options]    Delete .orbit/ + SKILL-ORBIT.md + registry row
-  orbit serve [options]    Start the Orbit web app + HTTP API
+  orbit run   [options]    Start the Orbit web app + HTTP API
   orbit docker [options]   Build/run Orbit's web app in Docker
   orbit mcp   [options]    Start the stdio MCP server (for agent clients)
   orbit dispatch [options] Dispatch a Hermes profile on a ticket
 
-Options (init / reset / serve / docker / mcp / dispatch):
+Options (init / reset / run / docker / mcp / dispatch):
   --cwd <dir>           Project root (default: process.cwd())
 
 Options (init only):
   --no-ai               Create the board with AI collaboration disabled
   --example             Create example onboarding tickets
 
-Options (serve / docker):
-  --port <n>            HTTP port (serve auto-starts at 13701; --port/$PORT is exact)
+Options (run / docker):
+  --port <n>            HTTP port (run auto-starts at 13701; --port/$PORT is exact)
+
+Options (run):
+  -d, --detach          Run in the background and print the child PID/log path
 
 Options (dispatch):
   --board <slug-or-id>  Local board to dispatch against (default: board for --cwd)
@@ -173,6 +177,7 @@ function parseArgs(argv) {
     ai: true,
     example: false,
     port: null,
+    detachRequested: false,
     image: "starscape-orbit:local",
     dataDir: null,
     containerName: null,
@@ -301,6 +306,7 @@ function parseArgs(argv) {
       args.buildImage = false;
     } else if (a === "-d" || a === "--detach") {
       args.detach = true;
+      args.detachRequested = true;
     } else if (a === "--foreground") {
       args.detach = false;
       args.foreground = true;
@@ -461,6 +467,37 @@ async function runServe(options) {
   await import("../server.js");
 }
 
+function orbitDataDir() {
+  return process.env.DATA_DIR || join(homedir(), ".orbit");
+}
+
+function startDetachedRun(options) {
+  const dataDir = orbitDataDir();
+  mkdirSync(dataDir, { recursive: true });
+  const logPath = join(dataDir, "orbit-run.log");
+  const logFd = openSync(logPath, "a");
+  const cliPath = fileURLToPath(import.meta.url);
+  const childArgs = [cliPath, "run", "--cwd", resolve(options.cwd)];
+  if (options.port) childArgs.push("--port", String(options.port));
+  const child = spawn(process.execPath, childArgs, {
+    cwd: process.cwd(),
+    detached: true,
+    env: { ...process.env },
+    stdio: ["ignore", logFd, logFd]
+  });
+  child.unref();
+  closeSync(logFd);
+  const port = options.port || process.env.PORT || 13701;
+  console.log("Started Orbit in detached mode.");
+  console.log(`PID: ${child.pid}`);
+  console.log(`Log: ${logPath}`);
+  console.log(
+    options.port || process.env.PORT
+      ? `URL: http://localhost:${port}`
+      : `URL: starts at http://localhost:${port} (auto-increments if busy; see log)`
+  );
+}
+
 function containerPathFor(hostPath, fallbackPath) {
   // Linux/macOS Docker can mount the same absolute path into the container,
   // which keeps existing Orbit board metadata meaningful. Windows paths are
@@ -508,7 +545,7 @@ function buildDockerPlan(options) {
     "-w",
     containerProjectRoot,
     options.image,
-    "serve",
+    "run",
     "--cwd",
     containerProjectRoot,
     "--port",
@@ -595,8 +632,9 @@ async function main() {
       await runInit(args);
     } else if (args.command === "reset") {
       await runReset(args);
-    } else if (args.command === "serve") {
-      await runServe(args);
+    } else if (args.command === "run" || args.command === "serve") {
+      if (args.detachRequested && args.detach) startDetachedRun(args);
+      else await runServe(args);
     } else if (args.command === "docker") {
       await runDocker(args);
     } else if (args.command === "mcp") {

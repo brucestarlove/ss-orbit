@@ -33,6 +33,21 @@ export function syncSkillOrbitMd(projectRoot, skillSrc) {
   return { ok: true, status: "written", source: skillSrc, path: skillDest };
 }
 
+/**
+ * Write both Orbit helper files (SKILL-ORBIT.md + the AGENTS.md Orbit section)
+ * into a project root. This is the shared core behind `orbit init` and the
+ * web-UI "Generate AI helper files" checkbox, so the two flows stay identical.
+ * Never throws — returns a result the caller can log or ignore.
+ */
+export function generateHelperFiles(projectRoot, skillSrc, logger = console.log) {
+  if (!existsSync(skillSrc)) {
+    return { ok: false, status: "missing_source", source: skillSrc };
+  }
+  const skill = syncSkillOrbitMd(projectRoot, skillSrc);
+  syncAgentsMd(projectRoot, {}, logger);
+  return { ok: true, status: skill.status, skill };
+}
+
 export function syncAgentsMd(projectRoot, _options = {}, logger = console.log) {
   const agentsPath = resolve(projectRoot, "AGENTS.md");
   const section = orbitAgentsSection();

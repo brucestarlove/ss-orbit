@@ -143,9 +143,40 @@
         </div>
         <header class="topbar">
             <div class="brand" aria-label="Orbit">
-                <img class="mark" src="./orbits-logo.png" alt="Orbits logo" />
+                <button
+                    id="brandFocusBtn"
+                    type="button"
+                    class="brand-focus-btn"
+                    data-variant="brand-focus"
+                    aria-label="Show board notes"
+                    aria-expanded="false"
+                    aria-controls="brandFocusPopover"
+                >
+                    <img class="mark" src="./orbits-logo.png" alt="Orbits logo" />
+                </button>
+                <div
+                    id="brandFocusPopover"
+                    class="brand-focus-popover"
+                    role="dialog"
+                    aria-label="Board notes"
+                    hidden
+                >
+                    <div class="brand-focus-popover__eyebrow">Board notes</div>
+                    <div id="brandFocusNotes" class="brand-focus-notes-body">No board notes yet</div>
+                </div>
             </div>
             <div class="controls">
+                <button
+                    id="brandNotesBtn"
+                    type="button"
+                    class="topbar-notes brand-notes-strip"
+                    data-variant="topbar-notes"
+                    aria-label="Show board notes"
+                    aria-expanded="false"
+                    aria-controls="brandFocusPopover"
+                >
+                    <span id="brandNotesText" class="topbar-notes__text">No board notes yet</span>
+                </button>
                 <span class="topbar-controls-gap" aria-hidden="true"></span>
                 <div class="topbar-search" id="topbarSearch">
                     <input
@@ -234,6 +265,32 @@
                             d="M12 1v2m0 18v2M4.2 4.2l1.4 1.4m12.8 12.8l1.4 1.4M1 12h2m18 0h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
                         />
                     </svg>
+                </button>
+                <button
+                    id="helpBtn"
+                    type="button"
+                    class="topbar-btn topbar-ctl-shrink"
+                    data-variant="translucent"
+                    aria-haspopup="dialog"
+                    aria-controls="helpDialog"
+                >
+                    <svg
+                        class="topbar-icon"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+                        <path d="M12 17h.01" />
+                    </svg>
+                    Help
                 </button>
                 <button
                     id="settingsBtn"
@@ -419,6 +476,141 @@
                         data-modal-close
                     >
                         Get started
+                    </button>
+                </footer>
+            </div>
+        </dialog>
+
+        <!-- Help & About. Reuses the .orbit-dialog shell + welcome-dialog-*
+             styling so it inherits the modal chrome; opened from the topbar
+             Help button and wired through modal.js (Escape/backdrop close). -->
+        <dialog
+            id="helpDialog"
+            class="orbit-dialog"
+            aria-labelledby="helpDialogTitle"
+        >
+            <div class="welcome-dialog-inner help-dialog-inner">
+                <div class="welcome-dialog-head">
+                    <img
+                        class="welcome-dialog-logo"
+                        src="./orbits-logo.png"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                    <span
+                        class="welcome-dialog-edition-pill"
+                        id="helpDialogVersion"
+                        >Orbit</span
+                    >
+                    <button
+                        type="button"
+                        class="help-dialog-close"
+                        aria-label="Close"
+                        data-modal-close
+                    >
+                        ×
+                    </button>
+                </div>
+                <div class="welcome-dialog-body">
+                    <h2 id="helpDialogTitle" class="welcome-dialog-title">
+                        Starscape Orbit
+                    </h2>
+                    <p class="welcome-dialog-lede">
+                        A developer-first kanban board built for teams working
+                        alongside AI agents. Track the motion of your project —
+                        and hand work to your coding agent through the Orbit MCP
+                        tools.
+                    </p>
+
+                    <section
+                        class="help-dialog-section"
+                        aria-label="Getting started"
+                    >
+                        <h3 class="help-dialog-heading">Getting started</h3>
+                        <ol class="help-dialog-steps">
+                            <li class="help-dialog-step">
+                                <span class="help-dialog-step__index">01</span>
+                                <div>
+                                    <h4>Create a board</h4>
+                                    <p>
+                                        Use the <strong>Board</strong> menu →
+                                        New board. Optionally point it at a
+                                        coding project folder so Orbit can drop
+                                        <code>SKILL-ORBIT.md</code> and
+                                        <code>AGENTS.md</code> for your agent.
+                                    </p>
+                                </div>
+                            </li>
+                            <li class="help-dialog-step">
+                                <span class="help-dialog-step__index">02</span>
+                                <div>
+                                    <h4>Add cards &amp; the AI Ready lane</h4>
+                                    <p>
+                                        Capture work with
+                                        <strong>New Card</strong>. Move cards
+                                        into <strong>AI Ready</strong> to stage
+                                        them for an agent to claim.
+                                    </p>
+                                </div>
+                            </li>
+                            <li class="help-dialog-step">
+                                <span class="help-dialog-step__index">03</span>
+                                <div>
+                                    <h4>Connect your coding agent</h4>
+                                    <p>
+                                        Add the Orbit MCP server from
+                                        <strong>Settings</strong>, then ask your
+                                        agent to read <code>AGENTS.md</code> and
+                                        claim the next ticket.
+                                    </p>
+                                </div>
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section
+                        class="help-dialog-section"
+                        aria-label="Links"
+                    >
+                        <h3 class="help-dialog-heading">Links</h3>
+                        <ul class="help-dialog-links">
+                            <li>
+                                <a
+                                    class="welcome-dialog-link"
+                                    href="https://orbit.starscape.app"
+                                    target="_blank"
+                                    rel="noopener"
+                                    >Documentation</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="welcome-dialog-link"
+                                    href="https://github.com/brucestarlove/ss-orbit/blob/master/docs/MCP_SETUP.md"
+                                    target="_blank"
+                                    rel="noopener"
+                                    >MCP setup</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="welcome-dialog-link"
+                                    href="https://orbit.starscape.app/support"
+                                    target="_blank"
+                                    rel="noopener"
+                                    >Support / Tip</a
+                                >
+                            </li>
+                        </ul>
+                    </section>
+                </div>
+                <footer class="welcome-dialog-footer">
+                    <button
+                        type="button"
+                        class="welcome-dialog-cta"
+                        data-modal-close
+                    >
+                        Got it
                     </button>
                 </footer>
             </div>

@@ -103,6 +103,15 @@ export function getRegistry() {
   return openConnection(REGISTRY_DB_PATH);
 }
 
+/** Add a column to an existing table only if it is missing. Idempotent: safe to
+ *  call on every startup. SQLite has no `ADD COLUMN IF NOT EXISTS`, so we probe
+ *  `PRAGMA table_info` first. */
+function ensureColumn(reg, table, column, definition) {
+  const cols = reg.prepare(`PRAGMA table_info(${table})`).all();
+  if (cols.some((c) => c.name === column)) return;
+  reg.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+}
+
 /** Registry metadata table (not the per-board `boards` content row). */
 export function createRegistrySchema(reg = getRegistry()) {
   reg.exec(`
@@ -120,6 +129,10 @@ export function createRegistrySchema(reg = getRegistry()) {
     );
     CREATE INDEX IF NOT EXISTS idx_registry_boards_repo_path ON boards(repo_path);
   `);
+  // Whether Orbit keeps SKILL-ORBIT.md / AGENTS.md in sync inside repo_path.
+  // Defaults to 1 so pre-existing boards (created when files were always
+  // written) keep their managed copies refreshed on startup.
+  ensureColumn(reg, "boards", "manage_helper_files", "INTEGER NOT NULL DEFAULT 1");
 }
 
 /** Full Kanban schema on a per-board database connection. */

@@ -118,6 +118,11 @@ const MCP_CLIENTS = {
     format: "MCP JSON",
     helper: "Paste this JSON into Cursor MCP settings. Cursor starts Orbit when an agent needs the tools."
   },
+  vscode: {
+    label: "VS Code",
+    format: "mcp.json",
+    helper: "Paste this JSON into VS Code's user or workspace MCP configuration."
+  },
   opencode: {
     label: "OpenCode",
     format: "opencode.json",
@@ -138,8 +143,9 @@ const MCP_CLIENTS = {
 function renderProjectAiTab(context) {
   const project = context.board;
   const aiEnabled = project.ai_enabled !== 0;
-  const aiDivider = aiEnabled ? `<div class="ai-section-divider" aria-hidden="true"></div>` : "";
+  const aiDivider = aiEnabled ? `<div class="separator" aria-hidden="true"></div>` : "";
   const agentContextSetup = aiEnabled ? renderAgentContextSection(project) : "";
+  const helperFilesSetup = aiEnabled && features.multiBoard ? renderHelperFilesSection(project) : "";
   const mcpSetup = aiEnabled ? renderMcpSetupSection(context) : "";
 
   return `
@@ -159,6 +165,7 @@ function renderProjectAiTab(context) {
     </div>
     ${aiDivider}
     ${agentContextSetup}
+    ${helperFilesSetup ? `${aiDivider}${helperFilesSetup}` : ""}
     ${aiDivider}
     ${mcpSetup}
   `;
@@ -174,7 +181,7 @@ function renderAgentContextSection(project) {
   return `
     <div class="section ai-subsection ai-context-setup">
       <div class="ai-context-title-row">
-        <span class="ai-context-inline-mark" aria-hidden="true">Context</span>
+        <span class="section-mark" aria-hidden="true">Context</span>
         <h3>Agent Instructions</h3>
       </div>
       <p class="description">This project-level context is provided to agents when they work on tickets.</p>
@@ -203,7 +210,7 @@ function renderMcpSetupSection(context) {
     <details class="section ai-subsection mcp-setup" data-mcp-setup>
       <summary>
         <div class="mcp-title-row">
-          <span class="mcp-inline-mark" aria-hidden="true">MCP</span>
+          <span class="section-mark" aria-hidden="true">MCP</span>
           <h3>Connect Your Agent to MCP</h3>
         </div>
       </summary>
@@ -302,6 +309,7 @@ function mcpConfigText(clientId, paths) {
   if (clientId === "claude-code") return claudeCodeMcpCommand(paths);
   if (clientId === "codex") return codexMcpToml(paths);
   if (clientId === "opencode") return opencodeMcpJson(paths);
+  if (clientId === "vscode") return vscodeMcpJson(paths);
 
   const config = {
     mcpServers: {
@@ -323,6 +331,22 @@ function opencodeMcpJson(paths) {
           type: "local",
           command: ["node", paths.serverPath],
           enabled: true
+        }
+      }
+    },
+    null,
+    2
+  );
+}
+
+function vscodeMcpJson(paths) {
+  return JSON.stringify(
+    {
+      servers: {
+        starscapeOrbit: {
+          type: "stdio",
+          command: "node",
+          args: [paths.serverPath]
         }
       }
     },
@@ -423,6 +447,31 @@ function renderProjectRepositoryTab(context) {
     </div>
 
     ${features.multiBoard ? renderDeleteBoardSection(project) : ""}
+  `;
+}
+
+function renderHelperFilesSection(project) {
+  const hasFolder = Boolean(project.system_path);
+  const managed = Boolean(project.manage_helper_files);
+  return `
+    <div class="section ai-subsection helper-files-section">
+      <div class="ai-context-title-row">
+        <span class="section-mark" aria-hidden="true">Files</span>
+        <h3>AI Helper Files</h3>
+      </div>
+      <p class="description">Orbit can keep <code>SKILL-ORBIT.md</code> and <code>AGENTS.md</code> in this board's coding project folder so your AI agent knows how to use Orbit.${hasFolder ? "" : " Link a folder to enable this."}</p>
+      <div class="folder-picker-field helper-files-folder">
+        <input id="helperFolderInput" type="text" readonly placeholder="No folder linked" value="${escapeHtml(project.system_path || "")}" />
+        <button type="button" id="helperPickFolderBtn">${hasFolder ? "Change" : "Browse"}</button>
+      </div>
+      <label class="orbit-check">
+        <input type="checkbox" id="manageHelperFilesToggle" ${managed ? "checked" : ""} ${hasFolder ? "" : "disabled"} />
+        <span class="orbit-check-box" aria-hidden="true">
+          <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
+        </span>
+        <span>Generate &amp; maintain helper files in this folder</span>
+      </label>
+    </div>
   `;
 }
 
@@ -951,6 +1000,49 @@ function bindProjectTabHandlers(context, tab) {
       await load();
       state.detailMode = "settings";
       toast.success(enabled ? "AI features enabled — agent lanes provisioned" : "AI features disabled — AI Ready hidden");
+    });
+
+    const helperPickFolderBtn = $("#helperPickFolderBtn");
+    helperPickFolderBtn?.addEventListener("click", async () => {
+      helperPickFolderBtn.disabled = true;
+      try {
+        const result = await api("/api/system/pick-folder", { method: "POST" });
+        if (!result.path) return;
+        await api(`/api/boards/${encodeURIComponent(project.id)}`, {
+          method: "PATCH",
+          body: { system_path: result.path }
+        });
+        await load();
+        state.detailMode = "settings";
+        toast.success("Linked coding project folder updated");
+      } catch (error) {
+        toast.error(error?.message || "Folder picker unavailable");
+      } finally {
+        helperPickFolderBtn.disabled = false;
+      }
+    });
+
+    const manageHelperFilesToggle = $("#manageHelperFilesToggle");
+    manageHelperFilesToggle?.addEventListener("change", async () => {
+      const enabled = manageHelperFilesToggle.checked;
+      manageHelperFilesToggle.disabled = true;
+      try {
+        await api(`/api/boards/${encodeURIComponent(project.id)}`, {
+          method: "PATCH",
+          body: { manage_helper_files: enabled }
+        });
+        await load();
+        state.detailMode = "settings";
+        toast.success(
+          enabled
+            ? "Generated SKILL-ORBIT.md and AGENTS.md — Orbit will keep them in sync"
+            : "Stopped maintaining helper files (existing files left in place)"
+        );
+      } catch (error) {
+        manageHelperFilesToggle.checked = !enabled;
+        manageHelperFilesToggle.disabled = false;
+        toast.error(error?.message || "Could not update helper files setting");
+      }
     });
 
   }

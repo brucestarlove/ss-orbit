@@ -531,13 +531,13 @@ test("orbit init treats SKILL-ORBIT.md as managed and overwrites stale repo copi
   assert.doesNotMatch(stdout, /left unchanged|refresh-agents-md/);
 });
 
-test("orbit serve refreshes managed SKILL-ORBIT.md for registered board repos on startup", async () => {
+test("orbit run refreshes managed SKILL-ORBIT.md for registered board repos on startup", async () => {
   const h = makeHarness();
   runOrbit(["init", "--cwd", h.projectRoot], h);
   const skillOrbit = join(h.projectRoot, "SKILL-ORBIT.md");
   writeFileSync(skillOrbit, "# stale local copy\n\nServe should replace this before listening.\n", "utf8");
 
-  const child = spawn(process.execPath, [orbitCli, "serve", "--cwd", h.projectRoot, "--port", "0"], {
+  const child = spawn(process.execPath, [orbitCli, "run", "--cwd", h.projectRoot, "--port", "0"], {
     cwd: repoRoot,
     env: orbitEnv(h),
     stdio: ["ignore", "pipe", "pipe"]
@@ -722,7 +722,7 @@ test("orbit docker --dry-run prints build and isolated container run commands", 
   assert.match(stdout, new RegExp(`-e DATA_DIR=${escapeRegex(containerDataDir)}`));
   assert.match(stdout, new RegExp(`-v ${commandArgRegex(`${h.projectRoot}:${containerProjectRoot}`)}`));
   assert.match(stdout, new RegExp(`-v ${commandArgRegex(`${dockerDataDir}:${containerDataDir}`)}`));
-  assert.match(stdout, /serve --cwd .* --port 4567/);
+  assert.match(stdout, /run --cwd .* --port 4567/);
 });
 
 test("orbit docker -d maps to Docker detach mode", () => {
