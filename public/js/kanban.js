@@ -513,10 +513,13 @@ export function enableKanbanDragScroll() {
 
   kanban.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
+    // Clear stale drag-click suppression on any fresh primary press — even over
+    // a card — so a both-button / two-finger pan that emitted no trailing click
+    // can't swallow the next genuine click.
+    dragged = false;
     if (shouldIgnore(event.target)) return;
 
     active = true;
-    dragged = false;
     pointerId = event.pointerId;
     startX = event.clientX;
     startScroll = kanban.scrollLeft;
@@ -569,4 +572,123 @@ export function enableKanbanDragScroll() {
     },
     true
   );
+
+  // --- Both-button mouse drag + two-finger touch drag -----------------------
+  // A second panning affordance that works ANYWHERE on the board, including
+  // directly over cards. A plain left-click / single-finger tap is left to the
+  // cards (so they still open + drag); holding *both* mouse buttons, or dragging
+  // with *two fingers*, pans the board horizontally without engaging a card.
+  let bothBtnPanning = false;
+  let bothBtnLastX = 0;
+  let suppressContextMenu = false;
+
+  // Pressing the second mouse button (buttons bitmask 1|2 === 3) arms the pan
+  // and cancels any single-button drag already in flight (see `active` above).
+  kanban.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "mouse" || (event.buttons & 3) !== 3) return;
+    bothBtnPanning = true;
+    bothBtnLastX = event.clientX;
+    suppressContextMenu = true;
+    active = false; // hand control off from the left-button drag
+    kanban.classList.add("is-grabbing");
+  });
+
+  kanban.addEventListener("pointermove", (event) => {
+    if (event.pointerType !== "mouse") return;
+    const bothDown = (event.buttons & 3) === 3;
+    if (bothDown) {
+      event.preventDefault();
+      if (!bothBtnPanning) {
+        bothBtnPanning = true;
+        bothBtnLastX = event.clientX;
+        suppressContextMenu = true;
+        active = false;
+        kanban.classList.add("is-grabbing");
+        return;
+      }
+      const delta = event.clientX - bothBtnLastX;
+      if (delta) {
+        kanban.scrollLeft -= delta;
+        bothBtnLastX = event.clientX;
+        dragged = true; // eat the trailing synthetic click
+      }
+    } else if (bothBtnPanning) {
+      bothBtnPanning = false;
+      kanban.classList.remove("is-grabbing");
+    }
+  });
+
+  kanban.addEventListener("pointerup", (event) => {
+    if (event.pointerType === "mouse" && bothBtnPanning && (event.buttons & 3) !== 3) {
+      bothBtnPanning = false;
+      kanban.classList.remove("is-grabbing");
+    }
+  });
+
+  // Right-click handling on the board:
+  //  - after a both-button pan, swallow the trailing context menu;
+  //  - otherwise suppress the native browser menu everywhere EXCEPT over a card,
+  //    which owns its own context menu (see bindCardContextMenuDelegated).
+  kanban.addEventListener("contextmenu", (event) => {
+    if (suppressContextMenu) {
+      event.preventDefault();
+      event.stopPropagation();
+      suppressContextMenu = false;
+      return;
+    }
+    const onCard = event.target instanceof Element && event.target.closest(".card");
+    if (!onCard) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+
+  // Two-finger touch pan. Touch events (not pointer events) are used here so we
+  // can reliably preventDefault the browser's native two-finger scroll/zoom.
+  let touchPanning = false;
+  let touchPanLastX = 0;
+  const twoFingerCentroidX = (touches) => (touches[0].clientX + touches[1].clientX) / 2;
+
+  kanban.addEventListener(
+    "touchstart",
+    (event) => {
+      // Fresh gesture — clear any leftover drag-click suppression so a real tap
+      // is never swallowed when the prior two-finger pan emitted no click.
+      dragged = false;
+      if (event.touches.length === 2) {
+        touchPanning = true;
+        touchPanLastX = twoFingerCentroidX(event.touches);
+        active = false; // cancel any single-finger drag that started
+        kanban.classList.add("is-grabbing");
+      } else {
+        touchPanning = false;
+      }
+    },
+    { passive: true }
+  );
+
+  kanban.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!touchPanning || event.touches.length !== 2) return;
+      const x = twoFingerCentroidX(event.touches);
+      const delta = x - touchPanLastX;
+      if (delta) {
+        event.preventDefault();
+        kanban.scrollLeft -= delta;
+        touchPanLastX = x;
+        dragged = true; // eat the trailing tap so a card doesn't open
+      }
+    },
+    { passive: false }
+  );
+
+  const endTouchPan = (event) => {
+    if (event.touches.length < 2 && touchPanning) {
+      touchPanning = false;
+      kanban.classList.remove("is-grabbing");
+    }
+  };
+  kanban.addEventListener("touchend", endTouchPan, { passive: true });
+  kanban.addEventListener("touchcancel", endTouchPan, { passive: true });
 }

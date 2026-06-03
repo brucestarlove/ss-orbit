@@ -12,4 +12,5 @@ dist/
 .tmp/
 package-lock.json
 .claude/
+.hermes/
 

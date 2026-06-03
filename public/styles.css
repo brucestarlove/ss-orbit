@@ -2376,8 +2376,18 @@ select.detail-meta-badge::-ms-expand {
   grid-area: tabs;
   display: flex;
   gap: 0.3rem;
+  /* min-width:0 lets this grid item shrink to its column so the tabs overflow
+     *internally* and scroll, rather than being clipped by the drawer's
+     overflow:hidden. */
+  min-width: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+}
+
+.drawer-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .drawer-tabs[hidden] {
@@ -4210,7 +4220,9 @@ details.section > summary .mcp-title-row {
 
 .lane-row {
   display: grid;
-  grid-template-columns: 2rem 2rem minmax(6rem, 1fr) minmax(5.5rem, 7rem) 2rem 2rem;
+  /* ↑ ↓ | name (flex) | New | ×  — every control is a 2rem square except the
+     name field, so the cluster stays tight at every width (fits phones too). */
+  grid-template-columns: 2rem 2rem minmax(4rem, 1fr) 2rem 2rem;
   gap: 0.4rem;
   align-items: center;
   border: 1px solid var(--line);
@@ -4451,7 +4463,8 @@ button:disabled {
 
 .lane-create-form {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) minmax(7rem, 9rem) auto;
+  /* name field (flex) + Add Lane button — two children, two columns. */
+  grid-template-columns: minmax(6rem, 1fr) auto;
   gap: 0.45rem;
   margin-top: 0.65rem;
 }
@@ -4873,22 +4886,47 @@ button.toast-close::after {
 
 /* Delay topbar wrap until small tablet/large phone widths. */
 @media (max-width: 800px) {
+  /* Let the topbar wrap into rows instead of stacking the brand above the
+     controls. Dissolving the `.controls` box (display:contents) promotes its
+     children into the topbar's own wrap flow, so the brand and the notes strip
+     share the first row (notes beside the badge, as on desktop) while search
+     and the action buttons fall onto their own rows below. */
   .topbar {
     position: static;
-    align-items: stretch;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    column-gap: 0.5rem;
+    row-gap: 0.55rem;
   }
 
   .controls {
-    flex-wrap: wrap;
-    justify-content: flex-start;
+    display: contents;
   }
 
-  .topbar-controls-gap,
-  .brand-notes-strip {
+  .topbar-controls-gap {
     display: none;
   }
 
+  /* Clickable, truncated board-notes strip sits right after the badge, hugging
+     its text and ellipsizing if it runs long. Hidden when empty so the badge
+     keeps the row to itself (the logo still opens the notes popover). */
+  .brand-notes-strip {
+    flex: 0 1 auto;
+    min-width: 0;
+    --topbar-notes-max-width: 100%;
+  }
+
+  .brand-notes-strip[data-empty="true"] {
+    display: none;
+  }
+
+  /* Reclaim vertical space for the board on mobile. */
+  .frame-footer {
+    display: none;
+  }
+
+  /* flex-basis 100% forces search onto its own full-width row below the brand. */
   .topbar-search {
     flex: 1 1 100%;
     width: 100%;
@@ -4896,14 +4934,12 @@ button.toast-close::after {
     max-width: none;
   }
 
-  /* On the wrapped action row, keep utility controls anchored to the right. */
+  /* On the wrapped action-button row, anchor the utility controls to the right. */
   #themeToggle {
     margin-left: auto;
   }
 
-  .composer-row,
-  .lane-row,
-  .lane-create-form {
+  .composer-row {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -4917,10 +4953,16 @@ button.toast-close::after {
     flex-wrap: wrap;
   }
 
+  /* Phone: collapse the action controls to icon-only so New Card, Board, theme,
+     Help, and Settings all fit on a single line. */
+  .btn-sun-label,
+  .topbar-chip-label,
+  .topbar-btn-label {
+    display: none;
+  }
+
   .composer-row,
-  .deployment-actions,
-  .lane-row,
-  .lane-create-form {
+  .deployment-actions {
     grid-template-columns: 1fr;
   }
 
