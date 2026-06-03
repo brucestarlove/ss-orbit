@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@starlove/ui':
-        specifier: ^3.2.3
-        version: 3.2.3
+        specifier: ^3.3.0
+        version: 3.3.0
     devDependencies:
       esbuild:
         specifier: ^0.25.0
@@ -174,8 +174,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@starlove/ui@3.2.3':
-    resolution: {integrity: sha512-Ln4umpb/exCu1HSe6tsEW9R9AM+4EL9bgKZ7AXJTXiWpSJ39rE72ONyj9Zw8i5EeFPYTAhBCTxfLFiptdTSxXg==}
+  '@starlove/ui@3.3.0':
+    resolution: {integrity: sha512-LhQlEpxQ6RmJ/mPlf/IjBvp3xSpmXrPLDsI7PND7HAT3FWVwt8VHwQI3IY92YDbbese9Pa8CLA1OhHNPpSukfw==}
 
   esbuild@0.25.12:
     resolution: {integrity: sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg==}
@@ -262,7 +262,7 @@ snapshots:
   '@esbuild/win32-x64@0.25.12':
     optional: true
 
-  '@starlove/ui@3.2.3': {}
+  '@starlove/ui@3.3.0': {}
 
   esbuild@0.25.12:
     optionalDependencies:

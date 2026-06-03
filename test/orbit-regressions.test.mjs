@@ -180,17 +180,24 @@ test("ticket detail fetches comments from the dedicated endpoint", () => {
   assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
 });
 
-test("ticket search renders state badges with shared state pill classes", () => {
+test("ticket search renders state badges with shared state pill classes", async () => {
   const searchSource = readFileSync(join(repoRoot, "public", "js", "search.js"), "utf8");
   const formatSource = readFileSync(join(repoRoot, "public", "js", "format.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+  const stylesPath = join(repoRoot, "public", "styles.css");
+  const stylesSource = readFileSync(stylesPath, "utf8");
+  const { cssFile } = await bundleCss({
+    entryPoint: stylesPath,
+    outfile: join(tmpdir(), "orbit-search-styles.css"),
+    minify: false
+  });
+  const bundled = Buffer.from(cssFile.contents).toString("utf8");
 
   assert.match(formatSource, /export function stateClassFor/);
   assert.match(searchSource, /stateClassFor\(ticket\)/);
   assert.match(searchSource, /search-hit-state" data-variant=/);
   assert.match(searchSource, /search-hit-title/);
-  assert.match(stylesSource, /\.search-hit\s*\{[\s\S]*display:\s*flex;/);
-  assert.match(stylesSource, /\.search-hit-title\s*\{[\s\S]*text-overflow:\s*ellipsis;/);
+  assert.match(bundled, /\.search-hit\s*\{[\s\S]*display:\s*flex;/);
+  assert.match(bundled, /\.search-hit-title\s*\{[\s\S]*text-overflow:\s*ellipsis;/);
   assert.match(stylesSource, /\.search-hit-state\[data-variant="in-progress"\]/);
   assert.match(stylesSource, /\[data-theme="dark"\] \.search-hit-state\[data-variant="in-progress"\]/);
 });
@@ -322,6 +329,7 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
     "@starlove/ui/components/input",
     "@starlove/ui/components/topbar-btn",
     "@starlove/ui/components/topbar-search",
+    "@starlove/ui/components/topbar-notes",
     "@starlove/ui/components/topbar-chip",
     "@starlove/ui/components/menu-flyout",
     "@starlove/ui/components/create-flyout",
@@ -347,6 +355,8 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
 
   assert.doesNotMatch(bundled, /@import\s+"@starlove\/ui/);
   assert.match(bundled, /\.topbar-chip/);
+  assert.match(bundled, /\.topbar-notes/);
+  assert.match(bundled, /\.topbar-notes__text/);
   assert.match(bundled, /button\[data-variant=primary\]|button\[data-variant="primary"\]/);
   assert.match(bundled, /\.state-pill\[data-variant="?ai-ready"?\]/);
   assert.match(bundled, /\.priority-pill\[data-variant="?urgent"?\]/);
@@ -391,7 +401,7 @@ test("Settings drawer controls use explicit Starscape UI variants", () => {
   assert.match(kanbanSource, /data-accent="ai-ready"/);
   assert.match(stylesSource, /--menu-flyout-item-radius/);
   assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*background:\s*transparent/);
-  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*translateY\(-3px\)/);
+  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*translateY\(-1px\)/);
   assert.match(stylesSource, /\.btn-sun,[\s\S]*\.column-add-btn,[\s\S]*\.add-card-phantom\s*\{[\s\S]*inset 0 0 0 2px rgba\(var\(--amber-rgb\),0\.45\)/);
   assert.doesNotMatch(stylesSource, /button\.column-add-btn\s*\{[^}]*background:\s*var\(--btn-gradient\)/);
   assert.match(stylesSource, /button\.column-add-btn\s*\{[\s\S]*min-height:\s*1\.85rem/);
@@ -413,11 +423,18 @@ test("Settings drawer controls use explicit Starscape UI variants", () => {
   assert.match(stylesSource, /button\[type="submit"\]:not\(\[data-variant\]\)/);
 });
 
-test("X-only controls stay compact instead of inheriting default button chrome", () => {
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+test("X-only controls stay compact instead of inheriting default button chrome", async () => {
+  const stylesPath = join(repoRoot, "public", "styles.css");
+  const { cssFile } = await bundleCss({
+    entryPoint: stylesPath,
+    outfile: join(tmpdir(), "orbit-compact-controls.css"),
+    minify: false
+  });
+  const stylesSource = Buffer.from(cssFile.contents).toString("utf8");
   const compactClasses = [
     "drawer-close",
     "create-flyout-close",
+    "help-dialog-close",
     "settings-lane-delete-btn",
     "label-pill-remove",
     "related-add-clear",

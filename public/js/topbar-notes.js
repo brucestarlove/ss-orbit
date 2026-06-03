@@ -54,7 +54,7 @@ export function renderTopbarFocus(board = lastRenderedBoard) {
     notesButton.dataset.empty = summary === NOTE_FALLBACK ? "true" : "false";
     notesButton.setAttribute("aria-label", `Show board notes: ${summary}`);
   }
-  if (notesText) notesText.textContent = summary;
+  if (notesText) notesText.textContent = summary === NOTE_FALLBACK ? "" : summary;
   if (notesBody) notesBody.innerHTML = renderNotesBody(lastRenderedBoard);
 }
 

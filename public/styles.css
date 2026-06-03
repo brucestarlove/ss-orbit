@@ -4,6 +4,7 @@
 @import "@starlove/ui/components/input";
 @import "@starlove/ui/components/topbar-btn";
 @import "@starlove/ui/components/topbar-search";
+@import "@starlove/ui/components/topbar-notes";
 @import "@starlove/ui/components/topbar-chip";
 @import "@starlove/ui/components/menu-flyout";
 @import "@starlove/ui/components/create-flyout";
@@ -309,13 +310,6 @@ textarea {
   padding: var(--field-padding-y) var(--field-padding-x);
 }
 
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--accent-focus-border);
-  box-shadow: var(--accent-ring);
-}
-
 .topbar {
   position: sticky;
   top: 0;
@@ -435,11 +429,14 @@ textarea:focus {
 
 .brand-focus-notes-body {
   max-height: min(calc(100vh - 11rem), 34rem);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .brand-focus-notes-edit {
   min-height: 7rem;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
 }
 
 [data-theme="dark"] .brand-focus-popover {
@@ -448,49 +445,12 @@ textarea:focus {
   color: #edf3ff;
 }
 
-.topbar-notes,
 .brand-notes-strip {
-  display: inline-flex;
-  flex: 1 1 auto;
-  align-items: center;
-  min-width: 0;
-  max-width: min(600px, 42vw);
-  padding: 0;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  text-align: left;
-  cursor: var(--sl-cursor-link, pointer);
-  transition: color 160ms ease, opacity 160ms ease;
+  --topbar-notes-max-width: min(600px, 42vw);
 }
 
-.topbar-notes__text {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.brand-notes-strip:is(:hover, :focus-visible, [aria-expanded="true"], [data-state="open"]) {
-  color: var(--ink);
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  outline: none;
-}
-
-[data-theme="dark"] .brand-notes-strip:is(:hover, :focus-visible, [aria-expanded="true"], [data-state="open"]) {
-  color: #edf3ff;
+[data-theme="dark"] .brand-notes-strip {
+  --topbar-notes-active-color: #edf3ff;
 }
 
 h1,
@@ -505,26 +465,11 @@ h1 {
   letter-spacing: -0.03em;
 }
 
-/* One row: [flex gap after brand] → fixed-width search → New Card → Board → Settings */
-.controls {
-  display: flex;
-  flex: 1;
-  flex-wrap: nowrap;
-  gap: 0.45rem;
-  align-items: center;
-  justify-content: flex-start;
-  min-width: 0;
-}
-
 /* Pulls the search + actions away from the Orbit brand without stretching the search full-width. */
 .topbar-controls-gap {
   flex: 1 1 auto;
   min-width: 1.25rem;
   max-width: none;
-}
-
-.topbar-ctl-shrink {
-  flex-shrink: 0;
 }
 
 /* Bottom "frame" signature: in document flow below the board, inside the viewport shell. */
@@ -554,18 +499,7 @@ h1 {
   font-style: italic;
 }
 
-.topbar-icon {
-  display: block;
-  flex-shrink: 0;
-  width: 1.1rem;
-  height: 1.1rem;
-}
-
 /* @starlove/ui topbar control rail: every top-right control shares one height. */
-.controls {
-  --topbar-ctl-h: 2.35rem;
-}
-
 .controls .topbar-search input,
 .controls .btn-sun,
 .controls .topbar-chip,
@@ -586,22 +520,7 @@ h1 {
   padding-bottom: 0;
 }
 
-.controls .topbar-btn[data-variant="theme"] {
-  padding-inline: 0.85rem;
-}
-
-.topbar-chip-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Topbar chips: anchored flyouts */
-.topbar-menu {
-  position: relative;
-  flex-shrink: 0;
-}
-
 /* ---- Teal-chip chrome — shared by .topbar-chip and .menu-flyout-item ----
    One rule set governs the bezel, tint wash, and inner-glow pattern so the
    two surfaces are visually consistent. Structural properties (padding, radius,
@@ -816,62 +735,6 @@ h1 {
     box-shadow 160ms ease;
 }
 
-.menu-flyout-item.is-current {
-  border-color: rgba(var(--accent-rgb),0.65);
-  background:
-    linear-gradient(135deg, rgba(var(--accent-rgb),0.18), rgba(var(--accent-rgb),0.04) 70%),
-    rgba(var(--paper-rgb),0.98);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--paper-rgb),0.9),
-    inset 0 0 0 2px rgba(var(--accent-rgb),0.3),
-    0 6px 14px rgba(var(--accent-rgb),0.18),
-    0 1px 4px rgba(var(--warmth-rgb),0.07);
-}
-
-.menu-flyout-item-title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: -0.005em;
-}
-
-.menu-flyout-item-meta {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-[data-theme="dark"] .menu-flyout-item.is-current {
-  border-color: rgba(var(--starlight-rgb),0.6);
-  background:
-    linear-gradient(135deg, rgba(var(--starlight-rgb),0.16), rgba(var(--starlight-rgb),0.04) 70%),
-    rgba(var(--cosmos-rgb),0.94);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
-    inset 0 0 0 2px rgba(var(--starlight-rgb),0.32),
-    0 6px 14px rgba(var(--void-rgb),0.34),
-    0 1px 4px rgba(0, 0, 0, 0.24);
-}
-
-.menu-flyout-section {
-  padding: 0.55rem 0.75rem 0.75rem;
-  border-top: 1px solid var(--line);
-  background: var(--subtle-bg-2);
-}
-
-.menu-flyout-heading {
-  margin: 0 0 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.menu-flyout-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--row-gap);
-}
-
 .menu-flyout-form input {
   width: 100%;
   padding: var(--field-padding-y) var(--field-padding-x);
@@ -879,12 +742,6 @@ h1 {
   border-radius: calc(var(--radius-control) - 2px);
   font: inherit;
   font-size: 0.82rem;
-}
-
-.folder-picker-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.4rem;
 }
 
 .folder-picker-field input[readonly] {
@@ -976,25 +833,6 @@ h1 {
   color: #fff;
   background: var(--btn-gradient);
   box-shadow: 0 2px 8px var(--accent-hover);
-}
-
-.topbar-btn.ghost {
-  color: var(--ink);
-  background: var(--surface-dim);
-  border: 1px solid var(--line);
-  box-shadow: none;
-  font-weight: 600;
-}
-
-.topbar-btn:hover {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-  box-shadow: var(--btn-hover-shadow);
-}
-
-.topbar-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--accent-ring);
 }
 
 .topbar-btn.ghost:hover {
@@ -1117,7 +955,7 @@ button[data-variant="cta"] .btn-plus {
   box-shadow: none;
   color: currentColor;
   line-height: 0.95;
-  transform: translateY(-3px);
+  transform: translateY(-1px);
 }
 
 .btn-sun .btn-sun-label {
@@ -1148,15 +986,6 @@ button[data-variant="cta"] .btn-plus {
   pointer-events: none;
 }
 
-.create-flyout-backdrop.is-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-[data-theme="dark"] .create-flyout-backdrop {
-  background: rgba(0, 0, 0, 0.35);
-}
-
 .create-flyout {
   position: fixed;
   top: 2.85rem;
@@ -1178,29 +1007,6 @@ button[data-variant="cta"] .btn-plus {
     opacity 200ms ease,
     transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
-}
-
-.create-flyout.is-open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-.create-flyout-inner {
-  overflow-y: auto;
-  padding: 0.75rem 0.9rem 0.95rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}
-
-.create-flyout-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.65rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--line);
 }
 
 .create-flyout-head h2 {
@@ -1227,26 +1033,6 @@ button.create-flyout-close {
   line-height: 1;
 }
 
-.create-flyout-close:hover,
-button.create-flyout-close:hover {
-  transform: none;
-  filter: none;
-  background: var(--accent-hover);
-  border-color: var(--accent-border);
-  box-shadow: none;
-}
-
-button.create-flyout-close::after {
-  content: none;
-  display: none;
-}
-
-.create-flyout-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
 .create-flyout-form input[type="text"],
 .create-flyout-form textarea {
   width: 100%;
@@ -1268,17 +1054,6 @@ button.create-flyout-close::after {
   font-size: 0.88rem;
   /* background-color keeps background-image (chevron) intact; see select-chevron-field. */
   background-color: var(--surface-input);
-}
-
-.create-flyout-form textarea {
-  min-height: 4rem;
-  resize: vertical;
-}
-
-.create-flyout-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.45rem;
 }
 
 .create-flyout-grid label,
@@ -1327,15 +1102,6 @@ button.create-flyout-close::after {
   min-width: 0;
   min-height: 0;
   padding: 0 clamp(0.75rem, 2vw, 1.25rem);
-}
-
-/* Search: modest fixed width — flex gap before it leaves breathing room after the brand. */
-.topbar-search {
-  position: relative;
-  flex: 0 0 auto;
-  width: min(16.5rem, 36vw);
-  max-width: 16.5rem;
-  min-width: 9rem;
 }
 
 .topbar-search input {
@@ -1399,10 +1165,6 @@ button.create-flyout-close::after {
   box-shadow: var(--flyout-shadow);
 }
 
-.search-results[hidden] {
-  display: none;
-}
-
 .search-hit {
   display: flex;
   align-items: center;
@@ -1418,26 +1180,6 @@ button.create-flyout-close::after {
   cursor: url('cursors/live_link.cur'), pointer;
 }
 
-.search-hit:last-child {
-  border-bottom: 0;
-}
-
-.search-hit-main {
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  gap: 0.35rem;
-  align-items: baseline;
-}
-
-.search-hit-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .search-hit-state {
   flex: 0 0 auto;
   margin-left: auto;
@@ -1451,10 +1193,6 @@ button.create-flyout-close::after {
   letter-spacing: 0.02em;
   line-height: 1.35;
   white-space: nowrap;
-}
-
-.search-hit:hover {
-  background: var(--accent-hover);
 }
 
 [data-theme="dark"] .menu-flyout,
@@ -1963,53 +1701,11 @@ button.add-card-phantom::after,
     rgba(var(--paper-rgb), 0.96);
 }
 
-/* Epic: purple bezel, dual-color gradient wash. */
-.card.type-epic,
-.card[data-variant="epic"] { --type-rgb: var(--purple-rgb); }
-
+/* Epic cards get a little more title weight than task/feature cards. */
 .card.type-epic h3 {
   font-size: 0.92rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-}
-
-/* Feature: teal bezel — confident, second-in-command. */
-.card.type-feature,
-.card[data-variant="feature"] { --type-rgb: var(--accent-rgb); }
-
-/* Task: slate bezel, thinnest ring, shallowest shadow. */
-.card.type-task,
-.card[data-variant="task"] {
-  --type-rgb: var(--blue-rgb);
-  --type-border-a: 0.28;
-  --type-ring-w: 1.5px;
-  --type-ring-a: 0.12;
-  --type-bg-a: 0.04;
-  --type-bg-stop: 70%;
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--paper-rgb), 0.92),
-    inset 0 0 0 1.5px rgba(var(--blue-rgb), 0.12),
-    0 6px 16px rgba(var(--blue-rgb), 0.06),
-    0 2px 6px rgba(var(--warmth-rgb), 0.07);
-  background:
-    linear-gradient(135deg, rgba(var(--blue-rgb), 0.04), rgba(var(--paper-rgb), 0) 70%),
-    rgba(var(--paper-rgb), 0.95);
-}
-
-/* Bug: red bezel, punchier ring — defects feel urgent. */
-.card.type-bug,
-.card[data-variant="bug"] {
-  --type-rgb: var(--red-rgb);
-  --type-border-a: 0.45;
-  --type-ring-a: 0.22;
-  --type-bg-a: 0.06;
-}
-
-/* Hover: lift via translate + filter only, so the per-type bezel insets stay
-   intact. Drop-shadow filter floats above whatever box-shadow the type has. */
-.card:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.02) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.06));
 }
 
 @keyframes cardSettle {
@@ -2151,78 +1847,6 @@ button.add-card-phantom::after,
 
 [data-theme="dark"] .card-action-menu-item.is-danger > .card-action-button {
   color: #fca5a5;
-}
-
-/* Dark card glass — starscape palette. Hover uses filter+drop-shadow only
-   so per-type bezels survive. Selected uses outline so bezel box-shadow stays intact. */
-[data-theme="dark"] .card {
-  border-color: rgba(var(--starlight-rgb),0.12);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-  /* No backdrop-filter: --card is 85% opaque so the blur showed through ~15%
-     (near-invisible) yet forced every card to re-blur the animated starfield
-     behind it on every frame — the page's biggest GPU cost. The opaque fill
-     carries the surface; the starfield still animates in the gaps. */
-}
-
-[data-theme="dark"] .card.type-epic,
-[data-theme="dark"] .card[data-variant="epic"] {
-  border: 1.5px solid rgba(var(--starlight-rgb),0.4);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
-    inset 0 0 0 2.5px rgba(var(--violet-rgb),0.32),
-    0 12px 26px rgba(var(--void-rgb),0.35),
-    0 4px 10px rgba(0, 0, 0, 0.3);
-  background:
-    linear-gradient(135deg, rgba(var(--cyan-rgb),0.1), rgba(var(--indigo-rgb),0.09) 55%, rgba(var(--cosmos-rgb),0) 100%),
-    rgba(var(--cosmos-rgb),0.92);
-}
-
-[data-theme="dark"] .card.type-feature,
-[data-theme="dark"] .card[data-variant="feature"] {
-  border: 1.5px solid rgba(var(--starlight-rgb),0.32);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
-    inset 0 0 0 2px rgba(var(--starlight-rgb),0.18),
-    0 8px 20px rgba(var(--void-rgb),0.3),
-    0 3px 8px rgba(0, 0, 0, 0.25);
-  background:
-    linear-gradient(135deg, rgba(var(--starlight-rgb),0.06), rgba(var(--cosmos-rgb),0) 65%),
-    rgba(var(--cosmos-rgb),0.92);
-}
-
-[data-theme="dark"] .card.type-task,
-[data-theme="dark"] .card[data-variant="task"] {
-  border: 1.5px solid rgba(var(--starlight-rgb),0.18);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
-    inset 0 0 0 1.5px rgba(var(--starlight-rgb),0.1),
-    0 6px 16px rgba(0, 0, 0, 0.25),
-    0 2px 6px rgba(0, 0, 0, 0.2);
-  background:
-    linear-gradient(135deg, rgba(var(--starlight-rgb),0.035), rgba(var(--cosmos-rgb),0) 70%),
-    rgba(var(--cosmos-rgb),0.9);
-}
-
-[data-theme="dark"] .card.type-bug,
-[data-theme="dark"] .card[data-variant="bug"] {
-  border: 1.5px solid rgba(var(--coral-rgb),0.4);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--cosmos-rgb),0.85),
-    inset 0 0 0 2px rgba(var(--coral-rgb),0.22),
-    0 8px 20px rgba(0, 0, 0, 0.3),
-    0 4px 12px rgba(var(--coral-rgb),0.1);
-  background:
-    linear-gradient(135deg, rgba(var(--coral-rgb),0.07), rgba(var(--cosmos-rgb),0) 65%),
-    rgba(var(--cosmos-rgb),0.92);
-}
-
-[data-theme="dark"] .card:hover {
-  filter: brightness(1.06) drop-shadow(0 6px 14px rgba(var(--starlight-rgb),0.08));
-}
-
-[data-theme="dark"] .card.selected,
-[data-theme="dark"] .card[data-selected] {
-  outline-color: rgba(var(--starlight-rgb),0.3);
 }
 
 /* Epic-aware grouping inside a column.
@@ -2382,11 +2006,6 @@ button.add-card-phantom::after,
   cursor: url('cursors/live_link.cur'), pointer;
 }
 
-.drawer-backdrop.is-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .drawer {
   position: fixed;
   top: clamp(0.75rem, 2vh, 1.5rem);
@@ -2406,26 +2025,6 @@ button.add-card-phantom::after,
   transition:
     transform 320ms cubic-bezier(0.4, 0, 0.2, 1),
     width 180ms ease;
-}
-
-.drawer.is-wide {
-  width: min(58rem, calc(100vw - 1rem));
-}
-
-.drawer.is-open {
-  transform: translateX(0);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-motion="full"]) .drawer,
-  :root:not([data-motion="full"]) .drawer-backdrop {
-    transition: none;
-  }
-}
-
-[data-theme="dark"] .drawer {
-  background: rgba(16, 24, 48, 0.96);
-  box-shadow: -10px 0 48px rgba(0, 0, 0, 0.4);
 }
 
 .drawer-header {
@@ -2452,14 +2051,6 @@ button.add-card-phantom::after,
   gap: 0.15rem;
   min-width: 0;
   padding-top: 0.1rem;
-}
-
-.drawer-eyebrow {
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .drawer-eyebrow[hidden] {
@@ -2793,10 +2384,6 @@ select.detail-meta-badge::-ms-expand {
   display: none;
 }
 
-.drawer-tabs::-webkit-scrollbar {
-  display: none;
-}
-
 .drawer-tab,
 button.drawer-tab {
   flex-shrink: 0;
@@ -2816,30 +2403,6 @@ button.drawer-tab {
     background 140ms ease,
     color 140ms ease,
     border-color 140ms ease;
-}
-
-.drawer-tab:hover,
-button.drawer-tab:hover {
-  transform: none;
-  filter: none;
-  color: var(--ink);
-  background: var(--accent-hover);
-  box-shadow: none;
-}
-
-.drawer-tab.is-active,
-.drawer-tab[aria-selected="true"],
-button.drawer-tab.is-active,
-button.drawer-tab[aria-selected="true"] {
-  color: var(--ink);
-  background: var(--accent-active);
-  border-color: var(--accent-border);
-  box-shadow: none;
-}
-
-button.drawer-tab::after {
-  content: none;
-  display: none;
 }
 
 .drawer-close,
@@ -2866,15 +2429,6 @@ button.drawer-archive {
   font-size: 1.35rem;
   font-weight: 400;
   line-height: 1;
-}
-
-.drawer-close:hover,
-button.drawer-close:hover {
-  transform: none;
-  filter: none;
-  background: var(--accent-hover);
-  border-color: var(--accent-border);
-  box-shadow: none;
 }
 
 .drawer-archive {
@@ -3401,11 +2955,6 @@ select.meta-inline::-ms-expand {
   box-shadow: 0 0 0 3px rgba(var(--starlight-rgb),0.15);
 }
 
-[data-theme="dark"] option {
-  background: #16213e;
-  color: #e8efff;
-}
-
 [data-theme="dark"] option:checked,
 [data-theme="dark"] option:hover {
   background: #1f3a6b;
@@ -3611,52 +3160,12 @@ button.label-pill-remove::after {
   margin-top: 1.6rem;
 }
 
-.section h3 {
-  margin-bottom: 0.7rem;
-  color: var(--ink);
-  font-size: 0.86rem;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  line-height: 1.25;
-  opacity: 0.9;
-  text-transform: uppercase;
-}
-
 details.section > summary {
   list-style: none;
   cursor: url('cursors/live_link.cur'), pointer;
   display: flex;
   align-items: center;
   gap: 0.4rem;
-}
-
-details.section > summary::-webkit-details-marker {
-  display: none;
-}
-
-/* ── Accordion chevron (global) ──────────────────────────────────────── */
-details.section > summary::before {
-  content: "›";
-  color: var(--muted);
-  font-size: 1.15rem;
-  line-height: 1;
-  transition: transform 150ms ease;
-}
-
-details.section[open] > summary::before {
-  transform: rotate(90deg);
-}
-
-details.section > summary h3 {
-  display: inline;
-  margin: 0;
-}
-
-/* Match the .section h3 { margin-bottom: 0.7rem } rhythm — the inner h3 is
-   contained inside <summary>, so the gap has to live on the first child
-   that follows the summary instead. */
-details.section[open] > summary + * {
-  margin-top: 0.7rem;
 }
 
 /* The MCP setup section is itself display:grid with gap — the generic
@@ -3789,7 +3298,7 @@ details.section > summary .mcp-title-row {
 .inline-md-field-body {
   min-height: 2.4rem;
   padding: 0.45rem 0.6rem;
-  margin-inline: -0.35rem;
+  margin-inline: 1px;
 }
 
 .inline-md-field-body.is-placeholder {
@@ -5601,7 +5110,7 @@ button.toast-close::after {
   justify-content: center;
 }
 
-.welcome-dialog-cta {
+button.welcome-dialog-cta {
   padding: 0.65rem 2.25rem;
   border-radius: 12px;
   border: 1px solid var(--btn-border);
@@ -5617,7 +5126,7 @@ button.toast-close::after {
     box-shadow 150ms ease;
 }
 
-.welcome-dialog-cta:hover {
+button.welcome-dialog-cta:hover {
   filter: brightness(1.06);
   transform: translateY(-1px);
   box-shadow: var(--btn-hover-shadow);
@@ -5629,13 +5138,15 @@ button.toast-close::after {
   max-width: 30rem;
 }
 
-.help-dialog-close {
+button.help-dialog-close {
   margin-left: auto;
   width: 1.9rem;
   height: 1.9rem;
+  min-height: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0 0 0.12rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
@@ -5643,12 +5154,22 @@ button.toast-close::after {
   font-size: 1.1rem;
   line-height: 1;
   cursor: url('cursors/live_link.cur'), pointer;
-  transition: color 150ms ease, border-color 150ms ease;
+  box-shadow: none;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
 }
 
-.help-dialog-close:hover {
+button.help-dialog-close:hover {
   color: var(--ink);
   border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+  filter: none;
+  transform: none;
+  box-shadow: none;
+}
+
+button.help-dialog-close::after {
+  content: none;
+  display: none;
 }
 
 .help-dialog-section {
