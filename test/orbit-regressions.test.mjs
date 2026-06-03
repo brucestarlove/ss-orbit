@@ -1572,11 +1572,31 @@ test("system folder picker normalizes selected paths and reports unsupported pla
   assert.equal(darwinCommands[0].command, "osascript");
   assert.match(darwinCommands[0].args.join(" "), /choose folder/);
 
+  const linuxCommands = folderPickerCommands("linux", "Pick folder");
+  assert.equal(linuxCommands.at(-1).command, "powershell.exe");
+  assert.match(linuxCommands.at(-1).args.join(" "), /FolderBrowserDialog/);
+
   const picked = await pickFolder({
     platform: "darwin",
     execFileImpl: async () => ({ stdout: "/tmp/example/\n" })
   });
   assert.deepEqual(picked, { path: normalizePath("/tmp/example") });
+
+  const attempted = [];
+  const wslPicked = await pickFolder({
+    platform: "linux",
+    execFileImpl: async (command) => {
+      attempted.push(command);
+      if (command !== "powershell.exe") {
+        const error = new Error("missing command");
+        error.code = "ENOENT";
+        throw error;
+      }
+      return { stdout: "C:\\Users\\bruce\\git\\starscape\\ss-orbit\r\n" };
+    }
+  });
+  assert.deepEqual(attempted, ["zenity", "kdialog", "powershell.exe"]);
+  assert.deepEqual(wslPicked, { path: "/mnt/c/Users/bruce/git/starscape/ss-orbit" });
 
   const unsupported = await pickFolder({
     platform: "linux",

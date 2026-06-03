@@ -6,6 +6,21 @@ const execFileAsync = promisify(execFile);
 
 const DEFAULT_TITLE = "Choose repo folder for Orbit board";
 
+const WINDOWS_FOLDER_PICKER_ARGS = (title) => [
+  "-NoProfile",
+  "-STA",
+  "-Command",
+  [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
+    `$dialog.Description = ${JSON.stringify(title)}`,
+    "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {",
+    "  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
+    "  Write-Output $dialog.SelectedPath",
+    "}"
+  ].join("; ")
+];
+
 export function folderPickerCommands(platform = process.platform, title = DEFAULT_TITLE) {
   if (platform === "darwin") {
     return [
@@ -20,20 +35,7 @@ export function folderPickerCommands(platform = process.platform, title = DEFAUL
     return [
       {
         command: "powershell.exe",
-        args: [
-          "-NoProfile",
-          "-STA",
-          "-Command",
-          [
-            "Add-Type -AssemblyName System.Windows.Forms",
-            "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
-            `$dialog.Description = ${JSON.stringify(title)}`,
-            "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {",
-            "  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
-            "  Write-Output $dialog.SelectedPath",
-            "}"
-          ].join("; ")
-        ]
+        args: WINDOWS_FOLDER_PICKER_ARGS(title)
       }
     ];
   }
@@ -46,6 +48,10 @@ export function folderPickerCommands(platform = process.platform, title = DEFAUL
     {
       command: "kdialog",
       args: ["--getexistingdirectory", ".", title]
+    },
+    {
+      command: "powershell.exe",
+      args: WINDOWS_FOLDER_PICKER_ARGS(title)
     }
   ];
 }
@@ -57,6 +63,15 @@ function isMissingCommand(error) {
 function isPickerCancel(error) {
   const stderr = String(error?.stderr || "");
   return error?.code === 1 && /cancel|user canceled|user cancelled/i.test(stderr);
+}
+
+function windowsPathToWslPath(rawPath) {
+  const path = String(rawPath || "").trim();
+  const drivePath = path.match(/^([a-zA-Z]):[\\/](.*)$/);
+  if (!drivePath) return path;
+  const drive = drivePath[1].toLowerCase();
+  const rest = drivePath[2].replace(/\\/g, "/").replace(/^\/+/, "");
+  return `/mnt/${drive}/${rest}`;
 }
 
 export async function pickFolder(options = {}) {
@@ -73,7 +88,8 @@ export async function pickFolder(options = {}) {
         timeout: 120000,
         windowsHide: false
       });
-      const selectedPath = normalizePath(String(result.stdout || "").trim());
+      const rawPath = String(result.stdout || "").trim();
+      const selectedPath = normalizePath(platform === "linux" && spec.command === "powershell.exe" ? windowsPathToWslPath(rawPath) : rawPath);
       return selectedPath ? { path: selectedPath } : { canceled: true };
     } catch (error) {
       if (isMissingCommand(error)) {
