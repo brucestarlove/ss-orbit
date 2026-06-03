@@ -1761,7 +1761,7 @@ button.add-card-phantom::after,
   position: relative;
 }
 
-.card-action-button {
+button.card-action-button {
   width: 100%;
   min-width: 11.5rem;
   display: grid;
@@ -1779,18 +1779,18 @@ button.add-card-phantom::after,
   cursor: url('cursors/live_link.cur'), pointer;
 }
 
-.card-action-menu-item.has-submenu > .card-action-button {
+.card-action-menu-item.has-submenu > button.card-action-button {
   grid-template-columns: 1fr auto;
 }
 
-.card-action-button:hover,
-.card-action-button:focus-visible,
-.card-action-menu-item.is-open > .card-action-button {
+button.card-action-button:hover,
+button.card-action-button:focus-visible,
+.card-action-menu-item.is-open > button.card-action-button {
   outline: none;
   background: rgba(var(--accent-rgb), 0.12);
 }
 
-.card-action-button:disabled {
+button.card-action-button:disabled {
   cursor: default;
   color: var(--orbit-text-muted);
   opacity: 0.82;
@@ -1808,12 +1808,12 @@ button.add-card-phantom::after,
   white-space: nowrap;
 }
 
-.card-action-menu-item.is-danger > .card-action-button {
+.card-action-menu-item.is-danger > button.card-action-button {
   color: #b42318;
 }
 
-.card-action-menu-item.is-danger > .card-action-button:hover,
-.card-action-menu-item.is-danger > .card-action-button:focus-visible {
+.card-action-menu-item.is-danger > button.card-action-button:hover,
+.card-action-menu-item.is-danger > button.card-action-button:focus-visible {
   background: rgba(var(--red-rgb), 0.12);
 }
 
@@ -1839,13 +1839,13 @@ button.add-card-phantom::after,
 
 [data-theme="dark"] .card-action-menu,
 [data-theme="dark"] .card-action-submenu {
-  color: var(--starlight);
+  color: var(--orbit-text);
   background: rgba(var(--cosmos-rgb), 0.96);
   border-color: rgba(var(--starlight-rgb), 0.16);
   box-shadow: 0 18px 48px rgba(var(--void-rgb), 0.55), 0 0 0 1px rgba(var(--starlight-rgb), 0.04);
 }
 
-[data-theme="dark"] .card-action-menu-item.is-danger > .card-action-button {
+[data-theme="dark"] .card-action-menu-item.is-danger > button.card-action-button {
   color: #fca5a5;
 }
 
