@@ -5176,6 +5176,10 @@ button.help-dialog-close::after {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  /* The body is a plain block, so without this the section heading hugs the
+     element above it (lede / previous section). Give each section breathing
+     room above its uppercase label. */
+  margin-top: 1.25rem;
 }
 
 .help-dialog-heading {
