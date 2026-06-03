@@ -16,6 +16,10 @@ These are separate concerns; mixing them causes confusion:
 
 ## Use The Board
 
+### Orbit vocabulary rule
+
+In Orbit / kanban / ticket contexts, `epic` is a ticket `type`, not an adjective. If Bruce says "make/create an epic ticket/card about X" or "make an epic for X," create or update a ticket with `type: "epic"` whose subject is X. Do not reinterpret the word as "impressive," "big," or "high quality," and do not expand scope beyond the requested ticket type unless the prompt separately asks for planning/decomposition.
+
 - Read `agent_instructions` on the board first, then the ticket context pack.
 - Respect blockers and parent epics.
 - Use comments for discussion and breadcrumbs.

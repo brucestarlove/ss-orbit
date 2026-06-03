@@ -14,6 +14,8 @@ import {
   THEME_CHANGE_EVENT,
   applyStoredThemePreference,
   currentTheme,
+  storedThemePreference,
+  setThemePreference,
   toggleThemePreference
 } from "./theme-preference.js";
 
@@ -40,6 +42,14 @@ scheduleMeteor();
 syncThemeIcon();
 themeToggle?.addEventListener("click", () => {
   toggleThemePreference();
+});
+
+// When there's no explicit user preference stored, track OS changes live so
+// data-theme stays in sync and CSS selectors ([data-theme="dark"]) keep working.
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+  if (!storedThemePreference()) {
+    setThemePreference(e.matches ? "dark" : "light", { notify: true });
+  }
 });
 
 window.addEventListener(THEME_CHANGE_EVENT, () => {

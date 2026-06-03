@@ -37,20 +37,27 @@ export function storedThemePreference(storage = safeStorage()) {
   return THEMES.has(value) ? value : null;
 }
 
+function systemTheme() {
+  try {
+    return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
 export function currentTheme({ doc = safeDocument(), storage = safeStorage() } = {}) {
   const rootTheme = safeDocument(doc)?.documentElement?.getAttribute?.("data-theme");
-  return THEMES.has(rootTheme) ? rootTheme : storedThemePreference(storage) ?? "light";
+  if (THEMES.has(rootTheme)) return rootTheme;
+  return storedThemePreference(storage) ?? systemTheme();
 }
 
 export function applyStoredThemePreference({
   doc = safeDocument(),
   storage = safeStorage()
 } = {}) {
-  const storedTheme = storedThemePreference(storage);
-  if (storedTheme) {
-    safeDocument(doc)?.documentElement?.setAttribute?.("data-theme", storedTheme);
-  }
-  return currentTheme({ doc, storage });
+  const theme = storedThemePreference(storage) ?? systemTheme();
+  safeDocument(doc)?.documentElement?.setAttribute?.("data-theme", theme);
+  return theme;
 }
 
 export function setThemePreference(theme, {
