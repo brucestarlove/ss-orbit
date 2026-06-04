@@ -1,6 +1,6 @@
 # Orbit Dispatch
 
-`orbit dispatch` is the local Orbit-to-Hermes handoff command. It turns a local Orbit ticket into a bounded agent run without relying on a temporary prompt file as the source of truth.
+`orbit dispatch` is the Orbit-to-Hermes handoff command. It turns an Orbit ticket into a bounded agent run without relying on a temporary prompt file as the source of truth.
 
 The design intent is simple:
 
@@ -8,15 +8,38 @@ The design intent is simple:
 - Orbit remains canonical for planning, handoff, run records, and implementation notes.
 - The ticket becomes the shared communication surface between the human, orchestrator, and dispatched agent.
 
-## Current remote-board contract
+## Local and remote board contract
 
-`orbit dispatch` is intentionally local-board only right now. It resolves boards through the local Orbit registry and mutates the local SQLite board file.
+Local dispatch resolves boards through the local Orbit registry and mutates the local SQLite board file.
 
-Because of that, `--server-url` and `--remote` are refused before side effects. They do not silently target a hosted board.
+Remote dispatch targets a hosted Orbit server through the HTTP API. It accepts either a full hosted ticket URL or an explicit server/board/ticket tuple:
 
-For hosted/remote boards, use remote MCP/manual orchestration or run `orbit dispatch` on the board host without `--server-url`/`--remote`.
+```bash
+# Full hosted Orbit ticket URL. The board slug and ticket id are parsed from the hash route.
+orbit dispatch 'http://orbit.example/#/b/my-app/t/<ticket-id>' --profile nova --worktree
 
-## Basic use
+# Equivalent explicit form.
+orbit dispatch \
+  --server-url http://orbit.example \
+  --board my-app \
+  --ticket <ticket-id-or-number> \
+  --profile nova \
+  --worktree
+```
+
+Remote dispatch uses hosted Orbit API state for ticket reads, blockers, AI Plan/plan artifact updates, run-record comments, and lane moves. It still uses the local `--cwd` repo as the code/worktree root, because hosted board paths may belong to another machine.
+
+Safe preview forms work in remote mode too:
+
+```bash
+# Reads hosted board/ticket/blocker state, then exits with no writes.
+orbit dispatch 'http://orbit.example/#/b/my-app/t/<ticket-id>' --profile nova --dry-run
+
+# Writes handoff/run record/worktree and comments the hosted ticket, but does not spawn Hermes or move the card.
+orbit dispatch 'http://orbit.example/#/b/my-app/t/<ticket-id>' --profile nova --worktree --no-spawn
+```
+
+## Basic local use
 
 From the code repository you are working in, target the local Orbit board explicitly:
 
@@ -53,12 +76,12 @@ orbit dispatch --board my-app --ticket 12 --profile agent --worktree \
 
 ## Preflight order
 
-Before any filesystem writes, worktree creation, ticket mutation, or agent spawn, dispatch now:
+Before filesystem writes, worktree creation, ticket mutation, or agent spawn, dispatch now:
 
-1. Refuses `--server-url` / `--remote`.
-2. Resolves the local board from `--board` or from `--cwd` / the current repo.
-3. Resolves the ticket from `--ticket` by number or id.
-4. Refuses archived tickets.
+1. Parses local vs remote target (`--server-url`, `--remote`, or hosted ticket URL select remote mode).
+2. Resolves the board from `--board`, hosted URL, or local repo context.
+3. Resolves the ticket from `--ticket` by number/id or from the hosted URL.
+4. Refuses archived/missing tickets.
 5. Refuses blocked tickets unless `--force` is passed.
 6. Rejects missing or flag-looking `--verify-command` values during CLI argument parsing.
 7. For spawn mode, checks that the Hermes binary exists and the requested profile is plausible.
@@ -71,8 +94,8 @@ Only after those checks does dispatch create run artifacts/worktrees, write the 
 In normal spawn mode:
 
 1. Builds a run id such as `orbit-12-agent-abc123def0`.
-2. Creates `.orbit/dispatch-runs/<run-id>/` for run metadata and policy wrappers.
-3. Creates and preserves a git worktree/branch when `--worktree` is used.
+2. Creates a run directory for run metadata and policy wrappers. Local board mode uses `<DATA_DIR>/dispatch-runs/<board>/<run-id>/`; remote mode uses `<repo>/.orbit/dispatch-runs/<run-id>/` so the handoff stays with the source checkout.
+3. Creates and preserves a git worktree/branch when `--worktree` is used. Remote mode defaults to `<repo-parent>/.worktrees/<repo-name>/<run-id>/`.
 4. Generates a full agent handoff.
 5. Writes an initial durable `run-record.json` with status `prepared` before ticket mutation or agent spawn.
 6. Writes the canonical handoff as a linked markdown artifact and stores a terse plan summary in AI Plan.
@@ -83,15 +106,15 @@ In normal spawn mode:
 
 In `--no-spawn` mode, dispatch writes the handoff artifact, initial `run-record.json`, and compact run-record comment but leaves the ticket in its current lane.
 
-The run record includes profile, policy, ticket, branch, worktree, base commit, policy-bin path, child process id, command, declared verification commands, mode, and a `run-record.json` path. This makes the card the visible cockpit for the run while preserving a machine-readable artifact for later review/repair automation.
+The run record includes profile, policy, ticket, branch, worktree, base commit, policy-bin path, child process id, command, declared verification commands, mode, transport (`local` or `remote`), and a `run-record.json` path. This makes the card the visible cockpit for the run while preserving a machine-readable artifact for later review/repair automation.
 
 ## Structured run record
 
-Every non-dry-run dispatch writes `<DATA_DIR>/dispatch-runs/<board>/<run-id>/run-record.json` with schema `orbit.dispatch.run.v1`.
+Every non-dry-run dispatch writes `run-record.json` with schema `orbit.dispatch.run.v1`.
 
 The JSON record currently captures:
 
-- run id, board id/slug, ticket id/number, profile, policy, mode, and status (`prepared` for `--no-spawn`, `launched` for spawned runs)
+- run id, board id/slug, ticket id/number, profile, policy, transport, mode, and status (`prepared` for `--no-spawn`, `launched` for spawned runs)
 - prompt/handoff path, repo root, worktree, branch, and base commit
 - process id when a Hermes child was spawned
 - declared verification commands
@@ -142,8 +165,9 @@ Dispatch stores the generated handoff as a linked markdown artifact and keeps on
 - required reading order: `AGENTS.md`, `SKILL-ORBIT.md`, then the handoff
 - ticket description
 - terse AI Plan / Work Summary text, Revisions, and any linked artifact paths
-- board-level agent instructions and notes
-- board Journal lessons/decisions: the most important code, pattern, project, and workflow context loaded for every agent on the board
+- board-level agent instructions
+- board Journal lessons/decisions when available
+- recent remote comments when remote dispatch uses the lean dispatch packet
 - parent/child ticket context
 - unresolved blockers
 - scope boundaries
@@ -157,22 +181,29 @@ Board journal entries are framed as project constraints and lessons, not persona
 
 ## Preserved worktrees
 
-Use `--worktree` when the agent will edit code. Dispatch creates a normal git worktree under `.worktrees/` by default and gives the agent that directory as its working directory.
+Use `--worktree` when the agent will edit code. Dispatch creates a normal git worktree and gives the agent that directory as its working directory.
 
 This solves the ephemeral-agent problem: humans can test the branch/worktree before cleanup.
 
-Default shape:
+Default local shape:
 
 ```text
-.worktrees/<board>-<ticket>-<profile>-<shortid>
+<repo>/.worktrees/<board>-<ticket>-<profile>-<shortid>
 orbit/<board>-<ticket>-<profile>-<shortid>
+```
+
+Default remote shape:
+
+```text
+<repo-parent>/.worktrees/<repo-name>/<run-id>
+orbit/<ticket>-<profile>-remote-<shortid>
 ```
 
 `.worktrees/` is ignored by git.
 
 ## Safe autonomous policy
 
-The default policy prepends `.orbit/dispatch-runs/<run-id>/policy-bin` to the child agent's `PATH`. That directory contains wrappers for commands that should be restricted during an autonomous run.
+The default policy prepends the run directory’s `policy-bin` to the child agent's `PATH`. That directory contains wrappers for commands that should be restricted during an autonomous run.
 
 Allowed:
 
@@ -234,7 +265,9 @@ orbit --version
 
 ## Operator notes for orchestrators
 
-- Prefer `orbit dispatch` over writing a temporary handoff prompt file when targeting a local board.
+- Prefer `orbit dispatch` over writing a temporary handoff prompt file when targeting an Orbit ticket.
+- Use a full hosted Orbit ticket URL for the fastest remote path; dispatch will parse the server, board slug, and ticket id.
+- Use `--cwd` to point remote dispatch at the local code checkout when the hosted board records another machine’s repo path.
 - Use `--dry-run` when you want proof of what would happen without any side effects.
 - Use `--no-spawn` when you want to inspect the generated handoff/worktree/comment before starting an agent.
 - Use `--worktree` for code edits so the human can test before cleanup.

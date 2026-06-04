@@ -88,17 +88,18 @@ If you initialized with `--example`, ticket #12 (`Try Orbit MCP on this ticket`)
 
 ### Dispatch a local Hermes run
 
-For a first-class handoff to a named Hermes profile on a local board, use `orbit dispatch` instead of writing an ad-hoc prompt file:
+For a first-class handoff to a named Hermes profile, use `orbit dispatch` instead of writing an ad-hoc prompt file:
 
 ```bash
 orbit dispatch --board my-app --ticket 12 --profile agent --worktree
+orbit dispatch 'http://orbit.example/#/b/my-app/t/<ticket-id>' --profile agent --worktree
 orbit dispatch --board my-app --ticket 12 --dry-run    # preview only; no writes or spawn
 orbit dispatch --board my-app --ticket 12 --no-spawn   # prepare handoff/comment; leave lane unchanged
 ```
 
-Dispatch validates the local board, ticket, blockers, and Hermes availability before mutating a ticket. Normal spawn mode writes the generated handoff as a linked markdown artifact, stores only a terse plan summary in AI Plan, moves the ticket to **In Progress**, optionally preserves a git worktree/branch for review, starts Hermes, and comments a compact run record back onto the card. `--no-spawn` writes the handoff artifact/comment but does not move the ticket to In Progress. The default `agent-safe` policy allows local inspection, edits, tests, and commits while blocking Docker, pushes, deploys, package installs, destructive git commands, and common network/cloud escape hatches.
+Dispatch validates the board, ticket, blockers, and Hermes availability before mutating a ticket. Normal spawn mode writes the generated handoff as a linked markdown artifact, stores only a terse plan summary in AI Plan, moves the ticket to **In Progress**, optionally preserves a git worktree/branch for review, starts Hermes, and comments a compact run record back onto the card. `--no-spawn` writes the handoff artifact/comment but does not move the ticket to In Progress. The default `agent-safe` policy allows local inspection, edits, tests, and commits while blocking Docker, pushes, deploys, package installs, destructive git commands, and common network/cloud escape hatches.
 
-`orbit dispatch` is intentionally not a hosted-board client yet: `--server-url` and `--remote` are refused before side effects. Use remote MCP tools for hosted/remote boards, or run dispatch on the board host. Full operator/user guide: [docs/ORBIT_DISPATCH.md](docs/ORBIT_DISPATCH.md).
+`orbit dispatch` supports hosted boards through a full Orbit ticket URL or `--server-url <url> --board <slug> --ticket <id-or-number>`. In remote mode, hosted Orbit is the planning-state source of truth while `--cwd` points at the local code checkout/worktree root. Full operator/user guide: [docs/ORBIT_DISPATCH.md](docs/ORBIT_DISPATCH.md).
 
 ## Vocabulary
 

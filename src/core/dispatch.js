@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { extname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { localOwnerActor } from "./auth.js";
 import { DISPATCH_RUNS_DIR } from "./paths.js";
 import { getContextPackFull } from "./agent.js";
@@ -52,14 +52,34 @@ function resolveTicket(db, boardId, ticketRef) {
   return ticket;
 }
 
-function remoteDispatchError(options) {
-  if (!options.remote && !options.serverUrl) return null;
-  const target = options.serverUrl ? ` (${options.serverUrl})` : "";
-  return [
-    `Remote dispatch is not supported by the local CLI path yet${target}.`,
-    "`orbit dispatch` currently mutates a board through the local registry and SQLite board file only.",
-    "Run it on the board host without --server-url/--remote, or use remote MCP/manual orchestration for hosted boards."
-  ].join("\n");
+function parseTicketUrl(value) {
+  if (!value) return null;
+  let url;
+  try {
+    url = new URL(String(value));
+  } catch {
+    return null;
+  }
+  const hash = String(url.hash || "").replace(/^#/, "");
+  const match = hash.match(/(?:^|\/)b\/([^/]+)\/t\/([^/?#]+)/);
+  if (!match) return null;
+  url.hash = "";
+  url.search = "";
+  url.pathname = url.pathname.replace(/\/+$/, "");
+  return {
+    serverUrl: url.toString().replace(/\/+$/, ""),
+    board: decodeURIComponent(match[1]),
+    ticket: decodeURIComponent(match[2])
+  };
+}
+
+function remoteTarget(options) {
+  const parsed = parseTicketUrl(options.ticketUrl || options.ticket);
+  return {
+    serverUrl: options.serverUrl || parsed?.serverUrl || process.env.ORBIT_SERVER_URL || process.env.ORBIT_API_URL || "",
+    board: options.board || parsed?.board || process.env.ORBIT_DEFAULT_BOARD || "",
+    ticket: parsed?.ticket || options.ticket || ""
+  };
 }
 
 function resolveExecutable(command) {
@@ -210,6 +230,7 @@ function buildRunRecordJson({
     commit_shas: [],
     residual_risks: [],
     server_url: sanitizeUrlBearingValue(serverUrl),
+    transport: options.remote || options.serverUrl || options.ticketUrl ? "remote" : "local",
     mode: options.noSpawn ? "prepare-only" : "spawn",
     command: `${options.hermesBin || "hermes"} ${hermesArgs.map((arg) => (arg.includes(" ") ? q(arg) : arg)).join(" ")}`,
     created_at: new Date().toISOString(),
@@ -377,6 +398,10 @@ function buildHandoff({ boardRow, context, profile, repoRoot, worktreePath, bran
   const childText = children.length
     ? children.map((child) => `- #${child.number} ${child.title} (${child.state_name})`).join("\n")
     : "None.";
+  const recentComments = (context.recent_comments || [])
+    .slice(-5)
+    .map((comment) => `- ${comment.author || "unknown"} (${comment.kind || "comment"}): ${comment.body || ""}`)
+    .join("\n");
   const verificationText = verificationCommands.map((command) => `- ${command}`).join("\n");
 
   return `# Orbit Agent Handoff
@@ -434,6 +459,7 @@ ${childText}
 ## Unresolved blockers
 ${blockerText}
 
+${recentComments ? `## Recent ticket comments\n${recentComments}\n` : ""}
 ## Scope boundaries
 - Keep changes local to this repository/worktree.
 - Do not push, deploy, publish, or open/merge PRs.
@@ -501,10 +527,268 @@ function ensureWorktree({ repoRoot, boardSlug, ticketNumber, profile, branchName
   return { branchName: runBranch, worktreePath: runWorktree };
 }
 
-export function dispatchTicket(options) {
-  const remoteError = remoteDispatchError(options);
-  if (remoteError) throw new Error(remoteError);
+function remoteRunId(ticket, profile) {
+  return `orbit-${ticket.number}-${profile}-${shortId()}`;
+}
 
+function remoteRunDir(repoRoot, runId) {
+  return join(repoRoot, ".orbit", "dispatch-runs", runId);
+}
+
+function remoteWorktreePath(repoRoot, runId) {
+  return join(dirname(repoRoot), ".worktrees", basename(repoRoot), runId);
+}
+
+function contextFromDispatchPacket(packet, blockers) {
+  const blockerList = Array.isArray(blockers?.blockers) ? blockers.blockers : packet.blockers?.blockers || [];
+  return {
+    ticket: packet.ticket,
+    board: packet.board,
+    board_manual: { entries: [] },
+    parent_ticket: packet.parent_ticket || null,
+    child_tickets: [],
+    blockers: blockerList,
+    recent_comments: packet.recent_comments || []
+  };
+}
+
+async function createRemoteClient(options, target) {
+  if (options.remoteClient) return options.remoteClient;
+  const { createHttpOrbitClient } = await import("../mcp/orbit-client.js");
+  return createHttpOrbitClient({
+    ...process.env,
+    ORBIT_MODE: "remote",
+    ORBIT_API_URL: target.serverUrl,
+    ORBIT_DEFAULT_BOARD: target.board
+  });
+}
+
+async function dispatchTicketRemote(options) {
+  const target = remoteTarget(options);
+  if (!target.serverUrl) throw new Error("Remote dispatch requires --server-url or a hosted Orbit ticket URL.");
+  if (!target.board) throw new Error("Remote dispatch requires --board or a hosted Orbit ticket URL containing /b/<slug>.");
+  if (!target.ticket) throw new Error("Remote dispatch requires --ticket or a hosted Orbit ticket URL containing /t/<ticket>.");
+
+  const profile = options.profile || "agent";
+  const policyName = options.policy === undefined ? DEFAULT_POLICY : options.policy;
+  const verificationCommands = normalizeVerificationCommands(options.verifyCommands);
+  const remoteClient = await createRemoteClient(options, target);
+  await remoteClient.boardSetActive?.({ slug: target.board });
+
+  let packet;
+  if (/^\d+$/.test(String(target.ticket))) {
+    const found = await remoteClient.readTicket({ board_slug: target.board, number: Number(target.ticket) });
+    const ticketId = found.ticket?.id || found.results?.[0]?.id || found.id;
+    if (!ticketId) throw new Error(`Ticket not found on remote board: ${target.ticket}`);
+    packet = await remoteClient.getAgentDispatchPacket({ board_slug: target.board, ticket_id: ticketId, comment_limit: 5 });
+  } else {
+    packet = await remoteClient.getAgentDispatchPacket({ board_slug: target.board, ticket_id: target.ticket, comment_limit: 5 });
+  }
+  const blockers = await remoteClient.getTicketBlockers({ board_slug: target.board, ticket_id: packet.ticket.id });
+  const blockerList = Array.isArray(blockers?.blockers) ? blockers.blockers : [];
+  if (blockerList.length && !options.force) {
+    throw new Error(`Ticket #${packet.ticket.number} is blocked: ${blockerList.map((b) => `#${b.number} ${b.title}`).join(", ")}`);
+  }
+
+  const boardRow = {
+    id: packet.board.id,
+    slug: packet.board.slug,
+    name: packet.board.name,
+    repo_path: packet.board.repo_path || packet.board.system_path || "",
+    default_branch: packet.board.default_branch || "main"
+  };
+  const ticket = packet.ticket;
+  const repoRoot = resolveRepoRoot(options, boardRow);
+
+  if (options.dryRun) {
+    return {
+      dry_run: true,
+      no_spawn: Boolean(options.noSpawn),
+      run_id: null,
+      board: { id: boardRow.id, slug: boardRow.slug, name: boardRow.name },
+      ticket: { id: ticket.id, number: ticket.number, title: ticket.title },
+      profile,
+      policy: policyName || "none",
+      repo_root: repoRoot,
+      worktree_path: repoRoot,
+      branch: options.branch || "",
+      handoff_path: null,
+      policy_bin: null,
+      pid: null,
+      spawned: false,
+      prompt: "",
+      run_record: "",
+      run_record_path: null,
+      verification_commands: verificationCommands,
+      remote: true
+    };
+  }
+
+  const inProgressId = packet.relevant_state_ids?.in_progress;
+  if (!options.noSpawn && !inProgressId) throw new Error("Remote board is missing an In Progress state id in the dispatch packet.");
+  const hermesExecutable = options.noSpawn ? null : preflightHermes(options, profile);
+  const runId = remoteRunId(ticket, profile);
+  const runDir = remoteRunDir(repoRoot, runId);
+  const baseCommit = optionalCommandOutput("git", ["-C", repoRoot, "rev-parse", "HEAD"]);
+  const environmentVariance = collectEnvironmentVariance();
+  let branchName = options.branch || "";
+  let worktreePath = "";
+
+  if (options.worktree) {
+    const worktree = ensureWorktree({
+      repoRoot,
+      boardSlug: boardRow.slug,
+      ticketNumber: ticket.number,
+      profile,
+      branchName: options.branch || `orbit/${ticket.number}-${cleanName(profile)}-remote-${shortId()}`,
+      worktreePath: options.worktreePath || remoteWorktreePath(repoRoot, runId)
+    });
+    branchName = worktree.branchName;
+    worktreePath = worktree.worktreePath;
+  }
+
+  mkdirSync(runDir, { recursive: true });
+  const policyBin = createPolicyBin(runDir, policyName);
+  const context = contextFromDispatchPacket(packet, blockers);
+  const displayServerUrl = sanitizeUrlBearingValue(target.serverUrl);
+  const handoff = `${buildHandoff({
+    boardRow,
+    context,
+    profile,
+    repoRoot,
+    worktreePath,
+    branchName,
+    baseCommit,
+    policyName,
+    runId,
+    serverUrl: displayServerUrl,
+    verificationCommands
+  })}\n## Remote Orbit environment for spawned agents\n- ORBIT_MODE=remote\n- ORBIT_DEFAULT_BOARD=${boardRow.slug}\n- ORBIT_API_URL is provided by dispatch when spawning; URL-bearing values are redacted from run records.\n`;
+  const handoffPath = join(runDir, "handoff.md");
+  writeFileSync(handoffPath, handoff, "utf8");
+
+  const prompt = buildShortPrompt({ boardRow, ticket, profile, serverUrl: displayServerUrl });
+  const hermesArgs = [];
+  if (profile) hermesArgs.push("-p", profile);
+  if (options.yolo) hermesArgs.push("--yolo");
+  hermesArgs.push("chat", "-q", prompt);
+  const runRecordPath = join(runDir, "run-record.json");
+  const writeRunRecordFile = options.writeRunRecordFile || ((path, runRecordJson) => {
+    writeFileSync(path, `${JSON.stringify(runRecordJson, null, 2)}\n`, "utf8");
+  });
+  const writeRunRecordJson = (status, childProcess = null) => {
+    const runRecordJson = buildRunRecordJson({
+      runId,
+      status,
+      boardRow,
+      ticket,
+      profile,
+      policyName,
+      repoRoot,
+      worktreePath,
+      branchName,
+      baseCommit,
+      handoffPath,
+      policyBin,
+      child: childProcess,
+      hermesArgs,
+      verificationCommands,
+      options: { ...options, remote: true },
+      serverUrl: target.serverUrl,
+      environmentVariance
+    });
+    writeRunRecordFile(runRecordPath, runRecordJson);
+    return runRecordJson;
+  };
+
+  let status = "prepared";
+  writeRunRecordJson(status, null);
+  const planSummary = buildPlanExcerpt({ ticket, profile, handoffPath });
+  const ticketPatch = { ticket_id: ticket.id, board_slug: boardRow.slug, ai_plan: planSummary, plan_artifact_path: handoffPath };
+  if (!options.noSpawn) ticketPatch.state_id = inProgressId;
+  await remoteClient.updateTicket(ticketPatch);
+
+  const cwd = worktreePath || repoRoot;
+  const env = {
+    ...process.env,
+    ORBIT_MODE: "remote",
+    ORBIT_API_URL: target.serverUrl,
+    ORBIT_DEFAULT_BOARD: boardRow.slug,
+    ORBIT_DISPATCH_RUN_ID: runId,
+    ORBIT_BOARD: boardRow.slug,
+    ORBIT_TICKET: String(ticket.number),
+    ORBIT_TICKET_ID: ticket.id,
+    ORBIT_HANDOFF_PATH: handoffPath,
+    ORBIT_AUTONOMOUS_POLICY: policyName || "none",
+    ...(policyBin ? { PATH: `${policyBin}:${process.env.PATH || ""}` } : {})
+  };
+
+  let child = null;
+  if (!options.noSpawn) {
+    child = spawn(hermesExecutable.command, [...hermesExecutable.argsPrefix, ...hermesArgs], {
+      cwd,
+      env,
+      detached: !options.foreground,
+      stdio: options.foreground ? "inherit" : "ignore"
+    });
+    if (!options.foreground) child.unref();
+    status = "launched";
+    writeRunRecordJson(status, child);
+  }
+
+  const runRecord = [
+    `Orbit remote dispatch run ${options.noSpawn ? "prepared" : "started"}.`,
+    `- run_id: ${runId}`,
+    `- profile: ${profile}`,
+    `- status: ${status}`,
+    `- transport: remote hosted board`,
+    `- policy: ${policyName || "none"}`,
+    `- ticket: #${ticket.number} ${ticket.title}`,
+    `- branch: ${branchName || "current branch"}`,
+    `- base_commit: ${baseCommit || "unknown"}`,
+    `- worktree: ${worktreePath || repoRoot}`,
+    `- handoff: ${handoffPath}`,
+    `- run_record_json: ${runRecordPath}`,
+    `- policy_bin: ${policyBin || "none"}`,
+    `- pid: ${child?.pid || "not spawned"}`,
+    `- verification_commands: ${verificationCommands.join("; ")}`,
+    `- command: ${options.hermesBin || "hermes"} ${hermesArgs.map((arg) => (arg.includes(" ") ? q(arg) : arg)).join(" ")}`,
+    options.noSpawn ? "- mode: prepare-only; no agent spawned and ticket state left unchanged" : "- mode: spawned; ticket moved to In Progress"
+  ].join("\n");
+
+  await remoteClient.addComment({ ticket_id: ticket.id, board_slug: boardRow.slug, author: "orbit dispatch", kind: "agent_note", body: runRecord });
+
+  return {
+    dry_run: false,
+    no_spawn: Boolean(options.noSpawn),
+    run_id: runId,
+    board: { id: boardRow.id, slug: boardRow.slug, name: boardRow.name },
+    ticket: { id: ticket.id, number: ticket.number, title: ticket.title },
+    profile,
+    policy: policyName || "none",
+    repo_root: repoRoot,
+    worktree_path: worktreePath || repoRoot,
+    branch: branchName || "",
+    handoff_path: handoffPath,
+    policy_bin: policyBin,
+    pid: child?.pid || null,
+    spawned: Boolean(child),
+    prompt,
+    run_record: runRecord,
+    run_record_path: runRecordPath,
+    verification_commands: verificationCommands,
+    remote: true
+  };
+}
+
+export async function dispatchTicketAsync(options) {
+  if (options.remote || options.serverUrl || options.ticketUrl || parseTicketUrl(options.ticket)) {
+    return dispatchTicketRemote({ ...options, remote: true });
+  }
+  return dispatchTicket(options);
+}
+
+export function dispatchTicket(options) {
   const profile = options.profile || "agent";
   const policyName = options.policy === undefined ? DEFAULT_POLICY : options.policy;
   const verificationCommands = normalizeVerificationCommands(options.verifyCommands);

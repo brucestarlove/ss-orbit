@@ -339,7 +339,7 @@ test("orbit dispatch --help prints usage without an unknown argument warning", (
   assert.doesNotMatch(result.stderr + result.stdout, /Unknown argument/);
 });
 
-test("orbit dispatch refuses remote server-url before creating local artifacts", () => {
+test("orbit dispatch remote server-url fails through remote API without local artifacts", () => {
   const h = makeHarness();
   const beforeRootEntries = readdirSync(h.root);
   const result = runOrbitResult(
@@ -348,7 +348,7 @@ test("orbit dispatch refuses remote server-url before creating local artifacts",
   );
 
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Remote dispatch is not supported/i);
+  assert.match(result.stderr, /fetch failed|Orbit API/i);
   assert.deepEqual(readdirSync(h.root), beforeRootEntries);
 });
 

@@ -41,8 +41,8 @@ Options (dispatch):
   --ticket <number-id>  Ticket number or id to dispatch
   --profile <name>      Hermes profile to run (default: agent)
   --policy <name>       Autonomous policy wrappers to apply (default: agent-safe; use none to disable)
-  --server-url <url>    Refused for now; dispatch is local-board only
-  --remote              Refused for now; use remote MCP/manual orchestration for hosted boards
+  --server-url <url>    Hosted Orbit base URL for remote dispatch
+  --remote              Force hosted/remote dispatch mode
   --worktree            Create and preserve a git worktree for review/testing
   --worktree-path <dir> Worktree path when --worktree is used
   --branch <name>       Branch name for the preserved worktree
@@ -186,6 +186,7 @@ function parseArgs(argv) {
     dryRun: false,
     board: null,
     ticket: null,
+    ticketUrl: null,
     profile: "agent",
     policy: "agent-safe",
     serverUrl: null,
@@ -312,6 +313,9 @@ function parseArgs(argv) {
       args.foreground = true;
     } else if (a === "--dry-run") {
       args.dryRun = true;
+    } else if (args.command === "dispatch" && /^https?:\/\//i.test(a) && !args.ticketUrl) {
+      args.ticketUrl = a;
+      args.remote = true;
     } else {
       console.error(`Unknown argument: ${a}`);
       args.command = "help";
@@ -601,8 +605,8 @@ async function runDispatch(options) {
     return;
   }
   process.env.PROJECT_ROOT = resolve(options.cwd);
-  const { dispatchTicket } = await import("../core/dispatch.js");
-  const result = dispatchTicket(options);
+  const { dispatchTicketAsync } = await import("../core/dispatch.js");
+  const result = await dispatchTicketAsync(options);
   if (result.dry_run) {
     console.log(`Dry run: would dispatch ticket #${result.ticket.number} ${result.ticket.title}`);
     console.log(`Board: ${result.board.slug}`);
