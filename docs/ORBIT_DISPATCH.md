@@ -75,13 +75,13 @@ In normal spawn mode:
 3. Creates and preserves a git worktree/branch when `--worktree` is used.
 4. Generates a full agent handoff.
 5. Writes an initial durable `run-record.json` with status `prepared` before ticket mutation or agent spawn.
-6. Writes the canonical handoff copy to the ticket's **AI Written-Plan** (`ai_plan`) field.
+6. Writes the canonical handoff as a linked markdown artifact and stores a terse plan summary in AI Plan.
 7. Moves the ticket to **In Progress**.
 8. Starts Hermes.
 9. Updates `run-record.json` to status `launched` with the child process id.
 10. Comments a run record back onto the ticket.
 
-In `--no-spawn` mode, dispatch writes the handoff, initial `run-record.json`, and run-record comment but leaves the ticket in its current lane.
+In `--no-spawn` mode, dispatch writes the handoff artifact, initial `run-record.json`, and compact run-record comment but leaves the ticket in its current lane.
 
 The run record includes profile, policy, ticket, branch, worktree, base commit, policy-bin path, child process id, command, declared verification commands, mode, and a `run-record.json` path. This makes the card the visible cockpit for the run while preserving a machine-readable artifact for later review/repair automation.
 
@@ -133,17 +133,17 @@ board_get_review_verdict
 
 Comments may mirror verdict summaries for human scanning, but comments are not the source of truth for review automation. Later repair and re-review tooling should read these records directly.
 
-## The AI Written-Plan handoff
+## The linked markdown handoff
 
-Dispatch stores the generated handoff in the ticket's AI Written-Plan field. It includes:
+Dispatch stores the generated handoff as a linked markdown artifact and keeps only a terse AI Plan summary visible on the ticket. The artifact includes:
 
 - mission and ticket metadata
 - repository root, worktree, branch, and run id
 - required reading order: `AGENTS.md`, `SKILL-ORBIT.md`, then the handoff
 - ticket description
-- implementation fields (`ai_plan`, `implementation_summary`, `implementation_updates`)
+- terse AI Plan / Work Summary text, Revisions, and any linked artifact paths
 - board-level agent instructions and notes
-- board journal lessons/decisions
+- board Journal lessons/decisions: the most important code, pattern, project, and workflow context loaded for every agent on the board
 - parent/child ticket context
 - unresolved blockers
 - scope boundaries
@@ -201,10 +201,11 @@ The dispatched agent should:
 
 1. Run relevant tests and focused manual/API checks.
 2. Commit locally on the dispatch branch.
-3. Update **AI Implementation Summary** (`implementation_summary`) with what changed, commit SHA, branch/worktree, verification, and manual checks still needed.
-4. Add **Implementation Updates/Lessons** (`implementation_updates`) for pitfalls, remediation, and reusable guidance.
-5. Add a completion comment/run record.
-6. Move the card to **Review**, not Done, unless the human explicitly asked for auto-completion.
+3. Put a terse human-readable result in **Work Summary** (`implementation_summary`).
+4. If full detail matters, write a markdown report artifact and link it with `implementation_artifact_path`.
+5. Leave Revisions (`implementation_updates`) blank unless this is a later change/correction after initial implementation; promote the most important code/pattern/project lessons and decisions to board Journal entries.
+6. Add a compact completion comment/run receipt.
+7. Move the card to **Review**, not Done, unless the human explicitly asked for auto-completion.
 
 ## Installing / enabling the command
 
@@ -237,9 +238,10 @@ orbit --version
 - Use `--dry-run` when you want proof of what would happen without any side effects.
 - Use `--no-spawn` when you want to inspect the generated handoff/worktree/comment before starting an agent.
 - Use `--worktree` for code edits so the human can test before cleanup.
-- Treat the ticket fields as durable surfaces:
-  - AI Written-Plan: generated handoff
-  - AI Implementation Summary: final summary of completed work
-  - Implementation Updates/Lessons: pitfalls, remediation, future-agent guidance
-  - Comments: run records and transient breadcrumbs
+- Treat the ticket fields as human-visible surfaces:
+  - AI Plan: terse visible plan summary; full handoff/plan doc lives in human-editable `plan_artifact_path`
+  - Work Summary: terse visible result summary; full report/evidence doc lives in human-editable `implementation_artifact_path`
+  - Revisions: terse later corrections/changes after initial implementation only
+  - Comments: compact run receipts and transient breadcrumbs
+  - Board Journal: durable reusable project lessons/decisions
 - Do not push, deploy, or open PRs from the dispatched agent unless the human explicitly asked for that run to do so.

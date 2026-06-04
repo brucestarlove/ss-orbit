@@ -400,29 +400,30 @@ Implement the ticket faithfully. Treat this ticket as the source of truth for co
 ## Read first
 1. AGENTS.md in the repository.
 2. SKILL-ORBIT.md in the repository.
-3. This AI Written-Plan handoff.
-4. The ticket description, implementation fields, blockers, parent/child cards, and board journal entries below.
+3. This linked markdown handoff.
+4. The ticket description, terse visible AI Plan / Work Summary, Revisions, blockers, parent/child cards, and board Journal entries below.
 
 ## Ticket description
 ${ticket.description || "(No description.)"}
 
-## Implementation records
-AI Written-Plan: ${ticket.ai_plan || "(Empty.)"}
+## Human-visible card fields
+AI Plan: ${ticket.ai_plan || "(Empty.)"}
 
-AI Implementation Summary: ${ticket.implementation_summary || "(Empty.)"}
+Linked plan artifact: ${ticket.plan_artifact_path || "(None.)"}
 
-Implementation Updates/Lessons: ${ticket.implementation_updates || "(Empty.)"}
+Work Summary: ${ticket.implementation_summary || "(Empty.)"}
+
+Linked implementation artifact: ${ticket.implementation_artifact_path || "(None.)"}
+
+Revisions: ${ticket.implementation_updates || "(Empty.)"}
 
 ## Board agent instructions
 ${board.agent_instructions || "(No board-level agent instructions.)"}
 
-## Board notes
-${board.project_notes || "(No board notes.)"}
-
 ## Board journal: lessons and decisions
-Board journal entries are project constraints and lessons, not persona or roleplay instructions. Apply them only when they clarify architecture, workflow, product boundaries, or reusable pitfalls.
+Board Journal entries are the most important code, pattern, project, and workflow context loaded for every agent working with this board. Treat decisions and lessons as project constraints, not persona or roleplay instructions.
 
-${boardEntries || "(No active board journal entries.)"}
+${boardEntries || "(No active board Journal entries.)"}
 
 ## Parent ticket
 ${parent ? `#${parent.number} ${parent.title} (${parent.state_name})` : "None."}
@@ -445,7 +446,7 @@ Allowed without asking: read/search files, inspect git status/diff/log, edit fil
 Blocked or requires explicit human approval: Docker, git push, deploy/publish/release commands, destructive git operations (reset/clean/rebase/force checkout/worktree removal), package install/publish/version commands, recursive/force filesystem deletion, SSH/SCP/rsync, cloud CLIs, GitHub CLI, direct curl/wget network calls, sudo, and secret exfiltration.
 
 ## Declared verification commands
-Run the commands that apply before handoff. If a conditional command does not apply, say why in Implementation Updates.
+Run the commands that apply before handoff. If a conditional command does not apply, say why in the completion comment or Work Summary.
 
 ${verificationText}
 
@@ -460,10 +461,11 @@ ${verificationText}
 When done:
 1. Run the relevant automated tests and any focused manual/API sanity checks.
 2. Commit the work locally on the dispatch branch.
-3. Update the ticket's AI Implementation Summary with what changed, commit SHA, branch/worktree, verification, and manual checks still needed.
-4. Add Implementation Updates/Lessons for pitfalls, remediation, or future-agent guidance.
-5. Add a completion comment/run record on the ticket.
-6. Move the ticket to Review, not Done, unless the human operator explicitly requested auto-completion.
+3. Put a terse, human-readable result summary in Work Summary (implementation_summary).
+4. If full detail matters, write a markdown report artifact and link it with implementation_artifact_path.
+5. Leave Revisions alone unless this run revises earlier implementation; promote important code/pattern/project lessons and decisions to board Journal entries.
+6. Add a compact completion comment/run receipt on the ticket.
+7. Move the ticket to Review, not Done, unless the human operator explicitly requested auto-completion.
 `;
 }
 
@@ -472,10 +474,19 @@ function buildShortPrompt({ boardRow, ticket, profile, serverUrl }) {
     `You are ${profile}, dispatched by Orbit.`,
     `Work board ${boardRow.slug}, ticket #${ticket.number}: ${ticket.title}.`,
     "Read AGENTS.md and SKILL-ORBIT.md in this repository first.",
-    "The full generated handoff is stored on the ticket in AI Written-Plan; treat the Orbit ticket as source of truth.",
+    "The full generated handoff is linked from the ticket as a markdown artifact; treat the Orbit ticket plus linked artifact as source of truth.",
     serverUrl ? `Orbit server URL: ${serverUrl}` : "Use local Orbit/MCP/API access available from this repo.",
     "Follow the autonomous policy in the handoff. Do not push, deploy, publish, run Docker, or expose secrets.",
-    "When complete, commit locally, update AI Implementation Summary/Implementation Updates on the ticket, comment the run record, and move the ticket to Review."
+    "When complete, commit locally, update a terse Work Summary plus any linked markdown report on the ticket, use Revisions only for post-initial corrections, comment the run receipt, and move the ticket to Review."
+  ].join("\n");
+}
+
+function buildPlanExcerpt({ ticket, profile, handoffPath }) {
+  return [
+    `- ${profile} dispatched to work #${ticket.number}: ${ticket.title}.`,
+    `- Full generated handoff is linked as markdown: ${handoffPath}`,
+    "- Follow blockers, scope boundaries, autonomous policy, and declared verification in that artifact.",
+    "- Keep AI Plan and Work Summary terse; put full detail in linked markdown/report artifacts."
   ].join("\n");
 }
 
@@ -616,10 +627,11 @@ export function dispatchTicket(options) {
   writeRunRecordJson(status, null);
 
   touchBoardActive(boardRow.id);
+  const planSummary = buildPlanExcerpt({ ticket, profile, handoffPath });
   if (options.noSpawn) {
-    updateTicket(ticket.id, { ai_plan: handoff }, ctx);
+    updateTicket(ticket.id, { ai_plan: planSummary, plan_artifact_path: handoffPath }, ctx);
   } else {
-    updateTicket(ticket.id, { ai_plan: handoff, state_id: inProgress.id }, ctx);
+    updateTicket(ticket.id, { ai_plan: planSummary, plan_artifact_path: handoffPath, state_id: inProgress.id }, ctx);
   }
 
   const cwd = worktreePath || repoRoot;
@@ -657,7 +669,7 @@ export function dispatchTicket(options) {
     `- branch: ${branchName || "current branch"}`,
     `- base_commit: ${baseCommit || "unknown"}`,
     `- worktree: ${worktreePath || repoRoot}`,
-    `- handoff: AI Written-Plan field${options.keepHandoffFile ? ` and ${handoffPath}` : ""}`,
+    `- handoff: linked markdown artifact${options.keepHandoffFile ? ` and ${handoffPath}` : ""}`,
     `- run_record_json: ${runRecordPath}`,
     `- policy_bin: ${policyBin || "none"}`,
     `- pid: ${child?.pid || "not spawned"}`,
@@ -669,7 +681,7 @@ export function dispatchTicket(options) {
   createComment(ticket.id, { author: "orbit dispatch", kind: "agent_note", body: runRecord }, ctx);
 
   if (!options.keepHandoffFile) {
-    // The canonical copy is the ticket's AI Written-Plan. Keep run metadata and
+    // The canonical copy is the linked markdown artifact. Keep run metadata and
     // policy wrappers. Local-only agents may still use ORBIT_HANDOFF_PATH as a
     // bootstrap hint before they read the card, so leave the file in place.
   }

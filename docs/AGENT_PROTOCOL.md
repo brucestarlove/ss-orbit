@@ -95,7 +95,7 @@ GET /api/tickets/:id/context?depth=1
 Returns:
 
 - Ticket, board identity, state, labels.
-- Dedicated implementation fields: `ai_plan`, `implementation_summary`, and `implementation_updates`.
+- Human-visible card fields: terse AI Plan (`ai_plan`), terse Work Summary (`implementation_summary`), and Revisions (`implementation_updates`); full handoffs/reports live in linked markdown artifact paths. Board Journal decisions/lessons carry the most important code/pattern/project context loaded for every agent on the board.
 - Parent epic/story ticket when present.
 - Child feature cards when the ticket is an epic/story.
 - Related tickets.
@@ -281,24 +281,32 @@ Content-Type: application/json
 
 Comments are for discussion and event breadcrumbs. Use the dedicated fields below for durable implementation records.
 
-### Update AI Plan / Implementation Fields
+### Ticket Field Contract
 
 ```http
 PATCH /api/tickets/:id
 Content-Type: application/json
 
 {
-  "ai_plan": "The current plan...",
-  "implementation_summary": "What shipped...",
-  "implementation_updates": "Progress notes, mistakes to avoid, discoveries..."
+  "ai_plan": "Next: implement the sync queue, add conflict tests, verify with pnpm test.",
+  "plan_artifact_path": ".orbit/dispatch-runs/.../handoff.md",
+  "implementation_summary": "Shipped sync queue + conflict tests. pnpm test passed. Risk: mobile offline smoke remains human-owned.",
+  "implementation_artifact_path": ".orbit/dispatch-runs/.../report.md",
+  "implementation_updates": "Revision: narrowed conflict retry to failed operations only."
 }
 ```
 
 Field intent:
 
-- `ai_plan`: The current plan. For epics, this should describe the high-level vision and feature breakdown. For feature/task/bug cards, this should describe the concrete implementation approach.
-- `implementation_summary`: The final concise summary of what changed, usually written when the card moves to review or done.
-- `implementation_updates`: Chronological notes, mistakes, discoveries, and "avoid this next time" material. Later this can feed a separate insights system.
+- `ai_plan`: existing AI Plan field. Store a terse visible plan summary for humans. Use `plan_artifact_path` for full markdown/text handoffs or plan docs.
+- `plan_artifact_path`: human-editable local/repo-relative or hosted-readable markdown/text path, for example `docs/plan.md` or `./docs/plan.md`. The UI resolves it when opening the artifact; if it cannot resolve, the human can edit the path.
+- `implementation_summary`: existing Work Summary field. Store a terse visible result summary for humans. Use `implementation_artifact_path` for full reports/evidence.
+- `implementation_artifact_path`: human-editable local/repo-relative or hosted-readable markdown/text path to the full report/evidence artifact, for example `docs/report.md` or `./docs/report.md`.
+- `implementation_updates`: Revisions. Use only for terse later changes/corrections after initial implementation. Leave blank for normal first completion; do not store chronology, command logs, run receipts, or durable project lessons here.
+- Comments are for compact run receipts, transient breadcrumbs, and discussion.
+- Board Journal entries are for durable reusable project decisions/lessons.
+
+Direct `PATCH /api/tickets/:id` updates the fields exactly. For normal completion, prefer `/api/agent/complete`: its `summary` writes Work Summary (`implementation_summary`), `implementation_artifact_path` links the full report, and optional `updates` writes Revisions only when the run is a later correction/change.
 
 ### Archive, Restore, and Delete
 
@@ -396,7 +404,7 @@ Content-Type: application/json
 }
 ```
 
-Moves the ticket to `Review` by default and writes `summary` into `implementation_summary`. If `updates` is present, it is appended to `implementation_updates`.
+Moves the ticket to `Review` by default and writes `summary` into Work Summary (`implementation_summary`). If `updates` is present, it is appended to Revisions (`implementation_updates`) without timestamp headings; omit `updates` for normal first completion notes.
 
 ## Ticket Writing Contract
 

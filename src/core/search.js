@@ -57,7 +57,7 @@ export function searchTickets(args, ctx) {
     const numberRank = ticketNumber !== null ? "CASE WHEN t.number = ? THEN -1 ELSE 0 END" : "0";
     const numberPredicate = ticketNumber !== null ? "OR t.number = ?" : "";
     const fallbackArgs = ticketNumber !== null ? [ticketNumber, board.id] : [board.id];
-    fallbackArgs.push(like, like, like, like, like, like);
+    fallbackArgs.push(like, like, like, like, like, like, like, like);
     if (ticketNumber !== null) fallbackArgs.push(ticketNumber);
     fallbackArgs.push(limit);
 
@@ -71,7 +71,8 @@ export function searchTickets(args, ctx) {
            LEFT JOIN comments c ON c.ticket_id = t.id
            WHERE t.board_id = ? AND t.archived_at IS NULL
              AND (t.title LIKE ? OR t.description LIKE ? OR t.ai_plan LIKE ?
-              OR t.implementation_summary LIKE ? OR t.implementation_updates LIKE ? OR c.body LIKE ?
+              OR t.implementation_summary LIKE ? OR t.implementation_updates LIKE ?
+              OR t.plan_artifact_path LIKE ? OR t.implementation_artifact_path LIKE ? OR c.body LIKE ?
               ${numberPredicate})
            ORDER BY t.updated_at DESC, t.id ASC
            LIMIT ?`

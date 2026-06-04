@@ -62,8 +62,9 @@ export function createTicket(body, ctx) {
     db.prepare(
       `INSERT INTO tickets
        (id, board_id, number, title, description, type, parent_ticket_id, ai_plan,
-        implementation_summary, implementation_updates, state_id, priority, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        plan_artifact_path, implementation_summary, implementation_artifact_path,
+        implementation_updates, state_id, priority, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       ticketId,
       boardId,
@@ -73,7 +74,9 @@ export function createTicket(body, ctx) {
       ticketType,
       parentTicketId,
       body.ai_plan || "",
+      body.plan_artifact_path || "",
       body.implementation_summary || "",
+      body.implementation_artifact_path || "",
       body.implementation_updates || "",
       stateId,
       normalizePriority(body.priority),
@@ -113,7 +116,9 @@ export function updateTicket(ticketId, body, ctx) {
     "type",
     "parent_ticket_id",
     "ai_plan",
+    "plan_artifact_path",
     "implementation_summary",
+    "implementation_artifact_path",
     "implementation_updates",
     "state_id",
     "priority"

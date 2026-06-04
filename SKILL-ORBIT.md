@@ -4,6 +4,24 @@ Read this before repo work. This board is the repo-local memory and execution la
 
 This file is managed by Orbit and may be overwritten by `orbit init` or refreshed by `orbit run`. Put repo/team-specific agent rules in `AGENTS.md` or board `agent_instructions`, not here.
 
+## Orbit Coordinates
+
+Optional project-local hints. Explicit user instructions, MCP/API selectors, and live board metadata win.
+
+Optional coordinates:
+- orbit_api_url:
+- orbit_board:
+
+Leave unknown values blank rather than guessing. These hints are for orientation only; agents must still resolve the intended board before mutating tickets.
+
+## Local vs Hosted Boards
+
+- Always resolve the intended board before reading or mutating tickets.
+- Prefer Orbit API/MCP tools over direct database edits.
+- If an Orbit API URL or hosted board is configured for the task, treat that board as the planning-state source of truth.
+- Local `.orbit/board.db` files may be stale, absent, or unrelated when a hosted board is in use.
+- Artifact paths may be repo-relative paths, local filesystem paths, or hosted-accessible paths; verify availability before citing them as readable.
+
 ## MCP, cwd, and this file
 
 These are separate concerns; mixing them causes confusion:
@@ -22,25 +40,30 @@ In Orbit / kanban / ticket contexts, `epic` is a ticket `type`, not an adjective
 
 - Read `agent_instructions` on the board first, then the ticket context pack.
 - Respect blockers and parent epics.
-- Use comments for discussion and breadcrumbs.
-- Use ticket fields for durable implementation records: `ai_plan`, `implementation_summary`, `implementation_updates`.
-- Add a project entry when the context should outlive one ticket.
+- Use comments for discussion and compact breadcrumbs.
+- Keep human-visible ticket fields terse and use the existing fields by intent:
+  - `ai_plan` / AI Plan: terse visible plan summary; full markdown handoffs live in `plan_artifact_path`.
+  - `implementation_summary` / Work Summary: terse visible result summary; full markdown reports/evidence live in `implementation_artifact_path`.
+  - `implementation_updates` / Revisions: terse later changes/corrections after initial implementation. Leave blank for normal first completion; do not store chronology, command logs, routine run receipts, or durable project lessons here.
+- Use board Journal entries (`decision` / `lesson`) only for durable reusable project decisions/lessons every future board agent should load.
 
 ## Dispatching Agents
 
-`orbit dispatch --board <slug> --ticket <number-or-id> --profile <name> --worktree` is the preferred human/orchestrator entrypoint for starting a Hermes agent on a specific card.
+`orbit dispatch --board <slug> --ticket <number-or-id> --profile <name> --worktree` is the preferred human/orchestrator entrypoint for starting an agent on a specific card.
 
 Dispatch responsibilities:
-- Generate the handoff and store the canonical copy in the card's `ai_plan` / AI Written-Plan field.
+- Generate the full handoff as a linked markdown artifact and put only a terse summary in the existing `ai_plan` / AI Plan field.
 - Move the card to In Progress.
 - Preserve a git worktree/branch for human testing when `--worktree` is used.
-- Add a run-record comment with profile, policy, branch, worktree, pid, and command.
+- Add a compact run-record comment with profile, policy, branch, worktree, pid, command, and artifact path.
 - Apply the default safe PATH policy wrappers unless `--policy none` is explicit.
 
-Agent completion responsibilities remain unchanged:
-- Write final work notes to `implementation_summary`.
-- Write pitfalls, remediation, and reusable future guidance to `implementation_updates`.
-- Add comments for transient breadcrumbs/run events.
+Agent completion responsibilities:
+- Write a terse human-readable result to the existing `implementation_summary` / Work Summary field.
+- If details matter, write a markdown report and link it with `implementation_artifact_path`.
+- Leave Revisions (`implementation_updates`) blank unless this is a later change/correction after initial implementation. No chronology, logs, normal run details, or durable project lessons.
+- Promote project-wide code/pattern lessons and decisions to the board Journal (`lesson` / `decision`) instead of burying them on one card.
+- Add compact comments for transient breadcrumbs/run events.
 - Move the card to Review unless the human explicitly asked for Done.
 
 ## Human CLI Checks
@@ -61,8 +84,9 @@ Rules:
 - Prefer fewer, clearer epics with named feature cards underneath.
 - Preserve source references in descriptions or comments.
 - Mark uncertainty with `Inferred from...` or `Source suggests...`.
-- Put implementation facts in `implementation_summary`.
-- Put chronology, pitfalls, and lessons in `implementation_updates`.
+- Put only terse work-summary facts in `implementation_summary`.
+- Put full historical detail in linked markdown artifacts or comments, not the visible card fields.
+- Put only terse card-specific later revision notes in `implementation_updates`; promote reusable code/pattern/project lessons and decisions to board Journal entries.
 - Keep future work open unless the source clearly supports `Done`.
 - Do not invent acceptance criteria.
 
@@ -76,10 +100,10 @@ The board is the unit of organization. Each board is tied to one repo and carrie
 
 Use board-level memory entries for durable history:
 
-- `decision`: UX or architecture choices agents should follow instead of defaulting to generic codegen.
-- `lesson`: mistakes or discoveries distilled as "do X instead of Y when working with Z."
+- `decision`: important UX, architecture, workflow, naming, or project choices every future agent on this board should follow instead of defaulting to generic codegen.
+- `lesson`: important code, pattern, or project failure modes/discoveries distilled as "do X instead of Y when working with Z."
 
-Board entries are durable project memory, not general notes or persona guidance. Keep active entries focused on mechanisms, architectural/product boundaries, workflow invariants, public-product implications, and reusable pitfalls. Prefer ticket comments/implementation fields for one-run chronology, and strike or consolidate stale overlapping entries once a doctrine stabilizes.
+Board Journal entries are durable project memory loaded for agents working this board, not general notes or persona guidance. Keep active decisions/lessons focused on the most important mechanisms, architectural/product boundaries, workflow invariants, public-product implications, and reusable pitfalls. Prefer ticket comments/implementation fields for one-run chronology, and strike or consolidate stale overlapping entries once a doctrine stabilizes.
 
 ## Ticket Relationships
 

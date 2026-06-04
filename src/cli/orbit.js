@@ -620,7 +620,7 @@ async function runDispatch(options) {
   if (result.branch) console.log(`Branch: ${result.branch}`);
   if (result.run_record_path) console.log(`Run record: ${result.run_record_path}`);
   if (result.pid) console.log(`PID: ${result.pid}`);
-  console.log("AI Written-Plan updated with the generated handoff.");
+  console.log("AI Plan updated with a terse summary and linked handoff artifact.");
   console.log("Run record comment added to the ticket.");
   if (result.no_spawn) console.log("No agent spawned; ticket state left unchanged.");
 }

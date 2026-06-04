@@ -172,7 +172,9 @@ export function createBoardSchema(db) {
       type TEXT NOT NULL DEFAULT 'task',
       parent_ticket_id TEXT,
       ai_plan TEXT NOT NULL DEFAULT '',
+      plan_artifact_path TEXT NOT NULL DEFAULT '',
       implementation_summary TEXT NOT NULL DEFAULT '',
+      implementation_artifact_path TEXT NOT NULL DEFAULT '',
       implementation_updates TEXT NOT NULL DEFAULT '',
       state_id TEXT NOT NULL REFERENCES states(id),
       priority INTEGER NOT NULL DEFAULT 2,
@@ -289,6 +291,8 @@ export function createBoardSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_ticket_id);
     CREATE INDEX IF NOT EXISTS idx_events_ticket ON events(ticket_id, created_at);
   `);
+  ensureColumn(db, "tickets", "plan_artifact_path", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(db, "tickets", "implementation_artifact_path", "TEXT NOT NULL DEFAULT ''");
 }
 
 export function resetBoard(db) {

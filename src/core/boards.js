@@ -323,7 +323,6 @@ export function boardManual(boardId, ctx, options = {}) {
       repo_url: innerBoard.repo_url,
       system_path: innerBoard.system_path || ctx.board.repo_path || "",
       default_branch: innerBoard.default_branch,
-      project_notes: innerBoard.project_notes,
       agent_instructions: innerBoard.agent_instructions,
       ai_enabled: innerBoard.ai_enabled,
       manage_helper_files: ctx.board.manage_helper_files,

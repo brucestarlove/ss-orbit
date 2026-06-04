@@ -287,7 +287,7 @@ const TOOL_DEFS = [
   {
     name: "board_get_agent_dispatch_packet",
     description:
-      "Return a lean agent dispatch packet for one ticket: board identity/instructions, capped ticket description/acceptance/AI plan, blockers, shallow parent, relevant workflow state IDs, repo path/default branch, recent capped comments, and label names. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Parent/related/implementation bodies are intentionally omitted.",
+      "Return a lean agent dispatch packet for one ticket: board identity/instructions, capped description/acceptance, human-visible card fields and linked artifact paths, blockers, shallow parent, relevant workflow state IDs, repo path/default branch, recent capped comments, and label names. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Full parent/related bodies and full comments are intentionally omitted.",
     inputSchema: {
       type: "object",
       properties: {
@@ -407,9 +407,11 @@ const TOOL_DEFS = [
         description: { type: "string" },
         type: { type: "string", enum: ["epic", "feature", "task", "bug"] },
         parent_ticket_id: { type: ["string", "null"] },
-        ai_plan: { type: "string" },
-        implementation_summary: { type: "string" },
-        implementation_updates: { type: "string" },
+        ai_plan: { type: "string", description: "Existing AI Plan field: terse human-visible plan summary; link full markdown handoffs with plan_artifact_path." },
+        plan_artifact_path: { type: "string", description: "Human-editable link/path to a full markdown/text plan artifact, e.g. docs/plan.md or ./docs/plan.md. Keep AI Plan terse; do not paste full handoffs into ai_plan." },
+        implementation_summary: { type: "string", description: "Existing Work Summary field: terse human-visible result summary; link full reports with implementation_artifact_path." },
+        implementation_artifact_path: { type: "string", description: "Human-editable link/path to a full markdown/text implementation report or evidence artifact, e.g. docs/report.md or ./docs/report.md. Keep Work Summary terse." },
+        implementation_updates: { type: "string", description: "Revisions field: terse later changes/corrections after initial implementation; omit logs, chronology, and normal completion notes." },
         state_id: { type: "string" },
         priority: { type: "integer" },
         labels: { type: "array", items: { type: "string" } }
@@ -422,7 +424,7 @@ const TOOL_DEFS = [
   {
     name: "board_update_ticket",
     description:
-      "Update ticket fields such as AI plan, implementation summary, implementation updates, state, type, priority, or labels (full replace: array of label names). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
+      "Update ticket fields such as terse AI Plan / Work Summary text, linked artifact paths, Revisions, state, type, priority, or labels (full replace: array of label names). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
@@ -434,9 +436,11 @@ const TOOL_DEFS = [
         description: { type: "string" },
         type: { type: "string" },
         parent_ticket_id: { type: ["string", "null"] },
-        ai_plan: { type: "string" },
-        implementation_summary: { type: "string" },
-        implementation_updates: { type: "string" },
+        ai_plan: { type: "string", description: "Existing AI Plan field: terse human-visible plan summary; link full markdown handoffs with plan_artifact_path." },
+        plan_artifact_path: { type: "string", description: "Human-editable link/path to a full markdown/text plan artifact, e.g. docs/plan.md or ./docs/plan.md. Keep AI Plan terse; do not paste full handoffs into ai_plan." },
+        implementation_summary: { type: "string", description: "Existing Work Summary field: terse human-visible result summary; link full reports with implementation_artifact_path." },
+        implementation_artifact_path: { type: "string", description: "Human-editable link/path to a full markdown/text implementation report or evidence artifact, e.g. docs/report.md or ./docs/report.md. Keep Work Summary terse." },
+        implementation_updates: { type: "string", description: "Revisions field: terse later changes/corrections after initial implementation; omit logs, chronology, and normal completion notes." },
         state_id: { type: "string" },
         priority: { type: "integer" },
         labels: { type: "array", items: { type: "string" }, description: "Replaces all ticket labels when provided." }
@@ -562,7 +566,7 @@ const TOOL_DEFS = [
   {
     name: "board_complete",
     description:
-      "Hand off finished work for human review: moves the ticket to the Review lane (by role or name), writes a completion comment (summary, optional PR URL), and optional implementation_updates. This is the usual 'ready for you to look' path; use board_checkpoint only when blocked mid-flight. Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
+      "Hand off finished work for human review: moves the ticket to the Review lane (by role or name), writes a compact completion comment, stores summary as the terse Work Summary (`implementation_summary`), and accepts optional linked implementation_artifact_path. Pass updates only for Revisions: terse later changes/corrections after initial implementation, not normal completion notes. This is the usual 'ready for you to look' path; use board_checkpoint only when blocked mid-flight. Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
@@ -570,8 +574,10 @@ const TOOL_DEFS = [
         board_id: { type: "string" },
         board_slug: { type: "string" },
         board: { type: "string" },
-        summary: { type: "string" },
-        updates: { type: "string" },
+        summary: { type: "string", description: "Terse human-visible Work Summary stored in implementation_summary." },
+        updates: { type: "string", description: "Optional Revisions text only: terse later changes/corrections after initial implementation." },
+        implementation_artifact_path: { type: "string", description: "Human-editable link/path to a markdown/text implementation report artifact; can point at a report generated outside Orbit." },
+        summary_artifact_path: { type: "string", description: "Compatibility alias for implementation_artifact_path." },
         pr_url: { type: "string" },
         next_state: { type: "string" }
       },
@@ -647,7 +653,7 @@ const TOOL_DEFS = [
   {
     name: "board_update_settings",
     description:
-      "PATCH-equivalent for board settings: name (display rename only; slug/canonical URLs stay unchanged), repo_url, system_path, default_branch, agent_instructions (project-level agent context), and project_notes (Notes For You). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
+      "PATCH-equivalent for board settings: name (display rename only; slug/canonical URLs stay unchanged), repo_url, system_path, default_branch, and agent_instructions (project-level agent context). Resolves board from board_id / board_slug / board; the MCP session board is only a fallback convenience.",
     inputSchema: {
       type: "object",
       properties: {
@@ -658,7 +664,6 @@ const TOOL_DEFS = [
         repo_url: { type: "string" },
         system_path: { type: "string" },
         default_branch: { type: "string" },
-        project_notes: { type: "string" },
         agent_instructions: { type: "string" }
       },
       additionalProperties: false

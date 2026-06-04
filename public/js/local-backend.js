@@ -618,7 +618,9 @@ async function handleTicketCreate(body) {
       type: body.type || (body.parent_ticket_id ? "feature" : "task"),
       parent_ticket_id: body.parent_ticket_id || null,
       ai_plan: body.ai_plan || "",
+      plan_artifact_path: body.plan_artifact_path || "",
       implementation_summary: body.implementation_summary || "",
+      implementation_artifact_path: body.implementation_artifact_path || "",
       implementation_updates: body.implementation_updates || "",
       state_id: stateId,
       priority: body.priority ?? 0,
@@ -651,7 +653,9 @@ async function handleTicketPatch(ticketId, body) {
       "type",
       "parent_ticket_id",
       "ai_plan",
+      "plan_artifact_path",
       "implementation_summary",
+      "implementation_artifact_path",
       "implementation_updates",
       "priority"
     ];

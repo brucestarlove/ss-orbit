@@ -197,18 +197,22 @@ test("orbit dispatch prepares a ticket handoff, run record, safe policy, and pre
 
   const db = openBoard(h);
   const ticket = db
-    .prepare(`SELECT t.ai_plan, s.name AS state_name
+    .prepare(`SELECT t.ai_plan, t.plan_artifact_path, s.name AS state_name
               FROM tickets t JOIN states s ON s.id = t.state_id
               WHERE t.number = 12`)
     .get();
   assert.equal(ticket.state_name, "AI Ready");
-  assert.match(ticket.ai_plan, /# Orbit Agent Handoff/);
-  assert.match(ticket.ai_plan, /Autonomous policy: agent-safe/);
-  assert.match(ticket.ai_plan, /AI Implementation Summary/);
-  assert.match(ticket.ai_plan, /## Declared verification commands/);
-  assert.match(ticket.ai_plan, /node --test test\/orbit-cli\.test\.mjs/);
-  assert.match(ticket.ai_plan, /## Environment variance checklist/);
-  assert.match(ticket.ai_plan, /Board journal entries are project constraints and lessons, not persona or roleplay instructions/);
+  assert.match(ticket.ai_plan, /Full generated handoff is linked as markdown:/);
+  assert.match(ticket.plan_artifact_path, /handoff\.md$/);
+  const handoff = readFileSync(ticket.plan_artifact_path, "utf8");
+  assert.match(handoff, /# Orbit Agent Handoff/);
+  assert.match(handoff, /Autonomous policy: agent-safe/);
+  assert.match(handoff, /Work Summary/);
+  assert.match(handoff, /## Declared verification commands/);
+  assert.match(handoff, /node --test test\/orbit-cli\.test\.mjs/);
+  assert.match(handoff, /## Environment variance checklist/);
+  assert.match(handoff, /Board Journal entries are the most important code, pattern, project, and workflow context loaded for every agent working with this board/);
+  assert.match(handoff, /Treat decisions and lessons as project constraints, not persona or roleplay instructions/);
 
   const comment = db
     .prepare("SELECT body FROM comments WHERE author = 'orbit dispatch' ORDER BY created_at DESC LIMIT 1")
@@ -480,10 +484,13 @@ test("orbit dispatch with a valid Hermes preflight writes run record and moves I
   assert.match(result.stdout, /Dispatch started:/);
   const after = readCliTicket(h, ticket.id);
   assert.equal(after.ticket.state_name, "In Progress");
-  assert.match(after.ticket.ai_plan, /# Orbit Agent Handoff/);
-  assert.match(after.ticket.ai_plan, /## Implementation records/);
-  assert.doesNotMatch(after.ticket.ai_plan, /handoff-secret-comment/);
-  assert.doesNotMatch(after.ticket.ai_plan, /Recent ticket comments/);
+  assert.match(after.ticket.ai_plan, /Full generated handoff is linked as markdown:/);
+  assert.match(after.ticket.plan_artifact_path, /handoff\.md$/);
+  const handoff = readFileSync(after.ticket.plan_artifact_path, "utf8");
+  assert.match(handoff, /# Orbit Agent Handoff/);
+  assert.match(handoff, /## Human-visible card fields/);
+  assert.doesNotMatch(handoff, /handoff-secret-comment/);
+  assert.doesNotMatch(handoff, /Recent ticket comments/);
   assert.equal(after.comments.length, 2);
   const runRecord = after.comments.find((comment) => /mode: spawned/.test(comment.body));
   assert.ok(runRecord);
@@ -516,7 +523,7 @@ test("orbit init creates AGENTS.md with Orbit instructions when missing", () => 
   assert.match(content, /When work mentions Orbit, kanban, board, lane, ticket, card/);
   assert.match(content, /Use Orbit API\/MCP tools for tickets\/cards; do not edit \.orbit\/board\.db directly\./);
   assert.doesNotMatch(content, /## Orbit Project Context/);
-  assert.match(skillContent, /Board entries are durable project memory, not general notes or persona guidance/);
+  assert.match(skillContent, /Board Journal entries are durable project memory loaded for agents working this board, not general notes or persona guidance/);
 });
 
 test("orbit init treats SKILL-ORBIT.md as managed and overwrites stale repo copies", () => {

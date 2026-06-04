@@ -19,7 +19,7 @@ import {
   deleteTicket
 } from "../src/core/tickets.js";
 import { createRelation } from "../src/core/relations.js";
-import { getAgentDispatchPacket, getContextPack, getContextPackFull, readComments, readTicket } from "../src/core/agent.js";
+import { getAgentDispatchPacket, getContextPack, getContextPackFull, readComments, readTicket, completeTicket } from "../src/core/agent.js";
 import { searchTickets } from "../src/core/search.js";
 import { now, id } from "../src/core/util.js";
 
@@ -314,6 +314,8 @@ test("agent dispatch packet returns capped workflow context without hydrated epi
     description: "Ticket description\n\nAcceptance criteria:\n- ship lean packet\n- avoid giant parents",
     parent_ticket_id: parent.id,
     ai_plan: "packet-plan-".repeat(20),
+    implementation_summary: "packet-summary-".repeat(20),
+    implementation_updates: "packet-revisions-".repeat(20),
     labels: ["dispatch"]
   }, ctx);
   createRelation({ source_ticket_id: target.id, target_ticket_id: blocker.id, type: "blocked_by" }, ctx);
@@ -328,6 +330,8 @@ test("agent dispatch packet returns capped workflow context without hydrated epi
   assert.equal(packet.ticket.acceptance.includes("ship lean packet"), true);
   assert.equal(packet.ticket.description.length <= 60, true);
   assert.equal(packet.ticket.ai_plan.length <= 60, true);
+  assert.equal(packet.ticket.implementation_summary.length <= 60, true);
+  assert.equal(packet.ticket.implementation_updates.length <= 60, true);
   assert.deepEqual(packet.ticket.labels, ["dispatch"]);
   assert.equal(packet.parent_ticket.title, "Dispatch Epic");
   assert.equal(Object.hasOwn(packet.parent_ticket, "description"), false);
@@ -372,6 +376,28 @@ test("delete requires archive first, then removes the ticket", () => {
   archiveTicket(a.id, ctx);
   deleteTicket(a.id, ctx);
   assert.ok(!db.prepare("SELECT 1 FROM tickets WHERE id = ?").get(a.id));
+});
+
+test("complete appends Revisions without timestamp or actor headings", () => {
+  const { ctx, db } = makeBoard();
+  const review = id();
+  const t = now();
+  db.prepare(
+    "INSERT INTO states (id,board_id,name,position,is_default,role,created_at) VALUES (?,?,?,?,0,?,?)"
+  ).run(review, ctx.board.id, "Review", 2, "review", t);
+  const ticket = createTicket({ title: "Complete me", implementation_updates: "Existing revision." }, ctx);
+
+  const result = completeTicket({
+    ticket_id: ticket.id,
+    summary: "Work shipped.",
+    updates: "Narrowed retry behavior after review.",
+    next_state: "Review"
+  }, ctx);
+
+  assert.equal(result.ticket.implementation_summary, "Work shipped.");
+  assert.equal(result.ticket.implementation_updates, "Existing revision.\n\nNarrowed retry behavior after review.");
+  assert.equal(result.ticket.implementation_updates.includes("## "), false);
+  assert.equal(/\d{4}-\d{2}-\d{2}T/.test(result.ticket.implementation_updates), false);
 });
 
 test("tx() rolls back partial writes when the body throws", () => {

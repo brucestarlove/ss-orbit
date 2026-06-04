@@ -240,6 +240,47 @@ button.ghost {
   border: 1px solid var(--line);
 }
 
+button[data-variant="ghost"],
+[role="button"][data-variant="ghost"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.45rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: none;
+  cursor: url('cursors/live_link.cur'), pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 200ms ease,
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    filter 150ms ease;
+}
+
+button[data-variant="ghost"]:hover,
+button[data-variant="ghost"]:focus-visible,
+[role="button"][data-variant="ghost"]:hover,
+[role="button"][data-variant="ghost"]:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent-border);
+  background: var(--accent-hover);
+  box-shadow: none;
+  filter: none;
+  outline: none;
+  transform: none;
+}
+
+button[data-variant="ghost"]:active,
+[role="button"][data-variant="ghost"]:active {
+  background: var(--accent-active);
+}
+
 /* Dark-mode submit buttons would render near-white-on-white without this
    override, since var(--ink) remaps to near-white in dark mode. Scoped to
    button[type="submit"] so topbar chips, icon buttons, and .btn-sun are
@@ -265,7 +306,9 @@ button.ghost {
 }
 
 [data-theme="dark"] .drawer button.ghost,
-[data-theme="dark"] .deployment-actions button.ghost {
+[data-theme="dark"] .deployment-actions button.ghost,
+[data-theme="dark"] button[data-variant="ghost"],
+[data-theme="dark"] [role="button"][data-variant="ghost"] {
   color: rgba(232, 239, 255, 0.95);
   background: rgba(var(--starlight-rgb),0.07);
   border-color: rgba(var(--starlight-rgb),0.24);
@@ -274,7 +317,11 @@ button.ghost {
 }
 
 [data-theme="dark"] .drawer button.ghost:hover,
-[data-theme="dark"] .deployment-actions button.ghost:hover {
+[data-theme="dark"] .deployment-actions button.ghost:hover,
+[data-theme="dark"] button[data-variant="ghost"]:hover,
+[data-theme="dark"] button[data-variant="ghost"]:focus-visible,
+[data-theme="dark"] [role="button"][data-variant="ghost"]:hover,
+[data-theme="dark"] [role="button"][data-variant="ghost"]:focus-visible {
   color: #fff;
   background: rgba(var(--starlight-rgb),0.14);
   border-color: rgba(var(--starlight-rgb),0.5);
@@ -2633,6 +2680,8 @@ button.drawer-archive::after {
   white-space: break-spaces;
   overflow-wrap: normal;
   tab-size: 4;
+  user-select: text;
+  -webkit-user-select: text;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.92rem;
   line-height: 1.45;
@@ -2847,29 +2896,25 @@ button.drawer-archive::after {
 }
 
 .ticket-meta-row--stack {
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.4rem;
+  align-items: start;
 }
 
-/* Lay pills-row + input + Add button on a single wrapping line, so Labels
-   match the visual rhythm of the single-line rows above (Type / State /
-   Priority) instead of stacking pills + form on two rows. */
+/* Labels are their own small field group: label heading, existing badges on
+   the next line, then an add-control row that mirrors the Related input. */
 .ticket-meta-row--stack > dd {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: center;
+  display: grid;
+  gap: 0.45rem;
+  align-items: start;
   min-width: 0;
   padding-top: 0;
 }
 
 .ticket-meta-row--stack .label-pills-row,
 .ticket-meta-row--stack .label-add-row {
-  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
-}
-
-.ticket-meta-row--stack .label-add-row {
-  flex: 1 1 12rem;
 }
 
 .ticket-meta dt {
@@ -3078,14 +3123,14 @@ button.label-pill-remove::after {
 }
 
 .label-add-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
 }
 
 .label-add-input {
-  flex: 1;
+  width: 100%;
   min-width: 8rem;
   padding: var(--field-padding-y) var(--field-padding-x);
   font-size: 0.86rem;
@@ -3095,6 +3140,22 @@ button.label-pill-remove::after {
   flex: 0 0 auto;
   padding: 0.5rem 0.85rem;
   font-size: 0.82rem;
+}
+
+.label-add-row .meta-add-btn {
+  justify-self: start;
+}
+
+.detail-action-btn {
+  width: auto;
+  min-height: 0;
+  justify-self: start;
+  align-self: flex-start;
+  border-radius: var(--radius-pill);
+  padding: 0.32rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .detail-updated {
@@ -3297,12 +3358,32 @@ details.section > summary .mcp-title-row {
   gap: 0.42rem;
 }
 
+.inline-md-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
 .inline-md-field-label {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.inline-md-artifact-btn {
+  border-radius: var(--radius-pill);
+  padding: 0.28rem 0.58rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.inline-md-artifact-btn:hover,
+.inline-md-artifact-btn:focus-visible {
+  outline: none;
 }
 
 .inline-md-field-body {
@@ -4633,6 +4714,21 @@ button.card-archive-btn::after {
   margin-top: 0.55rem;
 }
 
+.parent-epic-form {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.parent-epic-form .related-add-input-wrap {
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 5.5rem;
+}
+
+.parent-epic-form .related-add-input {
+  min-height: 5.5rem;
+}
+
 .related-add-input-wrap {
   position: relative;
   flex: 1 1 10rem;
@@ -5615,7 +5711,7 @@ button.help-dialog-close::after {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0;
 }
 
 .attachment-heading-row h3 {
@@ -5624,15 +5720,12 @@ button.help-dialog-close::after {
 
 .attachment-upload-button {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  cursor: url('cursors/live_link.cur'), pointer;
-  font-size: 0.8rem;
-  font-weight: 800;
+  margin-top: 0.55rem;
+  margin-bottom: 0;
+}
+
+.attachments-section > .attachment-upload-button {
+  margin-top: 0.55rem;
 }
 
 .attachment-upload-button input {
@@ -5654,6 +5747,23 @@ button.help-dialog-close::after {
   transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
+.attachments-section {
+  display: grid;
+  gap: 0;
+}
+
+.attachments-section .attachment-dropzone,
+.attachments-section .attachment-grid,
+.attachments-section .attachment-empty-state {
+  margin-top: 0.85rem;
+}
+
+.attachment-empty-state {
+  margin-right: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+}
+
 .attachment-dropzone strong {
   color: var(--ink);
 }
@@ -5673,7 +5783,7 @@ button.help-dialog-close::after {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
   gap: 0.65rem;
-  margin-top: 0.75rem;
+  margin-top: 0;
 }
 
 .attachment-card {
@@ -5831,4 +5941,132 @@ button.attachment-lightbox-close:hover {
 button.attachment-lightbox-close::after {
   content: none;
   display: none;
+}
+
+
+/* --------- Linked markdown artifact drawer (left side) --------- */
+.artifact-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(12, 18, 26, 0.22);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 240ms ease;
+  pointer-events: none;
+}
+
+.artifact-drawer-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.artifact-drawer-backdrop[hidden],
+.artifact-drawer[hidden] {
+  display: none;
+}
+
+.artifact-drawer {
+  position: fixed;
+  top: clamp(0.75rem, 2vh, 1.5rem);
+  left: clamp(0.5rem, 1.5vw, 1rem);
+  bottom: clamp(0.75rem, 2vh, 1.5rem);
+  z-index: 60;
+  display: flex;
+  width: min(46rem, calc(100vw - 1rem));
+  max-width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-drawer);
+  background: var(--drawer-bg);
+  box-shadow: 0 24px 60px rgba(12, 18, 26, 0.28);
+  transform: translateX(calc(-100% - 1.5rem));
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.artifact-drawer.is-open {
+  transform: translateX(0);
+}
+
+.artifact-drawer-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title close";
+  column-gap: 0.75rem;
+  row-gap: 0;
+  align-items: start;
+  padding: 0.85rem 0.95rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--drawer-head-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.artifact-drawer-title-block {
+  grid-area: title;
+  min-width: 0;
+}
+
+.artifact-drawer-close {
+  grid-area: close;
+  align-self: start;
+  justify-self: end;
+}
+
+.artifact-drawer-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.artifact-drawer-meta {
+  margin: 0.38rem 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-drawer-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.artifact-markdown-body {
+  max-width: 42rem;
+  color: var(--ink);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.artifact-drawer-body *,
+.artifact-markdown-body * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.artifact-drawer-loading,
+.artifact-drawer-error {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.artifact-drawer-error {
+  color: var(--danger, #dc2626);
 }

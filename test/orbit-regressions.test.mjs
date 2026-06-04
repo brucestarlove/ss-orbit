@@ -107,11 +107,25 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   // New comments are cleanText'd on submit.
   assert.match(detailSource, /cleanText\(\s*new FormData\(event\.currentTarget\)\.get\("body"\),?\s*\)/);
 
-  // AI Plan / Implementation Record uses three click-to-edit preserved-text
+  // AI Plan / Work Summary / Revisions use three click-to-edit preserved-text
   // fields instead of markdown-rendered read-only bodies or a shared form.
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"ai_plan"/);
+  assert.match(detailSource, /label:\s*"AI Plan"/);
+  assert.match(detailSource, /placeholder:\s*"What to do: "/);
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_summary"/);
+  assert.match(detailSource, /label:\s*"Work Summary"/);
+  assert.match(detailSource, /placeholder:\s*"What was done: "/);
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_updates"/);
+  assert.match(detailSource, /label:\s*"Revisions"/);
+  assert.match(detailSource, /placeholder:\s*"Changes since initial implementation: "/);
+  assert.match(detailSource, /data-open-artifact="\$\{escapeHtml\(artifactPathText\)\}"/);
+  assert.match(detailSource, /data-artifact-field="\$\{escapeHtml\(artifactFieldName \|\| ""\)\}"/);
+  assert.match(detailSource, /const artifactTicketId = btn\.dataset\.artifactTicketId \|\| ticket\.id/);
+  assert.match(detailSource, /ticketId:\s*artifactTicketId/);
+  assert.match(detailSource, /Local markdown\/text path for \$\{label\}/);
+  assert.match(detailSource, /promptAndSaveArtifactPath/);
+  assert.doesNotMatch(detailSource, /data-edit-artifact-path/);
+  assert.doesNotMatch(detailSource, /Artifact path:/);
   assert.match(detailSource, /const inner = hasValue\s*\? renderPreservedText\(text\)\s*: escapeHtml\(placeholder \|\| ""\)/);
   assert.match(detailSource, /class="inline-md-field-body preserved-text-body editable-field/);
   assert.match(detailSource, /data-edit-field="\$\{escapeHtml\(fieldName\)\}"/);
@@ -136,6 +150,7 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
 
   assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*white-space:\s*break-spaces;/);
   assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*tab-size:\s*4;/);
+  assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*user-select:\s*text;/);
 });
 
 test("ticket description markdown escapes HTML and rejects unsafe link URLs", () => {
@@ -233,6 +248,19 @@ test("ticket detail moves state, type, and priority controls into header badge d
   assert.match(stylesSource, /\.detail-state-badge/);
   assert.match(stylesSource, /\.detail-priority-badge\[data-variant="med"\]\s*\{[\s\S]*background-color:\s*rgba\(var\(--amber-rgb\), 0\.16\);/);
   assert.match(stylesSource, /\[data-theme="dark"\] \.detail-priority-badge\[data-variant="high"\]\s*\{[\s\S]*background-color:\s*rgba\(var\(--coral-rgb\), 0\.2\);/);
+});
+
+test("artifact drawer markdown text is selectable", () => {
+  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const artifactDrawerSource = readFileSync(join(repoRoot, "public", "js", "artifact-drawer.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+
+  assert.match(detailSource, /openArtifactDrawer/);
+  assert.match(artifactDrawerSource, /class="markdown-body artifact-markdown-body"/);
+  assert.match(stylesSource, /\.artifact-drawer\s*\{[\s\S]*user-select:\s*text;/);
+  assert.match(stylesSource, /\.artifact-drawer-body\s*\{[\s\S]*user-select:\s*text;/);
+  assert.match(stylesSource, /\.artifact-markdown-body\s*\{[\s\S]*user-select:\s*text;/);
+  assert.match(stylesSource, /\.artifact-drawer-body \*,[\s\S]*\.artifact-markdown-body \*\s*\{[\s\S]*user-select:\s*text;/);
 });
 
 test("ticket detail ignores stale async renders after rapid ticket switches", () => {
@@ -782,7 +810,6 @@ test("board context exposes metadata needed by settings tabs", async () => {
     assert.equal(context.board.repo_url, board.repo_url);
     assert.equal(context.board.system_path, board.system_path);
     assert.equal(context.board.default_branch, board.default_branch);
-    assert.equal(context.board.project_notes, board.project_notes);
     assert.equal(context.board.ai_enabled, board.ai_enabled);
 
     const archiveResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(context.board.id)}/archive`);
@@ -832,7 +859,6 @@ test("board settings PATCH renames display name without changing canonical slug"
     const context = await contextResponse.json();
     assert.equal(context.board.name, "Renamed Orbit");
     assert.equal(context.board.slug, board.slug);
-    assert.equal(context.board.project_notes, "notes still save");
 
     const bootstrapResponse = await fetch(`http://127.0.0.1:${port}/api/bootstrap`);
     assert.equal(bootstrapResponse.status, 200);

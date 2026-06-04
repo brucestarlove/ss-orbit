@@ -39,6 +39,7 @@ import { toast } from "./toast.js";
 import { renderProjectDetail } from "./settings.js";
 import { unreadCount, markRead } from "./unread.js";
 import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
+import { openArtifactDrawer } from "./artifact-drawer.js";
 
 /**
  * Refresh the open drawer from the focused ticket context endpoint. When the
@@ -290,6 +291,25 @@ export function startInlineEdit(node, opts) {
   });
 }
 
+function promptArtifactPath({ currentPath = "", label = "Artifact" } = {}) {
+  const next = window.prompt(
+    `Local markdown/text path for ${label} (example: docs/test.md or ./docs/test.md)`,
+    currentPath || "docs/",
+  );
+  if (next === null) return null;
+  return cleanText(next).trim();
+}
+
+async function promptAndSaveArtifactPath({ ticketId, fieldName, currentPath, label }) {
+  if (!ticketId || !fieldName) return null;
+  const next = promptArtifactPath({ currentPath, label });
+  if (next === null) return null;
+  await patchTicket(ticketId, { [fieldName]: next });
+  await refreshTicketDetail(ticketId);
+  toast.success(next ? "Artifact path updated" : "Artifact path cleared");
+  return next;
+}
+
 /** Wire inline editors on the ticket detail header (meta fields, labels). */
 function wireTicketDetailEditors(ticket) {
   const ticketId = ticket.id;
@@ -347,12 +367,12 @@ function wireTicketDetailEditors(ticket) {
   // "implementation_updates" data-edit-field selectors are emitted by the
   // detail body template below.
   const AI_FIELDS = [
-    { key: "ai_plan", label: "AI plan" },
-    { key: "implementation_summary", label: "Implementation summary" },
+    { key: "ai_plan", label: "AI Plan" },
+    { key: "implementation_summary", label: "Work Summary" },
     {
       key: "implementation_updates",
-      label: "Implementation updates / lessons",
-    },
+      label: "Revisions",
+    }
   ];
   for (const { key, label } of AI_FIELDS) {
     const fieldEl = drawerInner.querySelector(`[data-edit-field="${key}"]`);
@@ -582,7 +602,7 @@ export async function renderDetail(options = {}) {
             <div class="label-add-row">
               <input type="text" class="label-add-input meta-inline-input" data-label-input list="board-label-suggestions" placeholder="Add label…" aria-label="Add label" />
               <datalist id="board-label-suggestions">${datalistOptions}</datalist>
-              <button type="button" class="ghost meta-add-btn" data-label-add>Add</button>
+              <button type="button" class="meta-add-btn detail-action-btn" data-variant="ghost" data-label-add>Add</button>
             </div>
           </dd>
         </div>
@@ -608,21 +628,29 @@ export async function renderDetail(options = {}) {
       <div class="ai-fields-grid">
         ${renderInlinePreservedTextField({
           fieldName: "ai_plan",
-          label: "AI-Written Plan",
+          label: "AI Plan",
           value: ticket.ai_plan,
-          placeholder: "Paste or let an AI write the plan...",
+          placeholder: "What to do: ",
+          ticketId: ticket.id,
+          artifactPath: ticket.plan_artifact_path,
+          artifactFieldName: "plan_artifact_path",
+          artifactLabel: "Open full handoff",
         })}
         ${renderInlinePreservedTextField({
           fieldName: "implementation_summary",
-          label: "Implementation Summary",
+          label: "Work Summary",
           value: ticket.implementation_summary,
-          placeholder: "What changed, what shipped, what remains...",
+          placeholder: "What was done: ",
+          ticketId: ticket.id,
+          artifactPath: ticket.implementation_artifact_path,
+          artifactFieldName: "implementation_artifact_path",
+          artifactLabel: "Open full report",
         })}
         ${renderInlinePreservedTextField({
           fieldName: "implementation_updates",
-          label: "Implementation Updates / Lessons",
+          label: "Revisions",
           value: ticket.implementation_updates,
-          placeholder: "Progress notes, mistakes to avoid, discoveries...",
+          placeholder: "Changes since initial implementation: ",
         })}
       </div>
     </details>`
@@ -639,7 +667,7 @@ export async function renderDetail(options = {}) {
       ${comments.map(renderComment).join("") || `<p class="description">No comments yet.</p>`}
       <form class="comment-form" id="detailCommentForm">
         <textarea name="body" placeholder="Add a comment, decision, or instruction..." required></textarea>
-        <button type="submit">Comment</button>
+        <button type="submit" class="detail-action-btn" data-variant="ghost">Comment</button>
       </form>
     </div>
   `,
@@ -737,6 +765,38 @@ export async function renderDetail(options = {}) {
       else localStorage.removeItem(`mab_ai_plan_open:${id}`);
     });
   }
+
+  drawerInner.querySelectorAll("[data-open-artifact]").forEach((btn) => {
+    btn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const artifactFieldName = btn.dataset.artifactField;
+      const artifactTitle = btn.dataset.artifactTitle || "Linked artifact";
+      const artifactTicketId = btn.dataset.artifactTicketId || ticket.id;
+      const currentPath = String(btn.dataset.openArtifact || "").trim();
+      if (!currentPath) {
+        await promptAndSaveArtifactPath({
+          ticketId: artifactTicketId,
+          fieldName: artifactFieldName,
+          currentPath,
+          label: artifactTitle,
+        });
+        return;
+      }
+      const opened = await openArtifactDrawer({
+        ticketId: artifactTicketId,
+        path: currentPath,
+        title: artifactTitle,
+      });
+      if (opened === false && artifactFieldName) {
+        await promptAndSaveArtifactPath({
+          ticketId: artifactTicketId,
+          fieldName: artifactFieldName,
+          currentPath,
+          label: artifactTitle,
+        });
+      }
+    });
+  });
 
   const parentEpicForm = drawerInner.querySelector("#parentEpicForm");
   if (parentEpicForm) {
@@ -842,21 +902,21 @@ function aiPlanOpen(ticketId) {
 function renderAttachmentSection(ticket, attachments = []) {
   const cards = attachments.length
     ? `<div class="attachment-grid">${attachments.map((attachment) => renderAttachmentCard(ticket, attachment)).join("")}</div>`
-    : `<p class="description">No images attached yet.</p>`;
+    : `<p class="description attachment-empty-state">No images attached yet.</p>`;
   return `
     <div class="section attachments-section" data-attachment-section data-ticket-id="${escapeHtml(ticket.id)}">
       <div class="attachment-heading-row">
         <h3>Images</h3>
-        <label class="ghost attachment-upload-button">
-          Upload
-          <input type="file" accept="image/*" multiple data-attachment-input />
-        </label>
       </div>
       <div class="attachment-dropzone" data-attachment-dropzone tabindex="0">
         <strong>Paste, drag, or upload images</strong>
         <span>PNG, JPG, GIF, WebP, SVG, BMP, or AVIF up to 10 MB each.</span>
       </div>
       ${cards}
+      <label class="attachment-upload-button detail-action-btn" role="button" data-variant="ghost" tabindex="0">
+        Upload
+        <input type="file" accept="image/*" multiple data-attachment-input />
+      </label>
     </div>
   `;
 }
@@ -1100,16 +1160,36 @@ export function renderInlinePreservedTextField({
   label,
   value,
   placeholder,
+  ticketId,
+  artifactPath,
+  artifactFieldName,
+  artifactLabel,
 }) {
   const text = value || "";
   const hasValue = Boolean(text.trim());
+  const artifactPathText = String(artifactPath || "").trim();
+  const hasArtifactControl = Boolean(artifactLabel || artifactFieldName);
   const inner = hasValue
     ? renderPreservedText(text)
     : escapeHtml(placeholder || "");
   const placeholderClass = hasValue ? "" : "is-placeholder";
+  const artifactButton = hasArtifactControl
+    ? `<button
+        type="button"
+        class="inline-md-artifact-btn detail-action-btn"
+        data-variant="ghost"
+        data-open-artifact="${escapeHtml(artifactPathText)}"
+        data-artifact-field="${escapeHtml(artifactFieldName || "")}"
+        data-artifact-ticket-id="${escapeHtml(ticketId || "")}"
+        data-artifact-title="${escapeHtml(label)}"
+      >${escapeHtml(artifactLabel || "Open full artifact")}</button>`
+    : "";
   return `
     <div class="inline-md-field">
-      <span class="inline-md-field-label">${escapeHtml(label)}</span>
+      <div class="inline-md-field-head">
+        <span class="inline-md-field-label">${escapeHtml(label)}</span>
+        ${artifactButton}
+      </div>
       <div
         class="inline-md-field-body preserved-text-body editable-field ${placeholderClass}"
         data-edit-field="${escapeHtml(fieldName)}"
@@ -1157,7 +1237,7 @@ function renderRelated(relations = [], ticket) {
         <option value="blocks">blocks</option>
         <option value="blocked_by">blocked by</option>
       </select>
-      <button type="submit" class="ghost meta-add-btn">Add</button>
+      <button type="submit" class="meta-add-btn detail-action-btn" data-variant="ghost">Add</button>
     </form>
   `;
 
@@ -1196,13 +1276,13 @@ function renderParentEpicSection(ticket, context) {
   const body = context.parent_ticket
     ? `<div class="detail-card-grid detail-card-grid--single">${renderDetailCard(context.parent_ticket, { detach: { mode: "parent" } })}</div>`
     : `
-      <form id="parentEpicForm" class="related-add-row">
+      <form id="parentEpicForm" class="related-add-row parent-epic-form">
         <div class="related-add-input-wrap">
           <input type="text" name="target" class="related-add-input meta-inline-input" list="parent-epic-suggestions" placeholder="Set parent epic…" aria-label="Set parent epic" autocomplete="off" />
           <button type="button" class="related-add-clear" data-parent-epic-clear aria-label="Clear" tabindex="-1">×</button>
           <datalist id="parent-epic-suggestions">${datalistOptions}</datalist>
         </div>
-        <button type="submit" class="ghost meta-add-btn">Set</button>
+        <button type="submit" class="meta-add-btn detail-action-btn" data-variant="ghost">Set</button>
       </form>
     `;
 

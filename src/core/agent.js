@@ -190,12 +190,16 @@ export function completeTicket(body, ctx) {
   const lines = [summary];
   if (body.pr_url) lines.push(`PR: ${body.pr_url}`);
   const updates = body.updates ? appendFieldNote(ticket.implementation_updates, body.updates, actor.name) : ticket.implementation_updates;
+  const implementationArtifactPath = body.implementation_artifact_path || body.summary_artifact_path || ticket.implementation_artifact_path || "";
   tx(db, () => {
     const time = now();
     addComment(db, ticket.id, actor.name, "completion", lines.join("\n\n"));
     db.prepare(
-      "UPDATE tickets SET state_id = ?, implementation_summary = ?, implementation_updates = ?, updated_at = ? WHERE id = ?"
-    ).run(nextState.id, summary, updates, time, ticket.id);
+      `UPDATE tickets
+       SET state_id = ?, implementation_summary = ?,
+           implementation_artifact_path = ?, implementation_updates = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(nextState.id, summary, implementationArtifactPath, updates, time, ticket.id);
     recordEvent(db, ticket.board_id, "agent_completed", ticket.id, actor.name, {
       from: ticket.state_name,
       next_state: nextState.name,
@@ -323,6 +327,10 @@ export function getAgentDispatchPacket(ticketId, ctx, options = {}) {
       description: capString(ticket.description || "", maxCharsPerField),
       acceptance: capString(extractAcceptance(ticket.description || ""), maxCharsPerField),
       ai_plan: capString(ticket.ai_plan || "", maxCharsPerField),
+      plan_artifact_path: ticket.plan_artifact_path || "",
+      implementation_summary: capString(ticket.implementation_summary || "", maxCharsPerField),
+      implementation_artifact_path: ticket.implementation_artifact_path || "",
+      implementation_updates: capString(ticket.implementation_updates || "", maxCharsPerField),
       labels
     },
     blockers: {

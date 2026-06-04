@@ -87,10 +87,11 @@ export function normalizeStateRole(value) {
 }
 
 export function appendFieldNote(existing, note, actorName) {
+  void actorName;
   const text = String(note || "").trim();
   if (!text) return existing || "";
-  const entry = `## ${new Date().toISOString()} - ${actorName}\n\n${text}`;
-  return [existing, entry].filter(Boolean).join("\n\n");
+  const prior = String(existing || "").trim();
+  return [prior, text].filter(Boolean).join("\n\n");
 }
 
 export function toFtsQuery(q) {

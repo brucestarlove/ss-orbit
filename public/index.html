@@ -405,6 +405,35 @@
             <div id="drawerInner" class="drawer-inner"></div>
         </aside>
 
+        <div
+            id="artifactDrawerBackdrop"
+            class="artifact-drawer-backdrop"
+            hidden
+            aria-hidden="true"
+        ></div>
+        <aside
+            id="artifactDrawer"
+            class="artifact-drawer"
+            hidden
+            aria-label="Linked markdown artifact"
+        >
+            <header class="artifact-drawer-header">
+                <div class="artifact-drawer-title-block">
+                    <h2 id="artifactDrawerTitle" class="artifact-drawer-title">Artifact</h2>
+                    <p id="artifactDrawerMeta" class="artifact-drawer-meta"></p>
+                </div>
+                <button
+                    type="button"
+                    id="artifactDrawerCloseBtn"
+                    class="drawer-close artifact-drawer-close"
+                    aria-label="Close artifact"
+                >
+                    ×
+                </button>
+            </header>
+            <div id="artifactDrawerBody" class="artifact-drawer-body"></div>
+        </aside>
+
         <template id="commentFormTemplate">
             <form class="comment-form">
                 <textarea

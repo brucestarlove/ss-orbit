@@ -75,7 +75,7 @@ export function exportBoard(boardId, ctx, options = {}) {
 
   return {
     format: "orbit-board-export",
-    version: 7,
+    version: 8,
     exported_at: now(),
     include_attachments: Boolean(options.includeAttachments),
     board: { ...innerBoard },
@@ -168,9 +168,10 @@ export function importBoardSnapshot(body, ctx) {
       db.prepare(
         `INSERT INTO tickets
          (id, board_id, number, title, description, type, parent_ticket_id, ai_plan,
-          implementation_summary, implementation_updates, state_id, priority,
+          plan_artifact_path, implementation_summary, implementation_artifact_path,
+          implementation_updates, state_id, priority,
           created_by, created_at, updated_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         ticket.id,
         targetBoardId,
@@ -180,7 +181,9 @@ export function importBoardSnapshot(body, ctx) {
         normalizeTicketType(ticket.type || "task"),
         ticket.parent_ticket_id || null,
         ticket.ai_plan || "",
+        ticket.plan_artifact_path || "",
         ticket.implementation_summary || "",
+        ticket.implementation_artifact_path || "",
         ticket.implementation_updates || "",
         ticket.state_id,
         normalizePriority(ticket.priority),
@@ -471,7 +474,7 @@ function trelloExportToOrbitSnapshot(trello, ctx) {
   return {
     format: "orbit-board-export",
     source_format: "trello-board-export",
-    version: 7,
+    version: 8,
     exported_at: time,
     include_attachments: false,
     imported_counts: {
