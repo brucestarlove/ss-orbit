@@ -30,7 +30,16 @@ const repositoryDelete = {
 
 export async function renderProjectDetail() {
   const context = await api(`/api/boards/${state.boardId}/context?include_struck=true`);
-  const project = context.board;
+  const bootstrapBoard = currentBoard();
+  const project = {
+    ...context.board,
+    // `/api/boards/:id/context` is agent-safe and intentionally omits
+    // human-only project notes. The Settings UI gets those notes from the
+    // human bootstrap payload instead, so Notes can reload without turning
+    // board_context/MCP into a notes surface.
+    ...(bootstrapBoard?.id === context.board?.id ? { project_notes: bootstrapBoard.project_notes || "" } : {})
+  };
+  context.board = project;
   const activeTab = getSettingsTab();
 
   const tabs = [

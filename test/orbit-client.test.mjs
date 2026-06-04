@@ -49,6 +49,7 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
   await client.createReviewVerdict({ ticket_id: "ticket-1", verdict: "PASS", evidence_commands: ["npm test"] });
   await client.listReviewVerdicts({ ticket_id: "ticket-1", limit: 2 });
   await client.getReviewVerdict({ review_id: "review-1" });
+  await client.updateSettings({ name: "Renamed", project_notes: "human-only-notes", agent_instructions: "Agent-safe" });
 
   assert.equal(calls[0].method, "GET");
   assert.equal(calls[0].url, "http://orbit.example/api-root/api/boards/example-board/context?include_struck=true");
@@ -97,6 +98,11 @@ test("HTTP Orbit client routes MCP operations to API endpoints with default boar
     url: "http://orbit.example/api-root/api/review-verdicts/review-1?board=example-board",
     method: "GET",
     body: null
+  });
+  assert.deepEqual(calls[11], {
+    url: "http://orbit.example/api-root/api/boards/example-board",
+    method: "PATCH",
+    body: { name: "Renamed", agent_instructions: "Agent-safe" }
   });
 });
 
@@ -230,6 +236,7 @@ test("local Orbit client mutates explicit board while session active board diffe
     await client.addComment({ board_slug: boardB.slug, ticket_id: ticketB.id, body: "Comment on B" });
     await client.createReviewVerdict({ board_slug: boardB.slug, ticket_id: ticketB.id, verdict: "PASS", evidence_commands: ["npm test"] });
     await client.complete({ board_slug: boardB.slug, ticket_id: ticketB.id, summary: "Complete on B" });
+    await client.updateSettings({ board_slug: boardB.slug, name: "Renamed B", project_notes: "agent-sent-notes" });
     await client.archiveTicket({ board_slug: boardB.slug, ticket_id: archiveB.id });
     await client.restoreTicket({ board_slug: boardB.slug, ticket_id: archiveB.id });
     await client.archiveTicket({ board_slug: boardB.slug, ticket_id: archiveB.id });
@@ -243,6 +250,9 @@ test("local Orbit client mutates explicit board while session active board diffe
       assert.equal(dbA.prepare("SELECT COUNT(*) AS count FROM tickets WHERE title = 'Updated on B'").get().count, 0);
 
       assert.equal(dbB.prepare("SELECT title FROM tickets WHERE id = ?").get(ticketB.id).title, "Updated on B");
+      const boardBRow = dbB.prepare("SELECT name, project_notes FROM boards WHERE id = ?").get(boardB.id);
+      assert.equal(boardBRow.name, "Renamed B");
+      assert.notEqual(boardBRow.project_notes, "agent-sent-notes", "local MCP settings updates ignore human-only notes");
       assert.equal(dbB.prepare("SELECT implementation_summary FROM tickets WHERE id = ?").get(ticketB.id).implementation_summary, "Complete on B");
       assert.equal(dbB.prepare("SELECT COUNT(*) AS count FROM comments WHERE ticket_id = ? AND body = 'Comment on B'").get(ticketB.id).count, 1);
       assert.equal(dbB.prepare("SELECT COUNT(*) AS count FROM comments WHERE ticket_id = ? AND kind = 'completion' AND body = 'Complete on B'").get(ticketB.id).count, 1);

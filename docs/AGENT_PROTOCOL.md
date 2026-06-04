@@ -101,7 +101,7 @@ Returns:
 - Related tickets.
 - Blockers and blocking tickets.
 
-Project manual/journal (`agent_instructions`, `project_notes`, and board entries) and ticket comments are intentionally omitted from this default agent context. Fetch project context and comments explicitly when needed:
+Project manual/journal (`agent_instructions` and board entries) and ticket comments are intentionally omitted from this default agent context. Human-only `project_notes` are not part of agent context surfaces. Fetch project context and comments explicitly when needed:
 
 ```http
 GET /api/boards/:board_id/context?include_struck=false
@@ -192,7 +192,7 @@ Searches ticket titles, descriptions, and comments.
 GET /api/boards/:board_id/context?include_struck=false
 ```
 
-Returns the same shape as MCP `board_context`: board metadata (`agent_instructions`, `project_notes`, repository paths, default branch), `entries` (journal / decisions / lessons), and `deployment` paths. Use `include_struck=true` to include struck journal rows (default off).
+Returns the same shape as MCP `board_context`: agent-safe board metadata (`agent_instructions`, repository paths, default branch), `entries` (journal / decisions / lessons), and `deployment` paths. Human-only `project_notes` are intentionally excluded. Use `include_struck=true` to include struck journal rows (default off).
 
 MCP: `board_context` with optional `board_id` / `board_slug` / `board` and optional `include_struck`.
 
@@ -207,8 +207,7 @@ Content-Type: application/json
   "repo_url": "https://github.com/you/repo",
   "system_path": "C:/path/to/repo",
   "default_branch": "main",
-  "project_notes": "Personal reminders (optional).",
-  "agent_instructions": "Why this repo exists, capabilities, stack, constraints, and how agents should operate..."
+  "agent_instructions": "How agents should work here..."
 }
 ```
 

@@ -256,7 +256,7 @@ function buildContextPack(ticketId, ctx, depth = 1, options = {}, { includeProje
       ...ticket,
       labels
     }, maxCharsPerField),
-    board: includeProjectContext ? innerBoard : contextBoardIdentity(innerBoard, ctx),
+    board: contextBoardIdentity(innerBoard, ctx),
     parent_ticket: parentTicket ? (includeParentFull ? capTicketFields({ ...parentTicket, labels: labelsForTicket(db, parentTicket.id) }, maxCharsPerField) : compactTicket(parentTicket)) : null,
     child_tickets: childTickets.map((child) => ({
       ...capTicketFields(child, maxCharsPerField),

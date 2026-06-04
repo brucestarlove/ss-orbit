@@ -31,12 +31,13 @@ function makeBoard() {
   const boardId = id();
   const t = now();
   const slug = `b-${boardId.slice(0, 8)}`;
-  db.prepare("INSERT INTO boards (id,slug,name,system_path,default_branch,agent_instructions,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").run(
+  db.prepare("INSERT INTO boards (id,slug,name,system_path,default_branch,project_notes,agent_instructions,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)").run(
     boardId,
     slug,
     "Board",
     dir,
     "main",
+    "human-only-secret-notes",
     "Use Orbit carefully. Keep tickets lean for agents. This intentionally long second sentence should be capped in packets.",
     t,
     t
@@ -153,7 +154,9 @@ test("default agent context omits project context, journal, and comments", () =>
   assert.equal(JSON.stringify(context).includes("private-ticket-thread"), false);
   assert.equal(JSON.stringify(context).includes("private-related-thread"), false);
   assert.equal(JSON.stringify(context).includes("journal-only-memory"), false);
+  assert.equal(JSON.stringify(context).includes("human-only-secret-notes"), false);
   assert.equal(JSON.stringify(lightweight).includes("private-ticket-thread"), false);
+  assert.equal(JSON.stringify(lightweight).includes("human-only-secret-notes"), false);
 });
 
 test("full agent context retains the board manual and journal when explicitly requested", () => {
@@ -175,6 +178,9 @@ test("full agent context retains the board manual and journal when explicitly re
   assert.equal(full.board_manual.board.id, ctx.board.id);
   assert.equal(full.board_manual.board.agent_instructions.includes("Use Orbit carefully"), true);
   assert.equal(full.board_manual.entries[0].body, "journal-only-memory");
+  assert.equal(Object.hasOwn(full.board, "project_notes"), false);
+  assert.equal(Object.hasOwn(full.board_manual.board, "project_notes"), false);
+  assert.equal(JSON.stringify(full).includes("human-only-secret-notes"), false);
   assert.equal(Object.hasOwn(full, "comments"), false);
 });
 
@@ -326,6 +332,7 @@ test("agent dispatch packet returns capped workflow context without hydrated epi
 
   assert.equal(packet.board.id, ctx.board.id);
   assert.equal(packet.board.slug, ctx.board.slug);
+  assert.equal(Object.hasOwn(packet.board, "project_notes"), false);
   assert.equal(packet.ticket.id, target.id);
   assert.equal(packet.ticket.acceptance.includes("ship lean packet"), true);
   assert.equal(packet.ticket.description.length <= 60, true);
@@ -342,6 +349,7 @@ test("agent dispatch packet returns capped workflow context without hydrated epi
   assert.equal(packet.recent_comments.length, 1);
   assert.equal(packet.recent_comments[0].body.length <= 60, true);
   assert.equal(JSON.stringify(packet).includes("epic-body-epic-body"), false);
+  assert.equal(JSON.stringify(packet).includes("human-only-secret-notes"), false);
 });
 
 test("duplicate relation is rejected instead of silently returning", () => {

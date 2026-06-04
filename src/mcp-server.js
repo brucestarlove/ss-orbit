@@ -187,7 +187,7 @@ const TOOL_DEFS = [
   {
     name: "board_context",
     description:
-      "Board/project context pack: board metadata, agent_instructions, journal entries (board_entries), and deployment paths. Complements the lean board_get_ticket_context. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Set include_struck true to include struck journal rows (default false). Same payload as GET /api/boards/:id/context.",
+      "Board/project context pack: agent-safe board metadata, agent_instructions, journal entries (board_entries), and deployment paths. Human-only project_notes are intentionally excluded. Complements the lean board_get_ticket_context. Resolves board from board_id / board_slug / board first; the MCP session board is only a fallback convenience. Set include_struck true to include struck journal rows (default false). Same payload as GET /api/boards/:id/context.",
     inputSchema: {
       type: "object",
       properties: {

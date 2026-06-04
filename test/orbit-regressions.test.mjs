@@ -140,6 +140,8 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.doesNotMatch(settingsSource, /renderMarkdown\(notes\)/);
   assert.doesNotMatch(settingsSource, /id="notesSettingsForm"/);
   assert.match(settingsSource, /project_notes:\s*cleanText\(next\)/);
+  assert.match(settingsSource, /const bootstrapBoard = currentBoard\(\)/);
+  assert.match(settingsSource, /project_notes: bootstrapBoard\.project_notes \|\| ""/);
 
   // Agent Instructions uses the same click-to-edit preserved text interface as Notes.
   assert.match(settingsSource, /data-edit-field="agent_instructions"/);
@@ -344,6 +346,7 @@ test("ticket title editor is explicit, keyboard friendly, and exits edit mode on
   const settingsToolSchema = mcpServerSource.match(/name: "board_update_settings"[\s\S]*?inputSchema: \{([\s\S]*?)\n    handler:/);
   assert.ok(settingsToolSchema);
   assert.match(settingsToolSchema[1], /name: \{ type: "string" \}/);
+  assert.doesNotMatch(settingsToolSchema[1], /project_notes/);
 });
 
 test("Orbit CSS imports published Starscape UI chrome through the bundling seam", async () => {
@@ -791,6 +794,7 @@ test("board context exposes metadata needed by settings tabs", async () => {
   runOrbit(["init", "--cwd", h.projectRoot], h);
 
   const db = new DatabaseSync(boardDbPath(h));
+  db.prepare("UPDATE boards SET project_notes = ?").run("settings-human-only-note");
   const board = db.prepare("SELECT id, slug, name, repo_url, system_path, default_branch, project_notes, ai_enabled FROM boards LIMIT 1").get();
   db.close();
   const port = await freePort();
@@ -811,6 +815,8 @@ test("board context exposes metadata needed by settings tabs", async () => {
     assert.equal(context.board.system_path, board.system_path);
     assert.equal(context.board.default_branch, board.default_branch);
     assert.equal(context.board.ai_enabled, board.ai_enabled);
+    assert.equal(Object.hasOwn(context.board, "project_notes"), false);
+    assert.equal(JSON.stringify(context).includes(board.project_notes), false);
 
     const archiveResponse = await fetch(`http://127.0.0.1:${port}/api/boards/${encodeURIComponent(context.board.id)}/archive`);
     assert.equal(archiveResponse.status, 200);
@@ -859,6 +865,8 @@ test("board settings PATCH renames display name without changing canonical slug"
     const context = await contextResponse.json();
     assert.equal(context.board.name, "Renamed Orbit");
     assert.equal(context.board.slug, board.slug);
+    assert.equal(Object.hasOwn(context.board, "project_notes"), false);
+    assert.equal(JSON.stringify(context).includes("notes still save"), false);
 
     const bootstrapResponse = await fetch(`http://127.0.0.1:${port}/api/bootstrap`);
     assert.equal(bootstrapResponse.status, 200);
@@ -866,6 +874,7 @@ test("board settings PATCH renames display name without changing canonical slug"
     const bootstrapBoard = bootstrap.boards.find((item) => item.id === board.id);
     assert.equal(bootstrapBoard?.name, "Renamed Orbit");
     assert.equal(bootstrapBoard?.slug, board.slug);
+    assert.equal(bootstrapBoard?.project_notes, "notes still save");
   } finally {
     child.kill("SIGTERM");
   }
@@ -947,7 +956,9 @@ test("ticket read endpoint returns the lightweight agent ticket shape", async ()
     assert.equal(JSON.stringify(context).includes("project-context-only"), false);
 
     assert.equal(fullContext.ticket.id, ticket.id);
+    assert.equal(Object.hasOwn(fullContext.board, "project_notes"), false);
     assert.equal(fullContext.board_manual.board.id, board.id);
+    assert.equal(Object.hasOwn(fullContext.board_manual.board, "project_notes"), false);
     assert.equal(fullContext.board_manual.entries.some((entry) => entry.body === "project-context-only"), true);
     assert.equal(Object.hasOwn(fullContext, "comments"), false);
     assert.equal(JSON.stringify(fullContext).includes("comment-only-thread"), false);
