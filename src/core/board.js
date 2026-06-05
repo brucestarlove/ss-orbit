@@ -140,6 +140,7 @@ export { archivedTicketsForBoard } from "./queries.js";
 export { getTicketBlockers, getTicketRelations } from "./relations.js";
 export { checkpointTicket, claimNext, completeTicket, getAgentDispatchPacket, getContextPack, getContextPackFull, readComments, readTicket } from "./agent.js";
 export { searchTickets } from "./search.js";
+export { getTicketMarkdownArtifact, storeTicketMarkdownArtifact } from "./artifacts.js";
 export { exportBoard } from "./snapshots.js";
 
 // Helpers for ad-hoc id/slug minting in callers (e.g. MCP tools that mint

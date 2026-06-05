@@ -103,6 +103,10 @@ function makeRemoteClient(packet = makePacket()) {
       calls.push(["updateTicket", args]);
       return { ...packet.ticket, ...args };
     },
+    async uploadMarkdownArtifact(args) {
+      calls.push(["uploadMarkdownArtifact", args]);
+      return { ticket_id: args.ticket_id, path: `tickets/${args.ticket_id}/${args.filename}`, size_bytes: Buffer.byteLength(args.content || "", "utf8") };
+    },
     async addComment(args) {
       calls.push(["addComment", args]);
       return { id: "remote-comment", ...args };
@@ -172,12 +176,21 @@ test("remote dispatch --no-spawn prepares handoff/worktree and writes hosted run
   assert.equal(updateCall[1].ticket_id, "ticket-remote-1");
   assert.equal(updateCall[1].board_slug, "starlove-orbit");
   assert.match(updateCall[1].ai_plan, /Full generated handoff is linked as markdown:/);
+  assert.match(updateCall[1].plan_artifact_path, /^tickets\/ticket-remote-1\/orbit-128-nova-.*-handoff\.md$/);
   assert.equal(Object.hasOwn(updateCall[1], "state_id"), false);
+
+  const uploadCall = remoteClient.calls.find((call) => call[0] === "uploadMarkdownArtifact");
+  assert.ok(uploadCall);
+  assert.equal(uploadCall[1].ticket_id, "ticket-remote-1");
+  assert.equal(uploadCall[1].board_slug, "starlove-orbit");
+  assert.match(uploadCall[1].source_path, /handoff\.md$/);
+  assert.match(uploadCall[1].content, /Remote board instructions/);
 
   const commentCall = remoteClient.calls.find((call) => call[0] === "addComment");
   assert.ok(commentCall);
   assert.match(commentCall[1].body, /mode: prepare-only/);
   assert.match(commentCall[1].body, /remote hosted board/);
+  assert.match(commentCall[1].body, /hosted_handoff: tickets\/ticket-remote-1\//);
 });
 
 test("remote dispatch refuses blocked hosted tickets before artifacts", async () => {
@@ -198,5 +211,5 @@ test("remote dispatch refuses blocked hosted tickets before artifacts", async ()
   );
 
   assert.equal(existsSync(join(h.projectRoot, ".orbit", "dispatch-runs")), false);
-  assert.equal(remoteClient.calls.some((call) => call[0] === "updateTicket" || call[0] === "addComment"), false);
+  assert.equal(remoteClient.calls.some((call) => call[0] === "updateTicket" || call[0] === "uploadMarkdownArtifact" || call[0] === "addComment"), false);
 });

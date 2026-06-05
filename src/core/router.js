@@ -72,7 +72,7 @@ import {
   readTicket
 } from "./agent.js";
 import { createReviewVerdict, getReviewVerdict, listReviewVerdicts } from "./review-verdicts.js";
-import { getTicketMarkdownArtifact } from "./artifacts.js";
+import { getTicketMarkdownArtifact, storeTicketMarkdownArtifact } from "./artifacts.js";
 
 /** Build a ctx for an already-resolved registry row + actor. */
 function ctxFromBoardRow(boardRow, actor) {
@@ -312,6 +312,11 @@ export async function handleApi(req, res, url) {
     }
     if (sub === "artifacts/markdown" && req.method === "GET") {
       sendJson(res, 200, getTicketMarkdownArtifact(ticketId, url.searchParams.get("path"), ctx));
+      return;
+    }
+    if (sub === "artifacts/markdown" && req.method === "POST") {
+      const body = await readJson(req);
+      sendJson(res, 201, storeTicketMarkdownArtifact(ticketId, body, ctx));
       return;
     }
     if (sub === "comments" && req.method === "POST") {

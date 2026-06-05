@@ -704,7 +704,18 @@ async function dispatchTicketRemote(options) {
   let status = "prepared";
   writeRunRecordJson(status, null);
   const planSummary = buildPlanExcerpt({ ticket, profile, handoffPath });
-  const ticketPatch = { ticket_id: ticket.id, board_slug: boardRow.slug, ai_plan: planSummary, plan_artifact_path: handoffPath };
+  let linkedHandoffPath = handoffPath;
+  if (typeof remoteClient.uploadMarkdownArtifact === "function") {
+    const uploaded = await remoteClient.uploadMarkdownArtifact({
+      ticket_id: ticket.id,
+      board_slug: boardRow.slug,
+      filename: `${runId}-handoff.md`,
+      source_path: handoffPath,
+      content: readFileSync(handoffPath, "utf8")
+    });
+    if (uploaded?.path) linkedHandoffPath = uploaded.path;
+  }
+  const ticketPatch = { ticket_id: ticket.id, board_slug: boardRow.slug, ai_plan: planSummary, plan_artifact_path: linkedHandoffPath };
   if (!options.noSpawn) ticketPatch.state_id = inProgressId;
   await remoteClient.updateTicket(ticketPatch);
 
@@ -748,13 +759,14 @@ async function dispatchTicketRemote(options) {
     `- base_commit: ${baseCommit || "unknown"}`,
     `- worktree: ${worktreePath || repoRoot}`,
     `- handoff: ${handoffPath}`,
+    linkedHandoffPath !== handoffPath ? `- hosted_handoff: ${linkedHandoffPath}` : null,
     `- run_record_json: ${runRecordPath}`,
     `- policy_bin: ${policyBin || "none"}`,
     `- pid: ${child?.pid || "not spawned"}`,
     `- verification_commands: ${verificationCommands.join("; ")}`,
     `- command: ${options.hermesBin || "hermes"} ${hermesArgs.map((arg) => (arg.includes(" ") ? q(arg) : arg)).join(" ")}`,
     options.noSpawn ? "- mode: prepare-only; no agent spawned and ticket state left unchanged" : "- mode: spawned; ticket moved to In Progress"
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
   await remoteClient.addComment({ ticket_id: ticket.id, board_slug: boardRow.slug, author: "orbit dispatch", kind: "agent_note", body: runRecord });
 
@@ -770,6 +782,7 @@ async function dispatchTicketRemote(options) {
     worktree_path: worktreePath || repoRoot,
     branch: branchName || "",
     handoff_path: handoffPath,
+    linked_handoff_path: linkedHandoffPath,
     policy_bin: policyBin,
     pid: child?.pid || null,
     spawned: Boolean(child),
@@ -982,6 +995,7 @@ export function dispatchTicket(options) {
     worktree_path: worktreePath || repoRoot,
     branch: branchName || "",
     handoff_path: handoffPath,
+    linked_handoff_path: handoffPath,
     policy_bin: policyBin,
     pid: child?.pid || null,
     spawned: Boolean(child),
