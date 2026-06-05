@@ -17,7 +17,7 @@ const STORES = [
   "labels", // {id, board_id, name, color, created_at}
   "tickets", // full ticket row (no joins)
   "ticket_labels", // {ticket_id, label_id} composite key as `${ticket_id}|${label_id}`
-  "comments", // {id, ticket_id, author, kind, body, created_at}
+  "comments", // {id, ticket_id, author, kind, body, omitted_for_ai, created_at}
   "relations", // {id, source_ticket_id, target_ticket_id, kind, created_at, ...}
   "board_entries", // {id, board_id, type, title, body, ticket_id, struck_at, created_at, updated_at}
   "events", // {id, board_id, ticket_id, type, actor, body_json, created_at}
@@ -251,6 +251,7 @@ async function seedIfEmpty(db) {
     author: "system",
     kind: "note",
     body: "Welcome to the Orbit preview. Everything lives in your browser.",
+    omitted_for_ai: 0,
     created_at: t
   });
 
@@ -844,12 +845,33 @@ async function handleCommentCreate(ticketId, body) {
       author: "you",
       kind: body.kind || "note",
       body: body.body || "",
+      omitted_for_ai: 0,
       created_at: time
     };
     stores.comments.put(comment);
     ticket.updated_at = time;
     stores.tickets.put(ticket);
     recordEvent(stores, "comment_created", ticketId, { kind: comment.kind });
+    await bumpTicketUpdatedAt(stores, ticket.parent_ticket_id, time);
+    return comment;
+  });
+}
+
+async function handleCommentPatch(ticketId, commentId, body) {
+  const db = await openDb();
+  return putAndEvent(db, async (stores) => {
+    const ticket = await reqPromise(stores.tickets.get(ticketId));
+    if (!ticket) throw err(404, "ticket_not_found");
+    const comment = await reqPromise(stores.comments.get(commentId));
+    if (!comment || comment.ticket_id !== ticketId) throw err(404, "comment_not_found");
+    const omittedForAi = body.omitted_for_ai ?? body.omittedForAi;
+    if (typeof omittedForAi !== "boolean") throw err(400, "omitted_for_ai_required");
+    const time = nowIso();
+    comment.omitted_for_ai = omittedForAi ? 1 : 0;
+    ticket.updated_at = time;
+    stores.comments.put(comment);
+    stores.tickets.put(ticket);
+    recordEvent(stores, "comment_ai_omission_changed", ticketId, { comment_id: commentId, omitted_for_ai: omittedForAi });
     await bumpTicketUpdatedAt(stores, ticket.parent_ticket_id, time);
     return comment;
   });
@@ -974,6 +996,7 @@ const ROUTES = [
   { m: "GET", re: /^\/api\/tickets\/([^/]+)\/comments$/, fn: (m) => handleTicketComments(decodeURIComponent(m[1])) },
   { m: "GET", re: /^\/api\/tickets\/([^/]+)\/history$/, fn: (m) => handleTicketHistory(decodeURIComponent(m[1])) },
   { m: "POST", re: /^\/api\/tickets\/([^/]+)\/comments$/, fn: (m, u, body) => handleCommentCreate(decodeURIComponent(m[1]), body) },
+  { m: "PATCH", re: /^\/api\/tickets\/([^/]+)\/comments\/([^/]+)$/, fn: (m, u, body) => handleCommentPatch(decodeURIComponent(m[1]), decodeURIComponent(m[2]), body) },
   { m: "POST", re: /^\/api\/relations$/, fn: (m, u, body) => handleRelationCreate(body) },
   { m: "DELETE", re: /^\/api\/relations\/([^/]+)$/, fn: (m) => handleRelationDelete(decodeURIComponent(m[1])) },
   { m: "GET", re: /^\/api\/search$/, fn: (m, u) => handleSearch(u.searchParams.get("q")) },

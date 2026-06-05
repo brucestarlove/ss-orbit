@@ -75,7 +75,7 @@ export function exportBoard(boardId, ctx, options = {}) {
 
   return {
     format: "orbit-board-export",
-    version: 8,
+    version: 9,
     exported_at: now(),
     include_attachments: Boolean(options.includeAttachments),
     board: { ...innerBoard },
@@ -200,13 +200,14 @@ export function importBoardSnapshot(body, ctx) {
 
     for (const comment of snapshot.comments || []) {
       db.prepare(
-        "INSERT INTO comments (id, ticket_id, author, kind, body, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT INTO comments (id, ticket_id, author, kind, body, omitted_for_ai, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
       ).run(
         comment.id,
         comment.ticket_id,
         comment.author || "import",
         comment.kind || "comment",
         comment.body || "",
+        comment.omitted_for_ai ? 1 : 0,
         comment.created_at || now()
       );
     }
@@ -466,6 +467,7 @@ function trelloExportToOrbitSnapshot(trello, ctx) {
         author: trelloMemberName(action.memberCreator),
         kind: "human_comment",
         body: cleanText(action.data?.text) || "",
+        omitted_for_ai: 0,
         created_at: cleanText(action.date) || cardUpdatedAt
       });
     });
@@ -474,7 +476,7 @@ function trelloExportToOrbitSnapshot(trello, ctx) {
   return {
     format: "orbit-board-export",
     source_format: "trello-board-export",
-    version: 8,
+    version: 9,
     exported_at: time,
     include_attachments: false,
     imported_counts: {

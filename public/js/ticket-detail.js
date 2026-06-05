@@ -697,6 +697,20 @@ export async function renderDetail(options = {}) {
     await refreshTicketDetail(ticket.id);
   });
 
+  drawerInner.querySelectorAll("[data-comment-action='toggle-ai-omission']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const commentId = button.dataset.commentId;
+      if (!commentId) return;
+      const omittedForAi = button.dataset.omittedForAi !== "true";
+      await api(withBoardQuery(`/api/tickets/${ticket.id}/comments/${commentId}`), {
+        method: "PATCH",
+        body: { omitted_for_ai: omittedForAi },
+      });
+      toast.info(omittedForAi ? "Comment omitted from AI context" : "Comment included in AI context");
+      await refreshTicketDetail(ticket.id);
+    });
+  });
+
   drawerInner.querySelectorAll("[data-open-ticket]").forEach((card) => {
     card.addEventListener("click", async (event) => {
       if (
@@ -1146,11 +1160,20 @@ function renderStatusHistory(history) {
 }
 
 function renderComment(comment) {
+  const omittedForAi = Boolean(comment.omitted_for_ai);
   return `
     <div class="comment ${comment.kind === "checkpoint" ? "checkpoint" : ""}">
       <div class="comment-meta">
         <strong>${escapeHtml(formatCommentAuthor(comment))}</strong>
         <span>${comment.kind === "human_comment" ? "" : `${escapeHtml(comment.kind)} - `}${formatDate(comment.created_at)}</span>
+        <button
+          type="button"
+          class="comment-ai-toggle detail-action-btn"
+          data-variant="ghost"
+          data-comment-action="toggle-ai-omission"
+          data-comment-id="${escapeHtml(comment.id)}"
+          data-omitted-for-ai="${omittedForAi ? "true" : "false"}"
+        >${omittedForAi ? "AI Include" : "AI Ignore"}</button>
       </div>
       <div class="comment-body preserved-text-body">${renderPreservedText(comment.body)}</div>
     </div>
@@ -1184,7 +1207,7 @@ export function renderInlinePreservedTextField({
   const artifactButton = hasArtifactControl
     ? `<button
         type="button"
-        class="inline-md-artifact-btn detail-action-btn"
+        class="detail-action-btn"
         data-variant="ghost"
         data-open-artifact="${escapeHtml(artifactPathText)}"
         data-artifact-field="${escapeHtml(artifactFieldName || "")}"

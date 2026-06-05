@@ -42,6 +42,7 @@ import {
   deleteTicket,
   getTicketStatusHistory,
   restoreTicket,
+  updateCommentAiOmission,
   updateTicket
 } from "./tickets.js";
 import { archivedTicketsForBoard } from "./queries.js";
@@ -322,6 +323,12 @@ export async function handleApi(req, res, url) {
     if (sub === "comments" && req.method === "POST") {
       const body = await readJson(req);
       sendMutationJson(res, 201, createComment(ticketId, body, ctx), ctx);
+      return;
+    }
+    const commentPath = sub.match(/^comments\/([^/]+)$/);
+    if (commentPath && req.method === "PATCH") {
+      const body = await readJson(req);
+      sendMutationJson(res, 200, updateCommentAiOmission(ticketId, decodeURIComponent(commentPath[1]), body, ctx), ctx);
       return;
     }
     if (sub === "review-verdicts" && req.method === "GET") {

@@ -300,6 +300,32 @@ export function createComment(ticketId, body, ctx) {
   });
 }
 
+export function updateCommentAiOmission(ticketId, commentId, body, ctx) {
+  const { db, board, actor } = ctx;
+  const ticket = ticketById(db, ticketId);
+  if (!ticket || ticket.board_id !== board.id) throw httpError(404, "ticket_not_found");
+  requireBoardAccess(actor, boardById(db, ticket.board_id));
+  requirePermission(actor, "write");
+
+  const comment = db.prepare("SELECT * FROM comments WHERE id = ? AND ticket_id = ?").get(commentId, ticketId);
+  if (!comment) throw httpError(404, "comment_not_found");
+  const omittedForAi = body.omitted_for_ai ?? body.omittedForAi;
+  if (typeof omittedForAi !== "boolean") throw httpError(400, "omitted_for_ai_required");
+
+  return tx(db, () => {
+    const time = now();
+    db.prepare("UPDATE comments SET omitted_for_ai = ? WHERE id = ?").run(omittedForAi ? 1 : 0, commentId);
+    db.prepare("UPDATE tickets SET updated_at = ? WHERE id = ?").run(time, ticketId);
+    recordEvent(db, ticket.board_id, "comment_ai_omission_changed", ticketId, actor.name, {
+      comment_id: commentId,
+      omitted_for_ai: omittedForAi
+    });
+    reindexTicket(db, ticketId);
+    bumpTicketUpdatedAt(db, ticket.parent_ticket_id, time);
+    return db.prepare("SELECT * FROM comments WHERE id = ?").get(commentId);
+  });
+}
+
 export function getTicketStatusHistory(ticketId, ctx) {
   const { db, board, actor } = ctx;
   const ticket = ticketById(db, ticketId);
@@ -347,7 +373,7 @@ export function reindexTicket(db, ticketId) {
   const ticket = db.prepare("SELECT * FROM tickets WHERE id = ?").get(ticketId);
   if (!ticket) return;
   const comments = db
-    .prepare("SELECT body FROM comments WHERE ticket_id = ? ORDER BY created_at ASC")
+    .prepare("SELECT body FROM comments WHERE ticket_id = ? AND COALESCE(omitted_for_ai, 0) = 0 ORDER BY created_at ASC")
     .all(ticketId)
     .map((comment) => comment.body)
     .join("\n");

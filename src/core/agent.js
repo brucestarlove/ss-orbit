@@ -299,7 +299,7 @@ export function getAgentDispatchPacket(ticketId, ctx, options = {}) {
   const parentTicket = ticket.parent_ticket_id ? ticketById(db, ticket.parent_ticket_id) : null;
   const blockers = unresolvedBlockers(db, ticket.id).map(compactTicket);
   const comments = db
-    .prepare("SELECT id, author, kind, body, created_at FROM comments WHERE ticket_id = ? ORDER BY created_at DESC LIMIT ?")
+    .prepare("SELECT id, author, kind, body, created_at FROM comments WHERE ticket_id = ? AND COALESCE(omitted_for_ai, 0) = 0 ORDER BY created_at DESC LIMIT ?")
     .all(ticket.id, commentLimit)
     .reverse()
     .map((comment) => ({ ...comment, body: capString(comment.body, maxCharsPerField) }));

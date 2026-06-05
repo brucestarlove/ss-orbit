@@ -191,6 +191,7 @@ export function createBoardSchema(db) {
       author TEXT NOT NULL,
       kind TEXT NOT NULL DEFAULT 'comment',
       body TEXT NOT NULL,
+      omitted_for_ai INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
 
@@ -293,6 +294,7 @@ export function createBoardSchema(db) {
   `);
   ensureColumn(db, "tickets", "plan_artifact_path", "TEXT NOT NULL DEFAULT ''");
   ensureColumn(db, "tickets", "implementation_artifact_path", "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(db, "comments", "omitted_for_ai", "INTEGER NOT NULL DEFAULT 0");
 }
 
 export function resetBoard(db) {

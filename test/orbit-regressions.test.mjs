@@ -190,6 +190,10 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_updates"/);
   assert.match(detailSource, /label:\s*"Revisions"/);
   assert.match(detailSource, /placeholder:\s*"Changes since initial implementation: "/);
+  assert.match(detailSource, /class="detail-action-btn"/);
+  assert.match(detailSource, /data-variant="ghost"/);
+  assert.doesNotMatch(detailSource, /inline-md-artifact-btn/);
+  assert.doesNotMatch(stylesSource, /inline-md-artifact-btn/);
   assert.match(detailSource, /data-open-artifact="\$\{escapeHtml\(artifactPathText\)\}"/);
   assert.match(detailSource, /data-artifact-field="\$\{escapeHtml\(artifactFieldName \|\| ""\)\}"/);
   assert.match(detailSource, /const artifactTicketId = btn\.dataset\.artifactTicketId \|\| ticket\.id/);
@@ -266,11 +270,19 @@ test("ticket descriptions use markdown on cards and preserved text in the detail
 
 test("ticket detail fetches comments from the dedicated endpoint", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/comments/);
   assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{requestedTicketId\}\/comments`\)\)\.then\(\s*\(result\) => result\.comments \|\| \[\],?\s*\)/);
   assert.match(detailSource, /comments\.map\(renderComment\)/);
+  assert.match(detailSource, /data-comment-action="toggle-ai-omission"/);
+  assert.match(detailSource, /class="comment-ai-toggle detail-action-btn"/);
+  assert.match(detailSource, /data-variant="ghost"/);
+  assert.match(detailSource, /\$\{omittedForAi \? "AI Include" : "AI Ignore"\}/);
+  assert.match(detailSource, /\/api\/tickets\/\$\{ticket\.id\}\/comments\/\$\{commentId\}/);
+  assert.match(detailSource, /body:\s*\{ omitted_for_ai: omittedForAi \}/);
   assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
+  assert.doesNotMatch(stylesSource, /\.comment-ai-toggle\s*\{[\s\S]*?background:/);
 });
 
 test("ticket search renders state badges with shared state pill classes", async () => {
@@ -1120,6 +1132,27 @@ test("ticket read endpoint returns the lightweight agent ticket shape", async ()
       body: JSON.stringify({ body: "comment-only-thread" })
     });
     assert.equal(commentResponse.status, 201);
+    const comment = await commentResponse.json();
+
+    const omitCommentResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/comments/${encodeURIComponent(comment.id)}?board=${encodeURIComponent(board.slug)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ omitted_for_ai: true })
+    });
+    assert.equal(omitCommentResponse.status, 200);
+    const omittedComment = await omitCommentResponse.json();
+    assert.equal(omittedComment.omitted_for_ai, 1);
+
+    const commentsReadResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/comments?board=${encodeURIComponent(board.slug)}`);
+    assert.equal(commentsReadResponse.status, 200);
+    const commentsRead = await commentsReadResponse.json();
+    assert.equal(commentsRead.comments[0].body, "comment-only-thread");
+    assert.equal(commentsRead.comments[0].omitted_for_ai, 1);
+
+    const dispatchPacketResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}/dispatch-packet?board=${encodeURIComponent(board.slug)}&comment_limit=10`);
+    assert.equal(dispatchPacketResponse.status, 200);
+    const dispatchPacket = await dispatchPacketResponse.json();
+    assert.equal(JSON.stringify(dispatchPacket).includes("comment-only-thread"), false);
 
     const readResponse = await fetch(`http://127.0.0.1:${port}/api/tickets/${encodeURIComponent(ticket.id)}?board=${encodeURIComponent(board.slug)}`);
     assert.equal(readResponse.status, 200);

@@ -15,6 +15,7 @@ import {
   createTicket,
   updateTicket,
   createComment,
+  updateCommentAiOmission,
   archiveTicket,
   deleteTicket
 } from "../src/core/tickets.js";
@@ -186,7 +187,7 @@ test("full agent context retains the board manual and journal when explicitly re
 
 test("explicit comment retrieval remains available", () => {
   const { ctx } = makeBoard();
-  const a = createTicket({ title: "Alpha" }, ctx);
+  const a = createTicket({ title: "Commented" }, ctx);
   createComment(a.id, { body: "explicit-comment-thread" }, ctx);
 
   const result = readComments(a.id, ctx);
@@ -194,6 +195,30 @@ test("explicit comment retrieval remains available", () => {
   assert.equal(result.ticket_id, a.id);
   assert.equal(result.comments.length, 1);
   assert.equal(result.comments[0].body, "explicit-comment-thread");
+});
+
+test("AI-omitted comments stay visible but leave agent context and comment FTS", () => {
+  const { db, ctx } = makeBoard();
+  const ticket = createTicket({ title: "AI comment filter" }, ctx);
+  const ignored = createComment(ticket.id, { body: "omit-ai-secret", kind: "human_comment" }, ctx);
+  createComment(ticket.id, { body: "include-ai-public", kind: "human_comment" }, ctx);
+
+  const updated = updateCommentAiOmission(ticket.id, ignored.id, { omitted_for_ai: true }, ctx);
+
+  assert.equal(updated.omitted_for_ai, 1);
+  assert.deepEqual(
+    readComments(ticket.id, ctx).comments.map((comment) => comment.body),
+    ["omit-ai-secret", "include-ai-public"]
+  );
+  const packet = getAgentDispatchPacket(ticket.id, ctx, { commentLimit: 10 });
+  assert.equal(JSON.stringify(packet).includes("omit-ai-secret"), false);
+  assert.equal(JSON.stringify(packet).includes("include-ai-public"), true);
+  const fts = db.prepare("SELECT comments FROM ticket_fts WHERE ticket_id = ?").get(ticket.id).comments;
+  assert.equal(fts.includes("omit-ai-secret"), false);
+  assert.equal(fts.includes("include-ai-public"), true);
+
+  updateCommentAiOmission(ticket.id, ignored.id, { omitted_for_ai: false }, ctx);
+  assert.equal(JSON.stringify(getAgentDispatchPacket(ticket.id, ctx, { commentLimit: 10 })).includes("omit-ai-secret"), true);
 });
 
 test("search matches ticket numbers", () => {

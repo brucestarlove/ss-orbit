@@ -16,6 +16,7 @@ const CARD_TOUCHING_EVENTS = new Set([
   "state_changed",
   "ticket_updated",
   "comment_created",
+  "comment_ai_omission_changed",
   "agent_claimed",
   "checkpoint_requested",
   "agent_completed"
@@ -98,6 +99,8 @@ export function connectEventStream() {
       const ticket = findTicket();
       const label = ticket ? `#${ticket.number}` : "ticket";
       toast.info(`New comment on ${label}`);
+      scheduleSSEReload();
+    } else if (eventType === "comment_ai_omission_changed") {
       scheduleSSEReload();
     } else if (eventType === "agent_claimed") {
       const ticket = findTicket();
