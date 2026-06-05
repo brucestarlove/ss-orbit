@@ -72,6 +72,78 @@ test("cleanText repairs common CP-437 mojibake and normalizes CRLF", () => {
   assert.equal(cleanText(null), "");
 });
 
+test("textarea indentation helper inserts tab at the caret", async () => {
+  const { applyTextareaIndentation } = await import("../public/js/text-editing.js");
+
+  assert.deepEqual(
+    applyTextareaIndentation({
+      value: "alpha",
+      selectionStart: 2,
+      selectionEnd: 2,
+      shiftKey: false,
+    }),
+    {
+      value: "al\tpha",
+      selectionStart: 3,
+      selectionEnd: 3,
+      handled: true,
+    },
+  );
+});
+
+test("textarea indentation helper indents and outdents selected lines", async () => {
+  const { applyTextareaIndentation } = await import("../public/js/text-editing.js");
+
+  assert.deepEqual(
+    applyTextareaIndentation({
+      value: "one\ntwo\nthree",
+      selectionStart: 1,
+      selectionEnd: 7,
+      shiftKey: false,
+    }),
+    {
+      value: "\tone\n\ttwo\nthree",
+      selectionStart: 2,
+      selectionEnd: 9,
+      handled: true,
+    },
+  );
+
+  assert.deepEqual(
+    applyTextareaIndentation({
+      value: "\tone\n\ttwo\nthree",
+      selectionStart: 2,
+      selectionEnd: 9,
+      shiftKey: true,
+    }),
+    {
+      value: "one\ntwo\nthree",
+      selectionStart: 1,
+      selectionEnd: 7,
+      handled: true,
+    },
+  );
+});
+
+test("textarea indentation helper leaves outdent-only text unchanged when nothing can outdent", async () => {
+  const { applyTextareaIndentation } = await import("../public/js/text-editing.js");
+
+  assert.deepEqual(
+    applyTextareaIndentation({
+      value: "plain",
+      selectionStart: 2,
+      selectionEnd: 2,
+      shiftKey: true,
+    }),
+    {
+      value: "plain",
+      selectionStart: 2,
+      selectionEnd: 2,
+      handled: true,
+    },
+  );
+});
+
 test("renderMarkdown supports headers, blockquotes, hr, and GFM task lists", () => {
   const html = renderMarkdown(
     "# Top heading\n## Sub heading\n\n> quoted line\n> spans two\n\n---\n\n- [ ] todo item\n- [x] done item"

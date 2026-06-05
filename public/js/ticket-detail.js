@@ -41,6 +41,7 @@ import { unreadCount, markRead } from "./unread.js";
 import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
 import { openArtifactDrawer } from "./artifact-drawer.js";
 import { closeIconSvg } from "./icons.js";
+import { handleTextareaIndentationKeydown } from "./text-editing.js";
 
 /**
  * Refresh the open drawer from the focused ticket context endpoint. When the
@@ -275,6 +276,7 @@ export function startInlineEdit(node, opts) {
 
   editor.addEventListener("blur", commit);
   editor.addEventListener("keydown", (event) => {
+    if (multiline && handleTextareaIndentationKeydown(event, editor)) return;
     if (event.key === "Escape") {
       event.preventDefault();
       void cancel();
@@ -676,6 +678,11 @@ export async function renderDetail(options = {}) {
 
   wireTicketDetailEditors(ticket);
   if (features.attachments) wireAttachmentControls(ticket);
+
+  const commentTextarea = $("#detailCommentForm textarea");
+  commentTextarea?.addEventListener("keydown", (event) => {
+    handleTextareaIndentationKeydown(event, commentTextarea);
+  });
 
   $("#detailCommentForm").addEventListener("submit", async (event) => {
     event.preventDefault();

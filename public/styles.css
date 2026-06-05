@@ -2993,6 +2993,7 @@ button.drawer-archive::after {
   font-family: var(--orbit-font-prose);
   font-size: calc((1rem) * var(--type-scale));
   line-height: 1.45;
+  tab-size: 4;
   resize: vertical;
 }
 

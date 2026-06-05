@@ -11,6 +11,7 @@ import { state, visibleStatesForProject, ticketsForProject } from "./state.js";
 import { escapeHtml, ticketLabel } from "./format.js";
 import { api } from "./api.js";
 import { syncUrlFromState } from "./router.js";
+import { handleTextareaIndentationKeydown } from "./text-editing.js";
 import { closeDrawer } from "./drawer.js";
 import { closeMenuFlyouts } from "./board-menu.js";
 import { load } from "./app.js";
@@ -120,6 +121,10 @@ function renderCreateForm(preselectedLaneId) {
 function wireCreateForm() {
   const form = $("#createTicketForm");
   if (!form) return;
+  const description = form.querySelector("#createTicketDescription");
+  description?.addEventListener("keydown", (event) => {
+    handleTextareaIndentationKeydown(event, description);
+  });
   form.addEventListener("submit", createTicketFromDrawer);
 }
 
