@@ -40,6 +40,7 @@ import { renderProjectDetail } from "./settings.js";
 import { unreadCount, markRead } from "./unread.js";
 import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
 import { openArtifactDrawer } from "./artifact-drawer.js";
+import { closeIconSvg } from "./icons.js";
 
 /**
  * Refresh the open drawer from the focused ticket context endpoint. When the
@@ -546,7 +547,7 @@ export async function renderDetail(options = {}) {
       (label) => `
       <span class="label-pill-removable" style="--label-color: ${escapeHtml(label.color)}">
         ${escapeHtml(label.name)}
-        <button type="button" class="label-pill-remove" data-remove-label="${escapeHtml(label.name)}" title="Remove label">×</button>
+        <button type="button" class="label-pill-remove" data-remove-label="${escapeHtml(label.name)}" title="Remove label" aria-label="Remove label">${closeIconSvg}</button>
       </span>`,
     )
     .join("");
@@ -929,7 +930,7 @@ function renderAttachmentCard(ticket, attachment) {
       <article class="attachment-card is-missing">
         <div class="attachment-missing-thumb">Missing</div>
         <div class="attachment-card-meta"><strong>${name}</strong><span>${meta}</span></div>
-        <button type="button" class="attachment-delete" data-delete-attachment="${escapeHtml(attachment.id)}" aria-label="Remove missing image">×</button>
+        <button type="button" class="attachment-delete" data-delete-attachment="${escapeHtml(attachment.id)}" aria-label="Remove missing image">${closeIconSvg}</button>
       </article>
     `;
   }
@@ -943,7 +944,7 @@ function renderAttachmentCard(ticket, attachment) {
         <img src="${escapeHtml(src)}" alt="${name}" loading="lazy" />
       </button>
       <div class="attachment-card-meta"><strong>${name}</strong><span>${meta}</span></div>
-      <button type="button" class="attachment-delete" data-delete-attachment="${escapeHtml(attachment.id)}" aria-label="Remove image">×</button>
+      <button type="button" class="attachment-delete" data-delete-attachment="${escapeHtml(attachment.id)}" aria-label="Remove image">${closeIconSvg}</button>
     </article>
   `;
 }
@@ -1075,7 +1076,7 @@ function openAttachmentLightbox(src, title) {
   overlay.className = "attachment-lightbox";
   overlay.innerHTML = `
     <div class="attachment-lightbox-panel" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
-      <button type="button" class="attachment-lightbox-close" aria-label="Close image">×</button>
+      <button type="button" class="attachment-lightbox-close" aria-label="Close image">${closeIconSvg}</button>
       <img src="${escapeHtml(src)}" alt="${escapeHtml(title)}" />
       <p>${escapeHtml(title)}</p>
     </div>
@@ -1229,7 +1230,7 @@ function renderRelated(relations = [], ticket) {
     <form id="relatedAddForm" class="related-add-row">
       <div class="related-add-input-wrap">
         <input type="text" name="target" class="related-add-input meta-inline-input" list="related-ticket-suggestions" placeholder="Add related ticket…" aria-label="Add related ticket" autocomplete="off" />
-        <button type="button" class="related-add-clear" data-related-clear aria-label="Clear" tabindex="-1">×</button>
+        <button type="button" class="related-add-clear" data-related-clear aria-label="Clear" tabindex="-1">${closeIconSvg}</button>
         <datalist id="related-ticket-suggestions">${datalistOptions}</datalist>
       </div>
       <select name="type" class="related-add-type meta-inline" aria-label="Relation type">
@@ -1279,7 +1280,7 @@ function renderParentEpicSection(ticket, context) {
       <form id="parentEpicForm" class="related-add-row parent-epic-form">
         <div class="related-add-input-wrap">
           <input type="text" name="target" class="related-add-input meta-inline-input" list="parent-epic-suggestions" placeholder="Set parent epic…" aria-label="Set parent epic" autocomplete="off" />
-          <button type="button" class="related-add-clear" data-parent-epic-clear aria-label="Clear" tabindex="-1">×</button>
+          <button type="button" class="related-add-clear" data-parent-epic-clear aria-label="Clear" tabindex="-1">${closeIconSvg}</button>
           <datalist id="parent-epic-suggestions">${datalistOptions}</datalist>
         </div>
         <button type="submit" class="meta-add-btn detail-action-btn" data-variant="ghost">Set</button>
@@ -1317,7 +1318,7 @@ export function renderDetailCard(ticket, options = {}) {
       attr = `data-detach-relation="${escapeHtml(id)}"`;
       label = "Remove relation";
     }
-    detachBtn = `<button type="button" class="card-detach-btn" ${attr} aria-label="${label}" title="${label}">×</button>`;
+    detachBtn = `<button type="button" class="card-detach-btn" ${attr} aria-label="${label}" title="${label}">${closeIconSvg}</button>`;
   } else if (options.archive) {
     const tid = escapeHtml(options.archive.id);
     const restoreSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`;

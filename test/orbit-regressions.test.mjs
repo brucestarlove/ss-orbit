@@ -184,7 +184,11 @@ test("ticket descriptions use markdown on cards and preserved text in the detail
   assert.doesNotMatch(detailSource, /description markdown-body editable-field/);
   assert.doesNotMatch(detailSource, /renderMarkdown\(ticket\.description\)/);
   assert.match(stylesSource, /\.detail-head > \.preserved-text-body\s*\{[\s\S]*white-space:\s*break-spaces;/);
-  assert.match(stylesSource, /\.detail-head > \.preserved-text-body\s*\{[\s\S]*font-family:\s*ui-monospace/);
+  // Editable rich-text and its read-only render now share the prose font
+  // (previously the read-only render was monospace and the editor inherited
+  // App chrome, so they mismatched).
+  assert.match(stylesSource, /\.preserved-text-body,[\s\S]*?font-family:\s*var\(--orbit-font-prose\)/);
+  assert.match(stylesSource, /\.inline-desc-editor\s*\{[\s\S]*?font-family:\s*var\(--orbit-font-prose\)/);
   assert.doesNotMatch(detailSource, /escapeHtml\(ticket\.description \|\| "No description yet\."\)/);
 });
 
@@ -413,7 +417,7 @@ test("Settings drawer controls use explicit Starscape UI variants", () => {
   const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   assert.match(indexSource, /id="boardMenuBtn"[\s\S]*data-variant="board-chip"/);
-  assert.match(indexSource, /<span class="btn-plus" aria-hidden="true">\+<\/span>/);
+  assert.match(indexSource, /<span class="btn-plus" aria-hidden="true"><\/span>/);
   assert.match(boardMenuSource, /data-variant="menu-item"/);
   assert.match(boardMenuSource, /rx="0\.75"/);
   assert.match(settingsSource, /data-variant="primary"/);
@@ -431,8 +435,15 @@ test("Settings drawer controls use explicit Starscape UI variants", () => {
   assert.match(kanbanSource, /data-variant="card-accordion"/);
   assert.match(kanbanSource, /data-accent="ai-ready"/);
   assert.match(stylesSource, /--menu-flyout-item-radius/);
-  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*background:\s*transparent/);
-  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*translateY\(-1px\)/);
+  assert.match(stylesSource, /\.topbar-btn\s*\{[\s\S]*line-height:\s*1/);
+  assert.match(stylesSource, /\.topbar-btn \.topbar-icon,[\s\S]*\.topbar-chip-label\s*\{[\s\S]*place-items:\s*center;[\s\S]*line-height:\s*1/);
+  assert.match(stylesSource, /\.btn-sun\s*\{[\s\S]*grid-template-columns:\s*1rem auto/);
+  assert.match(stylesSource, /\.controls\s+\.btn-sun\s*\{[\s\S]*display:\s*inline-grid/);
+  assert.match(stylesSource, /\.btn-plus\s*\{[\s\S]*display:\s*inline-grid;[\s\S]*place-items:\s*center;[\s\S]*width:\s*1rem;[\s\S]*height:\s*1rem/);
+  assert.match(stylesSource, /\.btn-plus::before,[\s\S]*\.btn-plus::after\s*\{[\s\S]*transform:\s*translate\(-50%, -50%\)/);
+  assert.match(stylesSource, /\.btn-plus::after\s*\{[\s\S]*rotate\(90deg\)/);
+  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*none/);
+  assert.match(stylesSource, /\.btn-sun\s+\.btn-sun-label[\s\S]*line-height:\s*1;[\s\S]*transform:\s*none/);
   assert.match(stylesSource, /\.btn-sun,[\s\S]*\.column-add-btn,[\s\S]*\.add-card-phantom\s*\{[\s\S]*inset 0 0 0 2px rgba\(var\(--amber-rgb\),0\.45\)/);
   assert.doesNotMatch(stylesSource, /button\.column-add-btn\s*\{[^}]*background:\s*var\(--btn-gradient\)/);
   assert.match(stylesSource, /button\.column-add-btn\s*\{[\s\S]*min-height:\s*1\.85rem/);
@@ -462,6 +473,13 @@ test("X-only controls stay compact instead of inheriting default button chrome",
     minify: false
   });
   const stylesSource = Buffer.from(cssFile.contents).toString("utf8");
+  const xControlSources = [
+    "public/index.html",
+    "public/js/create-card.js",
+    "public/js/settings.js",
+    "public/js/ticket-detail.js",
+    "public/js/toast.js"
+  ].map((file) => readFileSync(join(repoRoot, file), "utf8")).join("\n");
   const compactClasses = [
     "drawer-close",
     "create-flyout-close",
@@ -481,9 +499,128 @@ test("X-only controls stay compact instead of inheriting default button chrome",
     assert.match(stylesSource, new RegExp(`button\\.${className}::after[\\s\\S]*?content:\\s*none`), `${className} should suppress ARC pseudo-elements`);
   }
 
+  assert.match(readFileSync(join(repoRoot, "public", "js", "icons.js"), "utf8"), /ui-icon-x/);
+  assert.doesNotMatch(xControlSources, /×|&times;|>x<|>X</);
+  assert.match(stylesSource, /\.ui-icon-x\s*\{[\s\S]*stroke:\s*currentColor/);
   assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*transform:\s*none/);
   assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*filter:\s*none/);
   assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*box-shadow:\s*none/);
+});
+
+test("Appearance typography settings expose site-wide selectable font families", async () => {
+  const indexSource = readFileSync(join(repoRoot, "public", "index.html"), "utf8");
+  const mainSource = readFileSync(join(repoRoot, "public", "js", "main.js"), "utf8");
+  const fontSource = readFileSync(join(repoRoot, "public", "js", "font-preference.js"), "utf8");
+  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+  const stylesPath = join(repoRoot, "public", "styles.css");
+  const stylesSource = readFileSync(stylesPath, "utf8");
+  const { cssFile } = await bundleCss({
+    entryPoint: stylesPath,
+    outfile: join(tmpdir(), "orbit-appearance-fonts.css"),
+    minify: false
+  });
+  const bundled = Buffer.from(cssFile.contents).toString("utf8");
+
+  assert.doesNotMatch(indexSource, /id="fontDevtoolsBtn"/);
+  assert.doesNotMatch(indexSource, /id="fontDevtoolsPanel"/);
+  assert.doesNotMatch(indexSource, />Fonts<\/span>/);
+  assert.match(indexSource, /orbit_font_preferences/);
+  assert.doesNotMatch(mainSource, /wireFontDevtools/);
+  assert.doesNotMatch(fontSource, /wireFontDevtools/);
+  assert.match(settingsSource, /renderTypographyControls/);
+  assert.match(settingsSource, /SITE_FONT_OPTIONS/);
+  assert.match(settingsSource, /id="siteFontSelect"/);
+  assert.match(settingsSource, /data-font-target="\$\{target\}"/);
+  assert.match(fontSource, /FONT_TARGETS/);
+  assert.match(fontSource, /ui:\s*\{/);
+  assert.match(fontSource, /heading:\s*\{/);
+  assert.match(fontSource, /body:\s*\{/);
+  assert.match(fontSource, /label:\s*\{/);
+  assert.match(fontSource, /export const DEFAULT_SITE_FONT = "inter"/);
+  assert.match(fontSource, /ui:\s*"orbitron"[\s\S]*label:\s*"orbitron"/);
+  assert.match(fontSource, /label:\s*"Labels"/);
+  assert.match(fontSource, /inter/);
+  assert.match(fontSource, /openSans/);
+  assert.match(fontSource, /jetBrainsMono/);
+  assert.match(fontSource, /chakraPetch/);
+  assert.match(fontSource, /orbitron/);
+  assert.match(fontSource, /rajdhani/);
+  assert.match(fontSource, /runescapeUF/);
+  assert.match(fontSource, /openRing/);
+  assert.match(fontSource, /openRing:\s*\{[\s\S]*letterSpacing:\s*"0\.4px"/);
+  assert.match(indexSource, /ui:\s*"orbitron"/);
+  assert.match(indexSource, /body:\s*"inter"/);
+  assert.match(indexSource, /label:\s*"orbitron"/);
+  assert.match(indexSource, /var scales = \{ runescapeUF: 0\.95, openRing: 1\.2 \}/);
+  assert.match(indexSource, /var letterSpacings = \{ openRing: "0\.4px" \}/);
+  assert.match(indexSource, /var lineHeights = \{\}/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Inter"/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Open Sans"/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit JetBrains Mono"/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Chakra Petch"/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Orbitron"/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Rajdhani"/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Runescape UF"/);
+  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Open Ring"/);
+  assert.match(stylesSource, /--orbit-font-default:\s*"Orbit Inter"/);
+  assert.match(stylesSource, /--orbit-font-app:\s*"Orbit Orbitron"/);
+  assert.match(stylesSource, /body\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
+  assert.match(stylesSource, /body\s*\{[\s\S]*line-height:\s*var\(--orbit-line-height\)/);
+  assert.match(stylesSource, /body\s*\{[\s\S]*letter-spacing:\s*var\(--orbit-letter-spacing\)/);
+  assert.match(stylesSource, /--orbit-letter-spacing:\s*0\.3px/);
+  assert.match(stylesSource, /--orbit-line-height:\s*normal/);
+  assert.match(stylesSource, /h1,[\s\S]*h6\s*\{[\s\S]*font-family:\s*var\(--orbit-font-heading\)/);
+  assert.match(stylesSource, /p,[\s\S]*?\.card-description\s*\{[\s\S]*?font-family:\s*var\(--orbit-font-body\)/);
+  assert.match(stylesSource, /\.markdown-body,[\s\S]*?\.artifact-drawer-body\s*\{[\s\S]*?font-family:\s*var\(--orbit-font-prose\)/);
+  assert.match(stylesSource, /label,[\s\S]*\.detail-meta-badge\s*\{[\s\S]*font-family:\s*var\(--orbit-font-label\)/);
+  assert.match(stylesSource, /button,[\s\S]*\.topbar-btn,[\s\S]*\.topbar-chip,[\s\S]*\.menu-flyout-item\s*\{[\s\S]*font-family:\s*var\(--orbit-font-ui\)/);
+  assert.match(stylesSource, /input,[\s\S]*select,[\s\S]*textarea,[\s\S]*\.topbar-notes__text,[\s\S]*\.topbar-search input,[\s\S]*\.topbar-search input::placeholder\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
+  assert.match(stylesSource, /\.topbar-search input\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
+  assert.match(stylesSource, /\.topbar-search input::placeholder\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
+  assert.match(stylesSource, /p\.description,[\s\S]*\.description\s*\{[\s\S]*margin:\s*0;[\s\S]*padding:\s*0;/);
+  assert.match(stylesSource, /\.detail-head > \.description\s*\{[\s\S]*margin:\s*0;/);
+  assert.doesNotMatch(stylesSource, /\.appearance-font-group > \.description\s*\{[\s\S]*margin/);
+  assert.doesNotMatch(stylesSource, /\.section:has\(> \.orbit-check:first-child\) > \.description\s*\{[\s\S]*margin/);
+  assert.doesNotMatch(stylesSource, /\.mcp-setup > div > \.description \+ \.description\s*\{[\s\S]*margin/);
+  assert.match(bundled, /url\("?\.\/fonts\/Inter\/Inter-VariableFont_opsz,wght\.ttf"?\)/);
+  assert.doesNotMatch(bundled, /\.font-devtools-/);
+});
+
+test("type scale: fixed root + font-size-only scaling so text resizes, not layout", () => {
+  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
+  const indexSource = readFileSync(join(repoRoot, "public", "index.html"), "utf8");
+  const fontSource = readFileSync(join(repoRoot, "public", "js", "font-preference.js"), "utf8");
+  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
+
+  // Root font-size is fixed so rem-based layout (padding/gaps/widths) never
+  // moves. --type-scale = family-scale × user-scale and is applied only to
+  // font-size declarations, so the slider resizes text, not the UI.
+  assert.match(stylesSource, /html\s*\{[\s\S]*?font-size:\s*var\(--type-base\)/);
+  assert.match(stylesSource, /--type-base:\s*16px/);
+  assert.match(stylesSource, /--type-scale:\s*calc\(var\(--type-family-scale\)\s*\*\s*var\(--type-user-scale\)\)/);
+  // Explicit font-sizes multiply by the scale; inherited text scales via body.
+  assert.match(stylesSource, /font-size:\s*calc\([^;]*\*\s*var\(--type-scale\)\)/);
+  assert.match(stylesSource, /body\s*\{[\s\S]*?font-size:\s*calc\(1rem\s*\*\s*var\(--type-scale\)\)/);
+  // No bare rem font-size should remain — every one routes through --type-scale.
+  assert.doesNotMatch(stylesSource, /font-size:\s*[0-9.]+rem\s*;/);
+
+  // Pre-paint boot script sets both scale vars so there is no FOUC.
+  assert.match(indexSource, /--type-family-scale/);
+  assert.match(indexSource, /--type-user-scale/);
+
+  // Registry + setters: family scale comes from the site font, user scale from
+  // the slider; prose is a real target.
+  assert.match(fontSource, /export function setSiteFont/);
+  assert.match(fontSource, /export function setUserScale/);
+  assert.match(fontSource, /export function fontScaleFor/);
+  assert.match(fontSource, /prose:\s*\{/);
+  assert.match(fontSource, /--type-family-scale/);
+  assert.match(fontSource, /--type-user-scale/);
+
+  // Appearance exposes the site-font swap, per-element overrides, and slider.
+  assert.match(settingsSource, /id="siteFontSelect"/);
+  assert.match(settingsSource, /id="fontScaleSlider"/);
+  assert.match(settingsSource, /data-font-target=/);
 });
 
 test("multiline inline edit opens without forcing the drawer to the field bottom", () => {

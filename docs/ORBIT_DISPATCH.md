@@ -245,7 +245,7 @@ For source installs:
 ```bash
 cd /path/to/ss-orbit
 pnpm install
-pnpm run build:full
+pnpm run build:bundle
 pnpm link --global
 ```
 

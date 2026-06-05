@@ -35,7 +35,7 @@ pnpm add -g @starlove/orbit
 git clone git@github.com:brucestarlove/ss-orbit.git
 cd ss-orbit
 pnpm install
-pnpm run build:full
+pnpm run build:bundle
 pnpm link --global
 ```
 

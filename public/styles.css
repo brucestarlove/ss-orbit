@@ -20,6 +20,198 @@
 @import "@starlove/ui/components/section";
 @import "@starlove/ui/components/separator";
 
+@font-face {
+  font-family: "Orbit Inter";
+  src: url("./fonts/Inter/Inter-VariableFont_opsz,wght.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Inter";
+  src: url("./fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Open Sans";
+  src: url("./fonts/Open_Sans/OpenSans-VariableFont_wdth,wght.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Open Sans";
+  src: url("./fonts/Open_Sans/OpenSans-Italic-VariableFont_wdth,wght.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 300 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit JetBrains Mono";
+  src: url("./fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit JetBrains Mono";
+  src: url("./fonts/JetBrains_Mono/JetBrainsMono-Italic-VariableFont_wght.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-Light.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-LightItalic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-Italic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-Medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-MediumItalic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-SemiBold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-SemiBoldItalic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Chakra Petch";
+  src: url("./fonts/Chakra_Petch/ChakraPetch-BoldItalic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Orbitron";
+  src: url("./fonts/Orbitron/Orbitron-VariableFont_wght.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Rajdhani";
+  src: url("./fonts/Rajdhani/Rajdhani-Light.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Rajdhani";
+  src: url("./fonts/Rajdhani/Rajdhani-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Rajdhani";
+  src: url("./fonts/Rajdhani/Rajdhani-Medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Rajdhani";
+  src: url("./fonts/Rajdhani/Rajdhani-SemiBold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Rajdhani";
+  src: url("./fonts/Rajdhani/Rajdhani-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Runescape UF";
+  src: url("./fonts/runescape-uf.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Orbit Open Ring";
+  src: url("./fonts/OpenRing-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 html, body {
   cursor: url('cursors/live_arrow.cur'), default;
 }
@@ -136,6 +328,27 @@ input[type="file"] {
   /* Native <select> chevron: same horizontal inset for value text (left) and glyph (right). */
   --select-chevron-pad-x: var(--field-padding-x);
   --select-chevron-size: 12px;
+  --orbit-font-system: "Aptos Display", "Bahnschrift", "Segoe UI Variable", "Segoe UI", sans-serif;
+  /* Inter is the default content font. App chrome and labels default to Orbitron;
+     Appearance can override either bucket independently. */
+  --orbit-font-default: "Orbit Inter", "Inter", "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+  --orbit-font-app: "Orbit Orbitron", "Orbitron", "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+  --orbit-font-ui: var(--orbit-font-app);
+  --orbit-font-heading: var(--orbit-font-default);
+  --orbit-font-body: var(--orbit-font-default);
+  --orbit-font-label: var(--orbit-font-app);
+  --orbit-font-prose: var(--orbit-font-default);
+  --orbit-letter-spacing: 0.3px;
+  --orbit-line-height: normal;
+  /* Type-scale lever. The root font-size stays fixed so layout (padding, gaps,
+     widths — all rem) never moves; only font-size declarations multiply by
+     --type-scale, so the slider resizes text without resizing the UI.
+     family-scale is the active site font's preset (big fonts ship smaller);
+     user-scale is the Appearance size slider. */
+  --type-base: 16px;
+  --type-family-scale: 1;
+  --type-user-scale: 1;
+  --type-scale: calc(var(--type-family-scale) * var(--type-user-scale));
 }
 
 @media (max-width: 720px) {
@@ -150,6 +363,9 @@ input[type="file"] {
 
 html {
   height: 100%;
+  /* Fixed root keeps all rem-based layout stable; text scales via --type-scale
+     on font-size declarations (see --type-* tokens above). */
+  font-size: var(--type-base);
 }
 
 body {
@@ -163,7 +379,12 @@ body {
   margin: 0;
   overflow: hidden;
   color: var(--ink);
-  font-family: "Aptos Display", "Bahnschrift", "Segoe UI Variable", sans-serif;
+  font-family: var(--orbit-font-body);
+  /* Scales text that inherits its size (no explicit font-size). rem is relative
+     to the fixed root, so this never moves layout. */
+  font-size: calc(1rem * var(--type-scale));
+  line-height: var(--orbit-line-height);
+  letter-spacing: var(--orbit-letter-spacing);
   user-select: none;
   -webkit-user-select: none;
   background:
@@ -215,6 +436,22 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+.ui-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.ui-icon-x {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 button:not([data-variant]) {
@@ -468,7 +705,7 @@ textarea {
 .brand-focus-popover__eyebrow {
   margin-bottom: 0.65rem;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -494,6 +731,9 @@ textarea {
 
 .brand-notes-strip {
   --topbar-notes-max-width: min(600px, 42vw);
+  --topbar-notes-color: var(--ink);
+  --topbar-notes-active-color: var(--ink);
+  color: var(--topbar-notes-color);
 }
 
 [data-theme="dark"] .brand-notes-strip {
@@ -507,8 +747,69 @@ p {
   margin: 0;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--orbit-font-heading);
+}
+
+p,
+.description,
+.card-description {
+  font-family: var(--orbit-font-body);
+}
+
+/* Long-form prose surfaces: rich-text fields and their read-only renders share
+   one font so edit mode and read mode match (previously the editor inherited
+   App chrome while the read-only render was hard-coded monospace). */
+.comment-body,
+.markdown-body,
+.preserved-text-body,
+.artifact-drawer-body {
+  font-family: var(--orbit-font-prose);
+}
+
+label,
+.state-pill,
+.priority-pill,
+.detail-meta-badge {
+  font-family: var(--orbit-font-label);
+}
+
+button,
+.topbar-btn,
+.topbar-chip,
+.menu-flyout-item {
+  font-family: var(--orbit-font-ui);
+}
+
+input,
+select,
+textarea,
+.topbar-notes__text,
+.topbar-search input,
+.topbar-search input::placeholder {
+  font-family: var(--orbit-font-body);
+}
+
+/* Font utility classes for per-field overrides. Pair with a literal px
+   font-size for a field that must always use one font at a fixed size,
+   independent of the site font and the size slider — px does not scale with
+   the rem-based type lever. e.g. <div class="font-runescape-uf" style="font-size:19px">. */
+.font-inter { font-family: "Orbit Inter", "Inter", "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+.font-open-sans { font-family: "Orbit Open Sans", "Open Sans", "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+.font-jetbrains-mono { font-family: "Orbit JetBrains Mono", "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace; }
+.font-chakra-petch { font-family: "Orbit Chakra Petch", "Chakra Petch", "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+.font-orbitron { font-family: "Orbit Orbitron", "Orbitron", "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+.font-rajdhani { font-family: "Orbit Rajdhani", "Rajdhani", "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+.font-runescape-uf { font-family: "Orbit Runescape UF", "Cascadia Mono", monospace; }
+.font-open-ring { font-family: "Orbit Open Ring", "Segoe UI Variable", "Segoe UI", Arial, sans-serif; }
+
 h1 {
-  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  font-size: calc((clamp(1rem, 1.6vw, 1.15rem)) * var(--type-scale));
   letter-spacing: -0.03em;
 }
 
@@ -530,7 +831,7 @@ h1 {
 }
 
 .frame-footer-title {
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -538,7 +839,7 @@ h1 {
 
 .frame-footer-subtitle {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: calc((0.74rem) * var(--type-scale));
   line-height: 1.15;
 }
 
@@ -637,7 +938,7 @@ h1 {
   overflow: hidden;
   border-radius: var(--radius-control);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
   font-weight: 700;
   color: var(--ink);
   cursor: url('cursors/live_link.cur'), pointer;
@@ -749,7 +1050,7 @@ h1 {
   padding: 0.55rem 0.75rem;
   border-bottom: 1px solid var(--line);
   background: var(--topbar-bg);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -788,7 +1089,7 @@ h1 {
   border: 1px solid var(--line);
   border-radius: calc(var(--radius-control) - 2px);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
 }
 
 .folder-picker-field input[readonly] {
@@ -801,7 +1102,7 @@ h1 {
   border-radius: calc(var(--radius-control) - 2px);
   border: 1px solid var(--btn-border);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
   font-weight: 700;
   color: inherit;
   cursor: url('cursors/live_link.cur'), pointer;
@@ -822,7 +1123,7 @@ h1 {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: calc((0.8rem) * var(--type-scale));
   line-height: 1.35;
   cursor: pointer;
 }
@@ -839,7 +1140,7 @@ h1 {
   border-radius: calc(var(--radius-control) - 2px);
   border: 1px solid var(--btn-border);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
   font-weight: 700;
   color: #fff;
   cursor: url('cursors/live_link.cur'), pointer;
@@ -851,7 +1152,7 @@ h1 {
   padding: 0.5rem 0.75rem 0.65rem;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   line-height: 1.35;
 }
 
@@ -874,12 +1175,29 @@ h1 {
   border-radius: var(--radius-control);
   border: 1px solid var(--btn-border);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
   font-weight: 700;
   cursor: url('cursors/live_link.cur'), pointer;
   color: #fff;
   background: var(--btn-gradient);
   box-shadow: 0 2px 8px var(--accent-hover);
+  line-height: 1;
+}
+
+.topbar-btn .topbar-icon,
+.topbar-chip .topbar-icon,
+.topbar-btn-label,
+.topbar-chip-label {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  line-height: 1;
+}
+
+.topbar-btn .topbar-icon,
+.topbar-chip .topbar-icon {
+  width: 1em;
+  height: 1em;
 }
 
 .topbar-btn.ghost:hover {
@@ -970,29 +1288,57 @@ button.add-card-phantom:hover,
 /* "Create" CTA */
 .btn-sun {
   position: relative;
-  font-weight: 800;
+  grid-auto-flow: column;
+  grid-template-columns: 0.78rem auto;
+  align-items: center;
+  justify-content: center;
+  column-gap: 0.3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.controls .btn-sun {
+  display: inline-grid;
+  padding-inline: 0.68rem;
 }
 
 .btn-sun .topbar-icon {
   color: var(--teal-deep);
 }
 
-/* Shared "+" glyph used by the topbar New Card button and the lane add buttons.
-   inline-grid + place-items locks the cap-height-asymmetric "+" into a centered box. */
+/* Font-independent plus icon for the topbar New Card CTA. */
 .btn-plus {
+  position: relative;
   display: inline-grid;
   place-items: center;
-  width: 0.95rem;
-  height: 0.95rem;
+  align-self: center;
+  width: 0.78rem;
+  height: 0.78rem;
+  flex: 0 0 auto;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
   color: var(--teal-deep);
-  font-size: 1.15rem;
-  font-weight: 800;
   line-height: 1;
+}
+
+.btn-plus::before,
+.btn-plus::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.54rem;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.btn-plus::after {
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 
 .btn-sun .btn-plus,
@@ -1001,14 +1347,16 @@ button[data-variant="cta"] .btn-plus {
   background: transparent;
   box-shadow: none;
   color: currentColor;
-  line-height: 0.95;
-  transform: translateY(-1px);
+  line-height: 1;
+  transform: none;
 }
 
 .btn-sun .btn-sun-label {
-  display: inline-flex;
-  align-items: center;
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
   line-height: 1;
+  transform: none;
 }
 
 [data-theme="dark"] .btn-plus {
@@ -1057,7 +1405,7 @@ button[data-variant="cta"] .btn-plus {
 }
 
 .create-flyout-head h2 {
-  font-size: 1.05rem;
+  font-size: calc((1.05rem) * var(--type-scale));
   letter-spacing: -0.03em;
 }
 
@@ -1075,9 +1423,14 @@ button.create-flyout-close {
   background: var(--surface);
   color: var(--ink);
   box-shadow: none;
-  font-size: 1.25rem;
+  font-size: calc((1.25rem) * var(--type-scale));
   font-weight: 400;
   line-height: 1;
+}
+
+button.create-flyout-close::after {
+  content: none;
+  display: none;
 }
 
 .create-flyout-form input[type="text"],
@@ -1087,7 +1440,7 @@ button.create-flyout-close {
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
   background: var(--surface-input);
 }
 
@@ -1098,7 +1451,7 @@ button.create-flyout-close {
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
   /* background-color keeps background-image (chevron) intact; see select-chevron-field. */
   background-color: var(--surface-input);
 }
@@ -1108,7 +1461,7 @@ button.create-flyout-close {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
@@ -1122,7 +1475,7 @@ button.create-flyout-close {
   border: 1px solid var(--btn-border);
   font: inherit;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
   color: #fff;
   cursor: url('cursors/live_link.cur'), pointer;
   background: var(--btn-gradient);
@@ -1157,8 +1510,12 @@ button.create-flyout-close {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-input);
-  font: inherit;
-  font-size: 0.85rem;
+  font-family: var(--orbit-font-body);
+  font-size: calc((0.85rem) * var(--type-scale));
+}
+
+.topbar-search input::placeholder {
+  font-family: var(--orbit-font-body);
 }
 
 /* Create-ticket form when shown inside the right drawer. */
@@ -1235,7 +1592,7 @@ button.create-flyout-close {
   border-radius: 999px;
   color: #3657c8;
   background-color: rgba(96, 165, 250, 0.12);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.35;
@@ -1379,7 +1736,7 @@ button.column-add-btn {
   min-height: 1.85rem;
   padding: 0;
   border-radius: var(--radius-control);
-  font-size: 1.15rem;
+  font-size: calc((1.15rem) * var(--type-scale));
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0;
@@ -1419,7 +1776,7 @@ button.add-card-phantom,
   padding: 0.55rem 0.85rem;
   border-radius: var(--radius-control);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
   font-weight: 700;
   text-align: left;
   cursor: url('cursors/live_link.cur'), pointer;
@@ -1474,7 +1831,7 @@ button.add-card-phantom::after,
   align-items: center;
   gap: 0.4rem;
   color: var(--orbit-text);
-  font-size: 0.95rem;
+  font-size: calc((0.95rem) * var(--type-scale));
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -1549,7 +1906,7 @@ button.add-card-phantom::after,
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 0.62rem;
+  font-size: calc((0.62rem) * var(--type-scale));
   font-weight: 800;
   line-height: 1;
   color: #fff;
@@ -1570,7 +1927,7 @@ button.add-card-phantom::after,
   background: rgba(168, 85, 247, 0.14);
   border: 1px solid rgba(168, 85, 247, 0.35);
   color: #7c3aed;
-  font-size: 0.58rem;
+  font-size: calc((0.58rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1638,14 +1995,14 @@ button.add-card-phantom::after,
 }
 
 .empty-state-title {
-  font-size: 0.9rem;
+  font-size: calc((0.9rem) * var(--type-scale));
   font-weight: 700;
   color: var(--orbit-text);
   margin-bottom: 0.25rem;
 }
 
 .empty-state-subtitle {
-  font-size: 0.75rem;
+  font-size: calc((0.75rem) * var(--type-scale));
   color: var(--orbit-text-muted);
   max-width: 180px;
   line-height: 1.4;
@@ -1750,7 +2107,7 @@ button.add-card-phantom::after,
 
 /* Epic cards get a little more title weight than task/feature cards. */
 .card.type-epic h3 {
-  font-size: 0.92rem;
+  font-size: calc((0.92rem) * var(--type-scale));
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1821,7 +2178,7 @@ button.card-action-button {
   color: inherit;
   background: transparent;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
   text-align: left;
   cursor: url('cursors/live_link.cur'), pointer;
 }
@@ -1953,7 +2310,7 @@ button.card-action-button:disabled {
   border: 1px solid rgba(var(--purple-rgb), 0.28);
   border-bottom-color: rgba(var(--purple-rgb), 0.18);
   cursor: url('cursors/live_link.cur'), pointer;
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
   transition: background 160ms ease, border-color 160ms ease;
 }
 
@@ -1968,7 +2325,7 @@ button.card-action-button:disabled {
 
 .epic-mini-header .ticket-number {
   color: #c084fc;
-  font-size: 0.68rem;
+  font-size: calc((0.68rem) * var(--type-scale));
 }
 
 .epic-mini-header .epic-mini-title {
@@ -1997,7 +2354,7 @@ button.card-action-button:disabled {
 .card h3 {
   margin: 0 0 0.5rem;
   color: var(--orbit-text);
-  font-size: 0.92rem;
+  font-size: calc((0.92rem) * var(--type-scale));
   font-weight: 600;
   line-height: 1.4;
   word-break: break-word;
@@ -2019,7 +2376,7 @@ button.card-action-button:disabled {
   border-radius: 4px;
   background: var(--label-color, var(--subtle-bg));
   color: #fff;
-  font-size: 0.65rem;
+  font-size: calc((0.65rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2113,7 +2470,7 @@ button.card-action-button:disabled {
   gap: 0.55rem;
   margin-top: 0.45rem;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: calc((0.74rem) * var(--type-scale));
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -2150,7 +2507,7 @@ button.card-action-button:disabled {
   color: var(--orbit-text-muted);
   background-color: rgba(var(--starlight-rgb), 0.08);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: calc((0.68rem) * var(--type-scale));
   font-weight: 900;
   letter-spacing: 0.055em;
   line-height: 1;
@@ -2403,7 +2760,7 @@ select.detail-meta-badge::-ms-expand {
 
 .drawer-title-text {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: calc((1.2rem) * var(--type-scale));
   letter-spacing: -0.025em;
   line-height: 1.2;
   overflow: hidden;
@@ -2452,7 +2809,7 @@ button.drawer-tab {
   color: var(--muted);
   box-shadow: none;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: url('cursors/live_link.cur'), pointer;
@@ -2483,7 +2840,7 @@ button.drawer-archive {
 
 .drawer-close {
   grid-area: close;
-  font-size: 1.35rem;
+  font-size: calc((1.35rem) * var(--type-scale));
   font-weight: 400;
   line-height: 1;
 }
@@ -2571,7 +2928,7 @@ button.drawer-archive::after {
 }
 
 .detail-head h2 {
-  font-size: 1.35rem;
+  font-size: calc((1.35rem) * var(--type-scale));
   letter-spacing: -0.04em;
 }
 
@@ -2614,14 +2971,16 @@ button.drawer-archive::after {
   color: var(--ink);
   background: var(--surface-input);
   box-shadow: var(--accent-ring);
-  font-family: inherit;
   outline: none;
 }
 
+/* Each editor uses the same font as the read-only surface it replaces:
+   titles render as headings, descriptions/notes render as prose. */
 .inline-title-editor {
   margin-inline: -0.35rem;
   padding: var(--field-padding-y) var(--field-padding-x);
-  font-size: 1.35rem;
+  font-family: var(--orbit-font-heading);
+  font-size: calc((1.35rem) * var(--type-scale));
   font-weight: inherit;
   letter-spacing: -0.04em;
   line-height: 1.2;
@@ -2631,13 +2990,16 @@ button.drawer-archive::after {
   margin-top: 0.5rem;
   padding: var(--field-padding-y) var(--field-padding-x);
   min-height: 5rem;
-  font-size: 1rem;
+  font-family: var(--orbit-font-prose);
+  font-size: calc((1rem) * var(--type-scale));
   line-height: 1.45;
   resize: vertical;
 }
 
+p.description,
 .description {
-  margin-top: 0.5rem;
+  margin: 0;
+  padding: 0;
   color: var(--muted);
   line-height: 1.45;
   white-space: pre-wrap;
@@ -2682,8 +3044,7 @@ button.drawer-archive::after {
   tab-size: 4;
   user-select: text;
   -webkit-user-select: text;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.92rem;
+  font-size: calc((0.92rem) * var(--type-scale));
   line-height: 1.45;
 }
 
@@ -2710,12 +3071,12 @@ button.drawer-archive::after {
   margin-top: 1rem;
 }
 
-.markdown-body h1 { font-size: 1.35rem; }
-.markdown-body h2 { font-size: 1.2rem; }
-.markdown-body h3 { font-size: 1.05rem; }
-.markdown-body h4 { font-size: 0.95rem; }
-.markdown-body h5 { font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.markdown-body h6 { font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.markdown-body h1 { font-size: calc((1.35rem) * var(--type-scale)); }
+.markdown-body h2 { font-size: calc((1.2rem) * var(--type-scale)); }
+.markdown-body h3 { font-size: calc((1.05rem) * var(--type-scale)); }
+.markdown-body h4 { font-size: calc((0.95rem) * var(--type-scale)); }
+.markdown-body h5 { font-size: calc((0.88rem) * var(--type-scale)); text-transform: uppercase; letter-spacing: 0.04em; }
+.markdown-body h6 { font-size: calc((0.82rem) * var(--type-scale)); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
 .markdown-body blockquote {
   border-left: 3px solid var(--accent-border);
@@ -2805,7 +3166,7 @@ button.drawer-archive::after {
 .card-description {
   margin-top: 0.45rem;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
   line-height: 1.45;
 }
 
@@ -2823,10 +3184,10 @@ button.drawer-archive::after {
 /* The detail pane's lede description is body copy, not a card excerpt — give
    it more presence than the universal muted .description rule. */
 .detail-head > .description {
-  margin: 0.25rem 0 0.4rem;
+  margin: 0;
   color: var(--ink);
   opacity: 0.88;
-  font-size: 1rem;
+  font-size: calc((1rem) * var(--type-scale));
   line-height: 1.55;
 }
 
@@ -2835,8 +3196,7 @@ button.drawer-archive::after {
   white-space: break-spaces;
   overflow-wrap: normal;
   tab-size: 4;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.92rem;
+  font-size: calc((0.92rem) * var(--type-scale));
   line-height: 1.45;
 }
 
@@ -2858,7 +3218,7 @@ button.drawer-archive::after {
 .meta span {
   display: block;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: calc((0.74rem) * var(--type-scale));
   text-transform: uppercase;
 }
 
@@ -2921,7 +3281,7 @@ button.drawer-archive::after {
   margin: 0;
   padding-top: 0.15rem;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: calc((0.7rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.12em;
   line-height: 1.2;
@@ -2949,7 +3309,7 @@ button.drawer-archive::after {
   background-color: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: calc((0.95rem) * var(--type-scale));
   font-weight: 600;
   letter-spacing: 0;
   cursor: url('cursors/live_link.cur'), pointer;
@@ -3097,7 +3457,7 @@ button.label-pill-remove {
   border: 0;
   border-radius: 999px;
   color: inherit;
-  font-size: 1rem;
+  font-size: calc((1rem) * var(--type-scale));
   line-height: 1;
   background: var(--subtle-bg);
   cursor: url('cursors/live_link.cur'), pointer;
@@ -3133,13 +3493,13 @@ button.label-pill-remove::after {
   width: 100%;
   min-width: 8rem;
   padding: var(--field-padding-y) var(--field-padding-x);
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
 }
 
 .meta-add-btn {
   flex: 0 0 auto;
   padding: 0.5rem 0.85rem;
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
 }
 
 .label-add-row .meta-add-btn {
@@ -3153,7 +3513,7 @@ button.label-pill-remove::after {
   align-self: flex-start;
   border-radius: var(--radius-pill);
   padding: 0.32rem 0.7rem;
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -3161,7 +3521,7 @@ button.label-pill-remove::after {
 .detail-updated {
   margin: 0 0 0.1rem;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: calc((0.7rem) * var(--type-scale));
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3177,7 +3537,7 @@ button.label-pill-remove::after {
 .detail-label-heading {
   margin: 0 0 0.25rem;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3186,7 +3546,7 @@ button.label-pill-remove::after {
 .detail-label-help {
   margin: 0 0 0.5rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   line-height: 1.35;
 }
 
@@ -3194,7 +3554,7 @@ button.label-pill-remove::after {
   padding: 0.08rem 0.28rem;
   border-radius: 6px;
   background: var(--subtle-bg);
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
 }
 
 .label-pills-row {
@@ -3215,7 +3575,7 @@ button.label-pill-remove::after {
   border-radius: 999px;
   padding: 0.15rem 0.35rem 0.15rem 0.55rem;
   background: var(--subtle-bg);
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   font-weight: 700;
 }
 
@@ -3277,7 +3637,7 @@ details.section > summary .mcp-title-row {
   justify-content: space-between;
   gap: 0.7rem;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
 }
 
 .comment-body {
@@ -3314,7 +3674,7 @@ details.section > summary .mcp-title-row {
 
 .field-form span {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3367,7 +3727,7 @@ details.section > summary .mcp-title-row {
 
 .inline-md-field-label {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3376,7 +3736,7 @@ details.section > summary .mcp-title-row {
 .inline-md-artifact-btn {
   border-radius: var(--radius-pill);
   padding: 0.28rem 0.58rem;
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -3403,10 +3763,6 @@ details.section > summary .mcp-title-row {
   min-height: 11rem;
 }
 
-.ai-context-setup > .description {
-  margin-bottom: 0.7rem;
-}
-
 /* Repository tab head — borderless, transparent meta tiles. The eyebrow is
    muted/uppercase, the value sits beneath in the project ink color. No fill,
    no per-tile border; the parent .detail-head hairline is the only divider. */
@@ -3428,7 +3784,7 @@ details.section > summary .mcp-title-row {
 }
 
 .project-manual-head .meta span {
-  font-size: 0.68rem;
+  font-size: calc((0.68rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -3436,7 +3792,7 @@ details.section > summary .mcp-title-row {
 
 .project-manual-head .meta strong {
   margin-top: 0.2rem;
-  font-size: 0.95rem;
+  font-size: calc((0.95rem) * var(--type-scale));
   font-weight: 600;
   letter-spacing: -0.005em;
   color: var(--ink);
@@ -3498,7 +3854,7 @@ details.section > summary .mcp-title-row {
 
 .repository-confirm-field span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3506,7 +3862,7 @@ details.section > summary .mcp-title-row {
 
 .repository-confirm-field strong {
   color: var(--ink);
-  font-size: 0.95rem;
+  font-size: calc((0.95rem) * var(--type-scale));
   overflow-wrap: anywhere;
 }
 
@@ -3555,7 +3911,7 @@ details.section > summary .mcp-title-row {
 
 .project-entry-strike {
   padding: 0.38rem 0.65rem;
-  font-size: 0.7rem;
+  font-size: calc((0.7rem) * var(--type-scale));
 }
 
 .project-entry-status {
@@ -3591,10 +3947,6 @@ details.section > summary .mcp-title-row {
   gap: 0.55rem;
 }
 
-.lanes-description {
-  margin-bottom: 0.85rem;
-}
-
 .appearance-theme-section {
   margin-top: 0.4rem;
 }
@@ -3615,7 +3967,7 @@ details.section > summary .mcp-title-row {
 .appearance-theme-field legend {
   margin-bottom: 0.55rem;
   color: var(--ink);
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
   font-weight: 800;
 }
 
@@ -3623,6 +3975,72 @@ details.section > summary .mcp-title-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
+}
+
+/* Appearance → Typography: site-font swap, size slider, per-element overrides. */
+.appearance-typography-section {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.appearance-font-group {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.appearance-font-group legend {
+  margin-bottom: 0.35rem;
+  color: var(--ink);
+  font-size: calc((0.88rem) * var(--type-scale));
+  font-weight: 800;
+}
+
+.appearance-font-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 0.75rem;
+}
+
+.appearance-font-row {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--muted);
+  font-size: calc((0.72rem) * var(--type-scale));
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.appearance-font-scale-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.appearance-font-scale-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.appearance-font-scale-value {
+  min-width: 3.5ch;
+  color: var(--ink);
+  font-size: calc((0.85rem) * var(--type-scale));
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .appearance-font-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .appearance-theme-option {
@@ -3638,7 +4056,7 @@ details.section > summary .mcp-title-row {
   border-radius: 10px;
   background: var(--surface-dim);
   color: var(--ink);
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
   font-weight: 700;
   cursor: url('cursors/live_link.cur'), pointer;
   transition:
@@ -3758,10 +4176,6 @@ details.section > summary .mcp-title-row {
   margin-top: 1rem;
 }
 
-.section:has(> .orbit-check:first-child) > .description {
-  margin-bottom: 0.6rem;
-}
-
 /* ---- Orbit checkbox ----
    Hides the native input and renders a custom box that follows the starscape
    palette in dark mode and the paper/teal palette in light mode. The label is
@@ -3776,7 +4190,7 @@ details.section > summary .mcp-title-row {
   border-radius: 10px;
   background: var(--surface-dim);
   color: var(--ink);
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
   font-weight: 600;
   cursor: url('cursors/live_link.cur'), pointer;
   user-select: none;
@@ -3890,7 +4304,7 @@ details.section > summary .mcp-title-row {
 .backup-item strong,
 .deployment-meta strong {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -3945,7 +4359,7 @@ details.section > summary .mcp-title-row {
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(var(--accent-rgb),0.95), rgba(var(--blue-rgb),0.9));
   color: #fff;
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
   font-weight: 900;
   letter-spacing: 0.08em;
   box-shadow: 0 12px 28px rgba(var(--accent-rgb),0.25);
@@ -3954,7 +4368,7 @@ details.section > summary .mcp-title-row {
 .mcp-kicker {
   margin: 0;
   color: var(--accent);
-  font-size: 0.74rem;
+  font-size: calc((0.74rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3976,10 +4390,6 @@ details.section > summary .mcp-title-row {
 
 /* MCP intro copy/controls spacing: keep the header text readable while making
    the control rows feel intentionally grouped below it. */
-.mcp-setup > div > .description + .description {
-  margin-top: 0.42rem;
-}
-
 .mcp-setup > div > .mcp-flow {
   margin-top: 0.85rem;
 }
@@ -3993,7 +4403,7 @@ details.section > summary .mcp-title-row {
 .mcp-flow label > span,
 .mcp-path-grid label > span {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -4001,20 +4411,20 @@ details.section > summary .mcp-title-row {
 
 .mcp-flow small {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: calc((0.74rem) * var(--type-scale));
 }
 
 .mcp-path-note {
   margin: 0.5rem 0 0;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: calc((0.76rem) * var(--type-scale));
   line-height: 1.35;
 }
 
 .mcp-flow select.select-chevron-field {
   padding: var(--field-padding-y) var(--select-chevron-pad-x);
   padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
 }
 
 .mcp-step-grid {
@@ -4040,17 +4450,17 @@ details.section > summary .mcp-title-row {
   border-radius: 999px;
   background: rgba(var(--accent-rgb),0.12);
   color: var(--accent);
-  font-size: 0.8rem;
+  font-size: calc((0.8rem) * var(--type-scale));
 }
 
 .mcp-step strong {
   color: var(--ink);
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
 }
 
 .mcp-step span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   line-height: 1.35;
 }
 
@@ -4064,14 +4474,14 @@ details.section > summary .mcp-title-row {
 .mcp-path-details summary {
   color: var(--ink);
   cursor: url('cursors/live_link.cur'), pointer;
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
   font-weight: 800;
 }
 
 .mcp-picker-note {
   margin: 0.55rem 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: calc((0.8rem) * var(--type-scale));
   line-height: 1.4;
 }
 
@@ -4084,7 +4494,7 @@ details.section > summary .mcp-title-row {
 
 .mcp-path-actions button {
   padding: 0.5rem 0.7rem;
-  font-size: 0.8rem;
+  font-size: calc((0.8rem) * var(--type-scale));
 }
 
 .mcp-path-grid {
@@ -4094,7 +4504,7 @@ details.section > summary .mcp-title-row {
 .mcp-path-grid input {
   min-width: 0;
   padding: var(--field-padding-y) var(--field-padding-x);
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
 }
 
 .system-impact {
@@ -4115,7 +4525,7 @@ details.section > summary .mcp-title-row {
 .system-impact strong,
 .mcp-output-card strong {
   color: var(--ink);
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
 }
 
 .system-impact p,
@@ -4165,7 +4575,7 @@ details.section > summary .mcp-title-row {
   background: rgba(10, 14, 28, 0.95);
   color: #d6e6ff;
   font-family: "Cascadia Mono", "Consolas", monospace;
-  font-size: 0.84rem;
+  font-size: calc((0.84rem) * var(--type-scale));
   line-height: 1.55;
   white-space: pre-wrap;
 }
@@ -4231,7 +4641,7 @@ details.section > summary .mcp-title-row {
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.08em;
 }
@@ -4292,7 +4702,7 @@ details.section > summary .mcp-title-row {
   gap: 0.35rem;
   margin-top: 0.7rem;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
 }
 
 .import-file-input {
@@ -4301,7 +4711,7 @@ details.section > summary .mcp-title-row {
 
 .lane-row {
   display: grid;
-  /* ↑ ↓ | name (flex) | New | ×  — every control is a 2rem square except the
+  /* Up/down | name (flex) | New | delete. Every control is a 2rem square except the
      name field, so the cluster stays tight at every width (fits phones too). */
   grid-template-columns: 2rem 2rem minmax(4rem, 1fr) 2rem 2rem;
   gap: 0.4rem;
@@ -4322,7 +4732,7 @@ details.section > summary .mcp-title-row {
 .lane-create-form input,
 .lane-create-form select {
   padding: var(--field-padding-y) var(--field-padding-x);
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
 }
 
 .lane-row select.select-chevron-field,
@@ -4331,8 +4741,7 @@ details.section > summary .mcp-title-row {
   padding-right: calc(var(--select-chevron-pad-x) * 2 + var(--select-chevron-size));
 }
 
-/* Shared 2rem square chrome for every in-row lane control (up, down, toggle,
-   delete) — keeps the row rhythm tight and matches the drawer's X close. */
+/* Shared 2rem square chrome for every in-row lane control. */
 .settings-lane-icon-btn,
 .settings-lane-delete-btn,
 .settings-lane-new-toggle,
@@ -4362,7 +4771,7 @@ button.settings-lane-new-toggle {
 }
 
 .settings-lane-icon-btn {
-  font-size: 1rem;
+  font-size: calc((1rem) * var(--type-scale));
 }
 
 .settings-lane-icon-btn:hover:not(:disabled),
@@ -4378,7 +4787,7 @@ button.settings-lane-new-toggle:hover:not(:disabled) {
 }
 
 .settings-lane-delete-btn {
-  font-size: 1.2rem;
+  font-size: calc((1.2rem) * var(--type-scale));
 }
 
 .settings-lane-delete-btn:hover:not(:disabled),
@@ -4457,7 +4866,7 @@ button.settings-lane-new-toggle::after {
 }
 
 .lane-new-label {
-  font-size: 0.52rem;
+  font-size: calc((0.52rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4592,7 +5001,7 @@ button:disabled {
   border-radius: 999px;
   color: #3657c8;
   background-color: rgba(96, 165, 250, 0.12);
-  font-size: 0.68rem;
+  font-size: calc((0.68rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.035em;
   line-height: 1.2;
@@ -4605,7 +5014,7 @@ button:disabled {
   display: block;
   margin-bottom: 0.3rem;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: calc((0.68rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4627,7 +5036,7 @@ button.card-detach-btn {
   border-radius: 999px;
   background: var(--subtle-bg);
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: calc((0.95rem) * var(--type-scale));
   line-height: 1;
   cursor: url('cursors/live_link.cur'), pointer;
   opacity: 0.6;
@@ -4740,7 +5149,7 @@ button.card-archive-btn::after {
   flex: 1;
   width: 100%;
   padding: var(--field-padding-y) var(--field-padding-x);
-  font-size: 0.86rem;
+  font-size: calc((0.86rem) * var(--type-scale));
 }
 
 .related-add-input::-webkit-calendar-picker-indicator {
@@ -4763,7 +5172,7 @@ button.related-add-clear {
   border-radius: 999px;
   background: var(--subtle-bg);
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: calc((0.95rem) * var(--type-scale));
   line-height: 1;
   text-align: center;
   cursor: url('cursors/live_link.cur'), pointer;
@@ -4825,7 +5234,7 @@ button.related-add-clear::after {
   gap: 0.6rem;
   padding: 0.75rem 1rem;
   border-radius: 12px;
-  font-size: 0.84rem;
+  font-size: calc((0.84rem) * var(--type-scale));
   line-height: 1.4;
   pointer-events: auto;
   opacity: 0;
@@ -4886,7 +5295,7 @@ button.toast-close {
   opacity: 0.45;
   cursor: url('cursors/live_link.cur'), pointer;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: calc((1rem) * var(--type-scale));
   line-height: 1;
   transition: opacity 150ms;
 }
@@ -5173,7 +5582,7 @@ button.toast-close::after {
   background: rgba(var(--accent-rgb), 0.1);
   border: 1px solid rgba(var(--accent-rgb), 0.28);
   color: var(--accent);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5186,7 +5595,7 @@ button.toast-close::after {
 
 .welcome-dialog-title {
   margin: 0;
-  font-size: 1.45rem;
+  font-size: calc((1.45rem) * var(--type-scale));
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.2;
@@ -5196,7 +5605,7 @@ button.toast-close::after {
 .welcome-dialog-lede {
   margin: 0.35rem 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: calc((0.9rem) * var(--type-scale));
   line-height: 1.5;
 }
 
@@ -5214,7 +5623,7 @@ button.toast-close::after {
 .welcome-dialog-notices li {
   padding: 0.65rem 0.95rem;
   border-bottom: 1px solid var(--line);
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
   line-height: 1.45;
   color: var(--ink);
 }
@@ -5226,7 +5635,7 @@ button.toast-close::after {
 .welcome-dialog-notice-label {
   display: block;
   margin-bottom: 0.1rem;
-  font-size: 0.66rem;
+  font-size: calc((0.66rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5253,7 +5662,7 @@ button.welcome-dialog-cta {
   border-radius: 12px;
   border: 1px solid var(--btn-border);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: calc((0.95rem) * var(--type-scale));
   font-weight: 700;
   color: #fff;
   background: var(--btn-gradient);
@@ -5284,12 +5693,12 @@ button.help-dialog-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 0 0.12rem;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 1.1rem;
+  font-size: calc((1.1rem) * var(--type-scale));
   line-height: 1;
   cursor: url('cursors/live_link.cur'), pointer;
   box-shadow: none;
@@ -5322,7 +5731,7 @@ button.help-dialog-close::after {
 
 .help-dialog-heading {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: calc((0.7rem) * var(--type-scale));
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5346,7 +5755,7 @@ button.help-dialog-close::after {
 }
 
 .help-dialog-step__index {
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   font-weight: 800;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
@@ -5355,14 +5764,14 @@ button.help-dialog-close::after {
 
 .help-dialog-step h4 {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: calc((0.9rem) * var(--type-scale));
   font-weight: 700;
   color: var(--ink);
 }
 
 .help-dialog-step p {
   margin: 0.2rem 0 0;
-  font-size: 0.84rem;
+  font-size: calc((0.84rem) * var(--type-scale));
   line-height: 1.45;
   color: var(--muted);
 }
@@ -5374,7 +5783,7 @@ button.help-dialog-close::after {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem 1.25rem;
-  font-size: 0.88rem;
+  font-size: calc((0.88rem) * var(--type-scale));
 }
 
 /* =====================================================================
@@ -5769,7 +6178,7 @@ button.help-dialog-close::after {
 }
 
 .attachment-dropzone span {
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
 }
 
 .attachment-dropzone:focus-visible,
@@ -5816,7 +6225,7 @@ button.help-dialog-close::after {
   place-items: center;
   color: var(--muted);
   background: repeating-linear-gradient(45deg, var(--surface-dim), var(--surface-dim) 10px, var(--subtle-bg) 10px, var(--subtle-bg) 20px);
-  font-size: 0.78rem;
+  font-size: calc((0.78rem) * var(--type-scale));
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -5836,12 +6245,12 @@ button.help-dialog-close::after {
 }
 
 .attachment-card-meta strong {
-  font-size: 0.82rem;
+  font-size: calc((0.82rem) * var(--type-scale));
 }
 
 .attachment-card-meta span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
 }
 
 .attachment-delete,
@@ -5927,7 +6336,7 @@ button.attachment-lightbox-close {
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.92);
   color: white;
-  font-size: 1.4rem;
+  font-size: calc((1.4rem) * var(--type-scale));
   cursor: url('cursors/live_link.cur'), pointer;
 }
 
@@ -5942,7 +6351,6 @@ button.attachment-lightbox-close::after {
   content: none;
   display: none;
 }
-
 
 /* --------- Linked markdown artifact drawer (left side) --------- */
 .artifact-drawer-backdrop {
@@ -6023,7 +6431,7 @@ button.attachment-lightbox-close::after {
 .artifact-drawer-title {
   margin: 0;
   color: var(--ink);
-  font-size: 1.05rem;
+  font-size: calc((1.05rem) * var(--type-scale));
   line-height: 1.2;
 }
 
@@ -6031,7 +6439,7 @@ button.attachment-lightbox-close::after {
   margin: 0.38rem 0 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: calc((0.72rem) * var(--type-scale));
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -21,6 +21,19 @@ import {
   storedReducedMotionPreference
 } from "./motion-preference.js";
 import { currentTheme, setThemePreference } from "./theme-preference.js";
+import {
+  FONT_OPTIONS,
+  FONT_TARGETS,
+  SITE_FONT_OPTIONS,
+  USER_SCALE_MIN,
+  USER_SCALE_MAX,
+  USER_SCALE_STEP,
+  storedFontPreferences,
+  setSiteFont,
+  setUserScale,
+  setFontPreference
+} from "./font-preference.js";
+import { closeIconSvg } from "./icons.js";
 
 const repositoryDelete = {
   boardId: "",
@@ -630,6 +643,49 @@ function renderProjectAppearanceTab() {
       </label>
       <p class="description">Turns off the animated starfield, meteors, and theme animations. ${escapeHtml(sourceLabel)}</p>
     </div>
+    ${renderTypographyControls()}
+  `;
+}
+
+function renderTypographyControls() {
+  const prefs = storedFontPreferences();
+  const siteOptions = SITE_FONT_OPTIONS
+    .map((id) => `<option value="${id}"${id === prefs.site ? " selected" : ""}>${escapeHtml(FONT_OPTIONS[id]?.label || id)}</option>`)
+    .join("");
+  const overrideSelects = Object.entries(FONT_TARGETS).map(([target, config]) => {
+    const current = prefs[target];
+    const options = Object.entries(FONT_OPTIONS)
+      .map(([id, font]) => `<option value="${id}"${id === current ? " selected" : ""}>${escapeHtml(font.label)}</option>`)
+      .join("");
+    return `
+      <label class="appearance-font-row">
+        <span>${escapeHtml(config.label)}</span>
+        <select class="select-chevron-field" data-font-target="${target}">${options}</select>
+      </label>
+    `;
+  }).join("");
+
+  return `
+    <div class="section appearance-typography-section">
+      <fieldset class="appearance-font-group">
+        <legend>Site font</legend>
+        <select class="select-chevron-field" id="siteFontSelect" aria-label="Primary site font">${siteOptions}</select>
+        <p class="description">The main font used across the app. Each font carries its own default size.</p>
+      </fieldset>
+      <fieldset class="appearance-font-group">
+        <legend>Text size</legend>
+        <div class="appearance-font-scale-row">
+          <input type="range" id="fontScaleSlider" min="${USER_SCALE_MIN}" max="${USER_SCALE_MAX}" step="${USER_SCALE_STEP}" value="${prefs.userScale}" aria-label="Text size" />
+          <output id="fontScaleValue" class="appearance-font-scale-value">${Math.round(prefs.userScale * 100)}%</output>
+        </div>
+        <p class="description">Scales all text together. Fields with a permanently fixed size stay put.</p>
+      </fieldset>
+      <fieldset class="appearance-font-group">
+        <legend>Per-element overrides</legend>
+        <div class="appearance-font-grid">${overrideSelects}</div>
+        <p class="description">Optional — use a different font for a specific kind of text.</p>
+      </fieldset>
+    </div>
   `;
 }
 
@@ -918,6 +974,31 @@ function bindProjectTabHandlers(context, tab) {
       applyReducedMotionPreference();
       window.dispatchEvent(new CustomEvent("orbit:motion-preference-change", { detail: { reduce } }));
       toast.success(reduce ? "Theme motion reduced" : "Theme motion enabled");
+    });
+
+    // Site font swap resets every target, so reflect that in the override
+    // selects without re-fetching/re-rendering the whole drawer.
+    $("#siteFontSelect")?.addEventListener("change", (event) => {
+      const next = setSiteFont(event.currentTarget.value);
+      drawerInner.querySelectorAll("select[data-font-target]").forEach((select) => {
+        select.value = next[select.dataset.fontTarget];
+      });
+      toast.success(`Site font: ${FONT_OPTIONS[next.site]?.label || "updated"}`);
+    });
+
+    const fontScaleSlider = $("#fontScaleSlider");
+    if (fontScaleSlider) {
+      const scaleValue = $("#fontScaleValue");
+      fontScaleSlider.addEventListener("input", (event) => {
+        const next = setUserScale(event.currentTarget.value);
+        if (scaleValue) scaleValue.textContent = `${Math.round(next.userScale * 100)}%`;
+      });
+    }
+
+    drawerInner.querySelectorAll("select[data-font-target]").forEach((select) => {
+      select.addEventListener("change", (event) => {
+        setFontPreference(event.currentTarget.dataset.fontTarget, event.currentTarget.value);
+      });
     });
   }
 
@@ -1240,7 +1321,7 @@ function renderLaneManager() {
                 <span class="lane-new-sun" aria-hidden="true"></span>
                 <span class="lane-new-label">New</span>
               </button>
-              <button type="button" data-variant="ghost" class="settings-lane-delete-btn danger-button" data-lane-action="delete" ${deleteDisabled(lane, counts, aiEnabled) ? "disabled" : ""} title="${deleteTitle(lane, counts, aiEnabled)}" aria-label="Delete lane">×</button>
+              <button type="button" data-variant="ghost" class="settings-lane-delete-btn danger-button" data-lane-action="delete" ${deleteDisabled(lane, counts, aiEnabled) ? "disabled" : ""} title="${deleteTitle(lane, counts, aiEnabled)}" aria-label="Delete lane">${closeIconSvg}</button>
             </div>
           `;
         })

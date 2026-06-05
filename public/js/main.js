@@ -43,9 +43,11 @@ import { edition } from "./config.js";
 import { openModal, wireModal } from "./modal.js";
 import { wireTopbarFocus } from "./topbar-notes.js";
 import { wireHelpMenu } from "./help-menu.js";
+import { applyStoredFontPreferences } from "./font-preference.js";
 
 async function init() {
   const welcomeDialog = document.getElementById("welcomeDialog");
+  applyStoredFontPreferences();
   wireModal(welcomeDialog);
   wireTopbarFocus();
   wireHelpMenu();

@@ -15,11 +15,14 @@
             sizes="180x180"
             href="./apple-touch-icon.png"
         />
-        <!-- Apply the stored theme + motion preference before first paint, so
-             the app underneath the splash paints in the right theme (no flash)
-             and the splash respects an explicit reduce-motion choice. Mirrors
-             theme-preference.js (mab_theme) and motion-preference.js
-             (mab_reduce_motion → data-motion); main.js reconciles on load. -->
+        <!-- Apply the stored theme + motion + font/size preferences before first
+             paint, so the app underneath the splash paints in the right theme
+             (no flash) and at the right type size (no layout jump), and the
+             splash respects an explicit reduce-motion choice. Mirrors
+             theme-preference.js (mab_theme), motion-preference.js
+             (mab_reduce_motion → data-motion), and font-preference.js
+             (orbit_font_preferences → --orbit-font-* / --type-*); main.js
+             reconciles on load. -->
         <script>
             try {
                 var t = localStorage.getItem("mab_theme");
@@ -30,6 +33,49 @@
                     document.documentElement.setAttribute("data-motion", "reduce");
                 else if (rm === "false")
                     document.documentElement.setAttribute("data-motion", "full");
+                var fp = JSON.parse(localStorage.getItem("orbit_font_preferences") || "{}");
+                var stacks = {
+                    inter: '"Orbit Inter", "Inter", "Segoe UI Variable", "Segoe UI", Arial, sans-serif',
+                    openSans: '"Orbit Open Sans", "Open Sans", "Segoe UI Variable", "Segoe UI", Arial, sans-serif',
+                    jetBrainsMono: '"Orbit JetBrains Mono", "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace',
+                    chakraPetch: '"Orbit Chakra Petch", "Chakra Petch", "Segoe UI Variable", "Segoe UI", Arial, sans-serif',
+                    orbitron: '"Orbit Orbitron", "Orbitron", "Segoe UI Variable", "Segoe UI", Arial, sans-serif',
+                    rajdhani: '"Orbit Rajdhani", "Rajdhani", "Segoe UI Variable", "Segoe UI", Arial, sans-serif',
+                    runescapeUF: '"Orbit Runescape UF", "Cascadia Mono", monospace',
+                    openRing: '"Orbit Open Ring", "Segoe UI Variable", "Segoe UI", Arial, sans-serif'
+                };
+                // Per-font size presets — must mirror font-preference.js. Fonts
+                // not listed default to 1.
+                var scales = { runescapeUF: 0.95, openRing: 1.2 };
+                var letterSpacings = { openRing: "0.4px" };
+                var lineHeights = {};
+                var defaults = {
+                    ui: "orbitron",
+                    heading: "inter",
+                    body: "inter",
+                    prose: "inter",
+                    label: "orbitron"
+                };
+                var targets = {
+                    ui: "--orbit-font-ui",
+                    heading: "--orbit-font-heading",
+                    body: "--orbit-font-body",
+                    prose: "--orbit-font-prose",
+                    label: "--orbit-font-label"
+                };
+                Object.keys(targets).forEach(function (target) {
+                    var id = stacks[fp[target]] ? fp[target] : defaults[target];
+                    document.documentElement.style.setProperty(targets[target], stacks[id]);
+                });
+                var siteFont = stacks[fp.site] ? fp.site : "inter";
+                var familyScale = scales[siteFont] || 1;
+                var userScale = Number(fp.userScale);
+                if (!isFinite(userScale)) userScale = 1;
+                userScale = Math.min(1.3, Math.max(0.85, userScale));
+                document.documentElement.style.setProperty("--type-family-scale", String(familyScale));
+                document.documentElement.style.setProperty("--type-user-scale", String(userScale));
+                document.documentElement.style.setProperty("--orbit-letter-spacing", letterSpacings[siteFont] || "0.3px");
+                document.documentElement.style.setProperty("--orbit-line-height", lineHeights[siteFont] || "normal");
             } catch (e) {}
         </script>
         <link rel="preload" as="image" href="./orbits-logo.png" />
@@ -196,7 +242,7 @@
                     class="topbar-btn btn-sun topbar-ctl-shrink"
                     data-variant="cta"
                 >
-                    <span class="btn-plus" aria-hidden="true">+</span>
+                    <span class="btn-plus" aria-hidden="true"></span>
                     <span class="btn-sun-label">New Card</span>
                 </button>
                 <div class="topbar-menu">
@@ -219,18 +265,18 @@
                         >
                             <rect
                                 x="4"
-                                y="4"
+                                y="2"
                                 width="6"
-                                height="16"
+                                height="20"
                                 rx="0.75"
                                 stroke="currentColor"
                                 stroke-width="2"
                             />
                             <rect
                                 x="14"
-                                y="4"
+                                y="2"
                                 width="6"
-                                height="16"
+                                height="20"
                                 rx="0.75"
                                 stroke="currentColor"
                                 stroke-width="2"
@@ -399,7 +445,14 @@
                     class="drawer-close"
                     aria-label="Close panel"
                 >
-                    ×
+                    <svg
+                        class="ui-icon ui-icon-x"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
+                    >
+                        <path d="M6 6l12 12M18 6 6 18" />
+                    </svg>
                 </button>
             </header>
             <div id="drawerInner" class="drawer-inner"></div>
@@ -428,7 +481,14 @@
                     class="drawer-close artifact-drawer-close"
                     aria-label="Close artifact"
                 >
-                    ×
+                    <svg
+                        class="ui-icon ui-icon-x"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
+                    >
+                        <path d="M6 6l12 12M18 6 6 18" />
+                    </svg>
                 </button>
             </header>
             <div id="artifactDrawerBody" class="artifact-drawer-body"></div>
@@ -541,7 +601,14 @@
                         aria-label="Close"
                         data-modal-close
                     >
-                        ×
+                        <svg
+                            class="ui-icon ui-icon-x"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            focusable="false"
+                        >
+                            <path d="M6 6l12 12M18 6 6 18" />
+                        </svg>
                     </button>
                 </div>
                 <div class="welcome-dialog-body">

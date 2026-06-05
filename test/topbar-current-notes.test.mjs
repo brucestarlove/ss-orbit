@@ -39,6 +39,8 @@ test("topbar exposes truncated board notes and shared editable popover without a
   assert.match(topbarNotesSource, /dataset\.state\s*=\s*open \? "open" : "closed"/);
   assert.match(stylesSource, /@import "@starlove\/ui\/components\/topbar-notes";/);
   assert.match(stylesSource, /\.brand-notes-strip\s*\{[\s\S]*--topbar-notes-max-width:\s*min\(600px,\s*42vw\);/);
+  assert.match(stylesSource, /\.brand-notes-strip\s*\{[\s\S]*--topbar-notes-color:\s*var\(--ink\);[\s\S]*--topbar-notes-active-color:\s*var\(--ink\);[\s\S]*color:\s*var\(--topbar-notes-color\);/);
+  assert.match(stylesSource, /\.topbar-notes__text,[\s\S]*\.topbar-search input::placeholder\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
   assert.doesNotMatch(stylesSource, /\.topbar-notes,[\s\S]*\.brand-notes-strip\s*\{[\s\S]*overflow:\s*hidden;[\s\S]*text-overflow:\s*ellipsis;[\s\S]*white-space:\s*nowrap;/);
   assert.doesNotMatch(stylesSource, /\.brand-notes-strip:is\(:hover,\s*:focus-visible,\s*\[aria-expanded="true"\],\s*\[data-state="open"\]\)/);
   assert.match(stylesSource, /\.brand-focus-btn:is\(:hover,\s*:focus-visible,\s*\[aria-expanded="true"\]\)\s*\{[\s\S]*background:\s*rgba\(var\(--accent-rgb\),0\.08\);[\s\S]*transform:\s*translateY\(-1px\);/);
@@ -47,5 +49,9 @@ test("topbar exposes truncated board notes and shared editable popover without a
   assert.match(stylesSource, /\.brand-focus-notes-body\s*\{[\s\S]*max-height:\s*min\(calc\(100vh - 11rem\),\s*34rem\);[\s\S]*overflow-x:\s*hidden;[\s\S]*overflow-y:\s*auto;/);
   assert.match(stylesSource, /\.brand-focus-notes-edit\s*\{[\s\S]*overflow-x:\s*hidden;[\s\S]*overflow-wrap:\s*anywhere;/);
   assert.match(stylesSource, /\.inline-md-field-body\s*\{[\s\S]*margin-inline:\s*1px;/);
+  assert.match(stylesSource, /\.btn-sun\s*\{[\s\S]*grid-template-columns:\s*0\.78rem auto;[\s\S]*column-gap:\s*0\.3rem;[\s\S]*font-weight:\s*700;/);
+  assert.match(stylesSource, /\.controls \.btn-sun\s*\{[\s\S]*padding-inline:\s*0\.68rem;/);
+  assert.match(stylesSource, /\.btn-plus\s*\{[\s\S]*width:\s*0\.78rem;[\s\S]*height:\s*0\.78rem;/);
+  assert.match(stylesSource, /\.btn-plus::before,[\s\S]*\.btn-plus::after\s*\{[\s\S]*width:\s*0\.54rem;[\s\S]*height:\s*1\.5px;/);
   assert.doesNotMatch(stylesSource, /@keyframes\s+brand-focus-marquee|brand-focus-marquee__inner|animation:\s*brand-focus-marquee/);
 });

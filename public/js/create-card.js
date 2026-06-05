@@ -14,6 +14,7 @@ import { syncUrlFromState } from "./router.js";
 import { closeDrawer } from "./drawer.js";
 import { closeMenuFlyouts } from "./board-menu.js";
 import { load } from "./app.js";
+import { closeIconSvg } from "./icons.js";
 
 /** Clears any pending hide timeout when reopening the create flyout quickly. */
 let createFlyoutHideTimer = 0;
@@ -73,7 +74,7 @@ function renderCreateForm(preselectedLaneId) {
   return `
     <div class="create-flyout-head">
       <h2>New card</h2>
-      <button type="button" class="create-flyout-close ghost" id="createFlyoutClose" aria-label="Close">×</button>
+      <button type="button" class="create-flyout-close ghost" id="createFlyoutClose" aria-label="Close">${closeIconSvg}</button>
     </div>
     <form id="createTicketForm" class="create-flyout-form">
       <input id="createTicketTitle" name="title" type="text" placeholder="Title — what is this card?" autocomplete="off" required />

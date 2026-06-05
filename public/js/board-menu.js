@@ -32,8 +32,8 @@ const boardChipIcon = `
     fill="none"
     aria-hidden="true"
   >
-    <rect x="4" y="4" width="6" height="16" rx="0.75" stroke="currentColor" stroke-width="2" />
-    <rect x="14" y="4" width="6" height="16" rx="0.75" stroke="currentColor" stroke-width="2" />
+    <rect x="4" y="2" width="6" height="20" rx="0.75" stroke="currentColor" stroke-width="2" />
+    <rect x="14" y="2" width="6" height="20" rx="0.75" stroke="currentColor" stroke-width="2" />
   </svg>`;
 
 export function updateTopbarChips() {

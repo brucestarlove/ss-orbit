@@ -21,6 +21,7 @@ export async function bundleCss({ entryPoint, outfile, minify = false }) {
     outfile,
     assetNames: "cursors/[name]",
     loader: CURSOR_ASSET_LOADERS,
+    external: ["./fonts/*", "fonts/*"],
     legalComments: "none"
   });
   const cssFile = result.outputFiles.find((file) => file.path.endsWith(".css"));
