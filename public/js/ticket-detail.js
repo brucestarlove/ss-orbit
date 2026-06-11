@@ -961,7 +961,7 @@ function renderAttachmentCard(ticket, attachment) {
   );
   return `
     <article class="attachment-card">
-      <button type="button" class="attachment-thumb-button" data-open-lightbox="${escapeHtml(src)}" data-lightbox-title="${name}">
+      <button type="button" class="attachment-thumb-button" data-no-arc data-open-lightbox="${escapeHtml(src)}" data-lightbox-title="${name}">
         <img src="${escapeHtml(src)}" alt="${name}" loading="lazy" />
       </button>
       <div class="attachment-card-meta"><strong>${name}</strong><span>${meta}</span></div>

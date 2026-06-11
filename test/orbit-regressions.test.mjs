@@ -733,9 +733,14 @@ test("ticket detail exposes dependency-free image attachment controls", () => {
   assert.match(detailSource, /event\.dataTransfer\?\.files/);
   assert.match(detailSource, /clipboardData\?\.files/);
   assert.match(detailSource, /openAttachmentLightbox/);
+  assert.match(detailSource, /class="attachment-thumb-button" data-no-arc/);
   assert.match(detailSource, /event\.key === "Escape"/);
   assert.match(stylesSource, /\.attachment-lightbox/);
   assert.match(stylesSource, /\.attachment-dropzone/);
+  assert.match(stylesSource, /\.attachment-card\s*\{[\s\S]*?background:\s*transparent/);
+  assert.match(stylesSource, /button\.attachment-thumb-button\s*\{[\s\S]*?background:\s*transparent/);
+  assert.match(stylesSource, /button\.attachment-thumb-button::before,[\s\S]*button\.attachment-thumb-button::after\s*\{[\s\S]*?content:\s*none/);
+  assert.match(stylesSource, /\.attachment-thumb-button img,\s*\.attachment-missing-thumb\s*\{[\s\S]*?object-fit:\s*contain/);
 });
 
 test("board snapshot export exposes optional image inclusion", () => {
