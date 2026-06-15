@@ -166,7 +166,7 @@ async function seedIfEmpty(db) {
     system_path: "",
     default_branch: "main",
     project_notes:
-      "This preview lives entirely in your browser (IndexedDB). Use it to try the flow; export the snapshot from Settings → Repository when you want to move to a real Orbit install.",
+      "This preview lives entirely in your browser (IndexedDB). Use it to try the flow; export the snapshot from Settings → Data when you want to move to a real Orbit install.",
     agent_instructions:
       "Preview edition has no agent or MCP integration. The full Orbit install (npm i -g starscape-orbit && orbit init) provides those.",
     ai_enabled: 0,
@@ -210,7 +210,7 @@ async function seedIfEmpty(db) {
     description:
       "This onboarding card is for the in-browser preview. Drag it across lanes, edit fields, add comments — it all stays in this browser only.",
     type: "epic",
-    aiPlan: "1. Drag this card to In Progress.\n2. Add a comment.\n3. Export the snapshot from Settings → Repository.",
+    aiPlan: "1. Drag this card to In Progress.\n2. Add a comment.\n3. Export the snapshot from Settings → Data.",
     stateId: stateByName.Todo.id,
     priority: 4,
     labels: [labelByName["onboarding"].id, labelByName["needs-decomposition"].id]
@@ -238,7 +238,7 @@ async function seedIfEmpty(db) {
 
   addTicket(4, {
     title: "Export your snapshot when ready",
-    description: "Settings → Repository → Export downloads a JSON snapshot you can import into a real Orbit install.",
+    description: "Settings → Data → Export downloads a JSON snapshot you can import into a real Orbit install.",
     type: "task",
     stateId: stateByName.Backlog.id,
     priority: 1,

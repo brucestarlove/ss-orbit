@@ -8,7 +8,7 @@ import {
   createFlyoutBackdrop
 } from "./dom.js";
 import { state, visibleStatesForProject, ticketsForProject } from "./state.js";
-import { escapeHtml, ticketLabel } from "./format.js";
+import { escapeHtml } from "./format.js";
 import { api } from "./api.js";
 import { syncUrlFromState } from "./router.js";
 import { handleTextareaIndentationKeydown } from "./text-editing.js";
@@ -70,7 +70,10 @@ function renderCreateForm(preselectedLaneId) {
     .join("");
   const parentOptions = ticketsForProject()
     .filter((ticket) => ticket.type === "epic")
-    .map((ticket) => `<option value="${escapeHtml(ticket.id)}">${escapeHtml(ticketLabel(ticket))}</option>`)
+    .map((ticket) => {
+      const label = `#${ticket.number} — ${ticket.title || ""}`.trim();
+      return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(label)}</option>`;
+    })
     .join("");
   return `
     <div class="create-flyout-head">
@@ -80,13 +83,13 @@ function renderCreateForm(preselectedLaneId) {
     <form id="createTicketForm" class="create-flyout-form">
       <input id="createTicketTitle" name="title" type="text" placeholder="Title — what is this card?" autocomplete="off" required />
       <textarea id="createTicketDescription" name="description" placeholder="Description (optional)"></textarea>
-      <div class="create-flyout-grid">
-        <label>
-          Lane
+      <div class="control-grid">
+        <label class="control-field">
+          <span class="control-field-label">LANE</span>
           <select id="createTicketState" name="state" class="select-chevron-field" aria-label="Lane">${stateOptions}</select>
         </label>
-        <label>
-          Type
+        <label class="control-field">
+          <span class="control-field-label">TYPE</span>
           <select id="createTicketType" name="type" class="select-chevron-field" aria-label="Ticket type">
             <option value="epic">Epic</option>
             <option value="feature">Feature</option>
@@ -94,19 +97,19 @@ function renderCreateForm(preselectedLaneId) {
             <option value="bug">Bug</option>
           </select>
         </label>
-        <label>
-          Priority
+        <label class="control-field">
+          <span class="control-field-label">PRIORITY</span>
           <select id="createTicketPriority" name="priority" class="select-chevron-field" aria-label="Priority">
-            <option value="0">MAYBE</option>
-            <option value="1">LOW</option>
-            <option value="2" selected>MED</option>
-            <option value="3">HIGH</option>
             <option value="4">URGENT</option>
+            <option value="3">HIGH</option>
+            <option value="2" selected>MED</option>
+            <option value="1">LOW</option>
+            <option value="0">MAYBE</option>
           </select>
         </label>
       </div>
-      <label>
-        Parent epic
+      <label class="control-field" id="createTicketParentField">
+        <span class="control-field-label">Parent epic</span>
         <select id="createTicketParent" name="parent_ticket_id" class="select-chevron-field" aria-label="Parent epic">
           <option value="">None</option>
           ${parentOptions}
@@ -125,6 +128,20 @@ function wireCreateForm() {
   description?.addEventListener("keydown", (event) => {
     handleTextareaIndentationKeydown(event, description);
   });
+
+  // Epics cannot have a parent (server rejects with `epic_cannot_have_parent`),
+  // so hide the Parent epic field whenever Type is Epic.
+  const typeSelect = form.querySelector("#createTicketType");
+  const parentField = form.querySelector("#createTicketParentField");
+  const parentSelect = form.querySelector("#createTicketParent");
+  const syncParentVisibility = () => {
+    const isEpic = typeSelect.value === "epic";
+    parentField.hidden = isEpic;
+    if (isEpic) parentSelect.value = "";
+  };
+  typeSelect.addEventListener("change", syncParentVisibility);
+  syncParentVisibility();
+
   form.addEventListener("submit", createTicketFromDrawer);
 }
 

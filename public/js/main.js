@@ -99,7 +99,7 @@ async function init() {
     const ticket = state.data?.tickets?.find((t) => t.id === ticketId);
     const titleForToast = ticket?.title || "card";
     await api(withBoardQuery(`/api/tickets/${encodeURIComponent(ticketId)}/archive`), { method: "POST" });
-    toast.error(`Archived: ${titleForToast}`);
+    toast.removed(`Archived: ${titleForToast}`);
     await load();
     navigate({ boardId: state.boardId, view: "board" });
   });

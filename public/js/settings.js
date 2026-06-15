@@ -4,7 +4,7 @@
 
 import { state, getSettingsTab, statesForProject, ticketsForProject, currentBoard } from "./state.js";
 import { drawerInner, $ } from "./dom.js";
-import { escapeHtml, formatDate, repoLabelFromUrl, renderPreservedText, cleanText } from "./format.js";
+import { escapeHtml, formatDate, renderPreservedText, cleanText } from "./format.js";
 import { api, withBoardQuery } from "./api.js";
 import { toast, downloadJson } from "./toast.js";
 import { renderDrawerShell } from "./drawer.js";
@@ -20,7 +20,7 @@ import {
   setReducedMotionPreference,
   storedReducedMotionPreference
 } from "./motion-preference.js";
-import { currentTheme, setThemePreference } from "./theme-preference.js";
+import { currentTheme, toggleThemePreference } from "./theme-preference.js";
 import {
   FONT_OPTIONS,
   FONT_TARGETS,
@@ -40,6 +40,23 @@ const repositoryDelete = {
   step: "idle",
   exported: false
 };
+
+/** @starlove/ui slider: WebKit fill reads --value (0–100), set from min/max/value. */
+function syncSliderValue(input) {
+  const min = Number(input.min) || 0;
+  const max = Number(input.max) || 100;
+  const value = Number(input.value);
+  const span = max - min;
+  const pct = span <= 0 ? 0 : ((value - min) / span) * 100;
+  input.style.setProperty("--value", String(pct));
+}
+
+function bindSliders(root) {
+  root.querySelectorAll('input[type="range"].slider').forEach((slider) => {
+    syncSliderValue(slider);
+    slider.addEventListener("input", () => syncSliderValue(slider));
+  });
+}
 
 export async function renderProjectDetail() {
   const context = await api(`/api/boards/${state.boardId}/context?include_struck=true`);
@@ -62,7 +79,7 @@ export async function renderProjectDetail() {
     { id: "notes", label: "Notes" },
     { id: "journal", label: "Journal" },
     ...(features.ai ? [{ id: "ai", label: "AI" }] : []),
-    { id: "repository", label: "Repository" }
+    { id: "data", label: "Data" }
   ];
 
   const resolvedTab = activeTab === "ai" && !features.ai ? "lanes" : activeTab;
@@ -70,7 +87,6 @@ export async function renderProjectDetail() {
   renderDrawerShell({
     eyebrow: "SETTINGS",
     mode: "settings",
-    title: project.name,
     tabs,
     activeTab: resolvedTab,
     onTabSelect: async (id) => {
@@ -100,9 +116,9 @@ function renderProjectTabBody(context, tab) {
       return renderProjectJournalTab(context);
     case "archive":
       return renderProjectArchiveTab();
-    case "repository":
+    case "data":
     default:
-      return renderProjectRepositoryTab(context);
+      return renderProjectDataTab(context);
   }
 }
 
@@ -165,31 +181,37 @@ const MCP_CLIENTS = {
 function renderProjectAiTab(context) {
   const project = context.board;
   const aiEnabled = project.ai_enabled !== 0;
-  const aiDivider = aiEnabled ? `<div class="separator" aria-hidden="true"></div>` : "";
   const agentContextSetup = aiEnabled ? renderAgentContextSection(project) : "";
   const helperFilesSetup = aiEnabled && features.multiBoard ? renderHelperFilesSection(project) : "";
   const mcpSetup = aiEnabled ? renderMcpSetupSection(context) : "";
 
   return `
-    <div class="section">
-      <label class="orbit-check" for="aiEnabledToggle">
-        <input
-          type="checkbox"
-          id="aiEnabledToggle"
-          ${aiEnabled ? "checked" : ""}
-        />
-        <span class="orbit-check-box" aria-hidden="true">
-          <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
-        </span>
-        <span class="orbit-check-label">Enable AI</span>
-      </label>
-      <p class="description">Provisions the <strong>AI Ready</strong>, <strong>In Progress</strong>, and <strong>Review</strong> lanes if missing, surfaces agent context fields, and exposes the MCP setup snippet. Disabling AI hides the AI Ready column but keeps its cards in place.</p>
+    <div class="settings-stack">
+      <section class="settings-card">
+        <header class="settings-card-head">
+          <h3 class="settings-card-title">AI</h3>
+        </header>
+        <div class="settings-card-body">
+          <label class="orbit-check settings-toggle" for="aiEnabledToggle">
+            <input
+              type="checkbox"
+              id="aiEnabledToggle"
+              ${aiEnabled ? "checked" : ""}
+            />
+            <span class="orbit-check-box" aria-hidden="true">
+              <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
+            </span>
+            <span class="settings-toggle-text">
+              <span class="settings-row-title">Enable AI</span>
+              <span class="description">Provisions the <strong>AI Ready</strong>, <strong>In Progress</strong>, and <strong>Review</strong> lanes if missing, surfaces agent context fields, and exposes the MCP setup snippet. Disabling AI hides the AI Ready column but keeps its cards in place.</span>
+            </span>
+          </label>
+        </div>
+      </section>
+      ${agentContextSetup}
+      ${helperFilesSetup}
+      ${mcpSetup}
     </div>
-    ${aiDivider}
-    ${agentContextSetup}
-    ${helperFilesSetup ? `${aiDivider}${helperFilesSetup}` : ""}
-    ${aiDivider}
-    ${mcpSetup}
   `;
 }
 
@@ -201,23 +223,26 @@ function renderAgentContextSection(project) {
   const placeholderClass = hasInstructions ? "" : "is-placeholder";
   const inner = hasInstructions ? renderPreservedText(instructions) : escapeHtml(instructionsPlaceholder);
   return `
-    <div class="section ai-subsection ai-context-setup">
-      <div class="ai-context-title-row">
-        <span class="section-mark" aria-hidden="true">Context</span>
-        <h3>Agent Instructions</h3>
+    <section class="settings-card ai-context-setup">
+      <header class="settings-card-head">
+        <h3 class="settings-card-title">Agent Instructions</h3>
+      </header>
+      <div class="settings-card-body">
+        <div class="settings-row">
+          <p class="description">This project-level context is provided to agents when they work on tickets.</p>
+          <div class="inline-md-field">
+            <div
+              class="inline-md-field-body preserved-text-body editable-field settings-agent-instructions-body ${placeholderClass}"
+              data-edit-field="agent_instructions"
+              tabindex="0"
+              title="Click to edit"
+              role="button"
+              aria-label="Edit Agent Instructions"
+            >${inner}</div>
+          </div>
+        </div>
       </div>
-      <p class="description">This project-level context is provided to agents when they work on tickets.</p>
-      <div class="inline-md-field">
-        <div
-          class="inline-md-field-body preserved-text-body editable-field settings-agent-instructions-body ${placeholderClass}"
-          data-edit-field="agent_instructions"
-          tabindex="0"
-          title="Click to edit"
-          role="button"
-          aria-label="Edit Agent Instructions"
-        >${inner}</div>
-      </div>
-    </div>
+    </section>
   `;
 }
 
@@ -229,69 +254,71 @@ function renderMcpSetupSection(context) {
   const commandText = mcpRunCommand(osId, paths);
   const client = MCP_CLIENTS[clientId];
   return `
-    <details class="section ai-subsection mcp-setup" data-mcp-setup>
-      <summary>
-        <div class="mcp-title-row">
-          <span class="section-mark" aria-hidden="true">MCP</span>
-          <h3>Connect Your Agent to MCP</h3>
-        </div>
+    <details class="settings-card settings-card--collapsible mcp-setup" data-mcp-setup>
+      <summary class="settings-card-head">
+        <h3 class="settings-card-title">Connect Your Agent to MCP</h3>
+        <svg class="settings-card-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
       </summary>
-      <div>
-        <p class="description">A tiny service running on your computer alongside your AI agent, providing it with tools and context to collaborate with you more effectively. Tell your AI to use the snippet below, it knows what MCP is.</p>
-        <div class="mcp-flow">
-          <label>
-            <span>Operating system</span>
-            <select id="mcpOsSelect" class="select-chevron-field">
-              ${Object.entries(MCP_OS_OPTIONS)
-                .map(([id, option]) => `<option value="${id}" ${id === osId ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
-                .join("")}
-            </select>
-          </label>
-          <label>
-            <span>Agent app</span>
-            <select id="mcpClientSelect" class="select-chevron-field">
-              ${Object.entries(MCP_CLIENTS)
-                .map(([id, option]) => `<option value="${id}" ${id === clientId ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
-                .join("")}
-            </select>
-          </label>
+      <div class="settings-card-body">
+        <div class="settings-row">
+          <p class="description">A tiny service running on your computer alongside your AI agent, providing it with tools and context to collaborate with you more effectively. Tell your AI to use the snippet below, it knows what MCP is.</p>
+          <div class="control-grid">
+            <label class="control-field">
+              <span class="control-field-label">Operating system</span>
+              <select id="mcpOsSelect" class="select-chevron-field">
+                ${Object.entries(MCP_OS_OPTIONS)
+                  .map(([id, option]) => `<option value="${id}" ${id === osId ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+                  .join("")}
+              </select>
+            </label>
+            <label class="control-field">
+              <span class="control-field-label">Agent app</span>
+              <select id="mcpClientSelect" class="select-chevron-field">
+                ${Object.entries(MCP_CLIENTS)
+                  .map(([id, option]) => `<option value="${id}" ${id === clientId ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+                  .join("")}
+              </select>
+            </label>
+          </div>
+          <div class="control-grid control-grid--single mcp-path-grid">
+            <label class="control-field">
+              <span class="control-field-label">Orbit MCP server file</span>
+              <input id="mcpServerPathInput" value="${escapeHtml(paths.serverPath)}" />
+            </label>
+          </div>
         </div>
-        <div class="mcp-path-grid">
-          <label>
-            <span>Orbit MCP server file</span>
-            <input id="mcpServerPathInput" value="${escapeHtml(paths.serverPath)}" />
-          </label>
-        </div>
-      </div>
 
-      <div class="mcp-options-stack">
-        <div class="mcp-option-card">
-          <div class="mcp-option-card-head">
-            <div>
-              <strong data-mcp-output-title>${escapeHtml(client.label)} setup</strong>
-              <p class="description" data-mcp-helper>${escapeHtml(client.helper)}</p>
+        <div class="settings-row">
+          <div class="mcp-options-stack">
+            <div class="mcp-option-card">
+              <div class="mcp-option-card-head">
+                <div>
+                  <strong data-mcp-output-title>${escapeHtml(client.label)} setup</strong>
+                  <p class="description" data-mcp-helper>${escapeHtml(client.helper)}</p>
+                </div>
+                <button type="button" data-variant="secondary" data-copy-mcp="config">Copy setup</button>
+              </div>
+              <div class="mcp-terminal">
+                <div class="mcp-terminal-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
+                <pre class="mcp-snippet"><code data-mcp-config>${escapeHtml(configText)}</code></pre>
+              </div>
             </div>
-            <button type="button" data-variant="secondary" data-copy-mcp="config">Copy setup</button>
-          </div>
-          <div class="mcp-terminal">
-            <div class="mcp-terminal-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
-            <pre class="mcp-snippet"><code data-mcp-config>${escapeHtml(configText)}</code></pre>
-          </div>
-        </div>
 
-        <div class="mcp-or-divider" aria-hidden="true"><span>OR</span></div>
+            <div class="mcp-or-divider" aria-hidden="true"><span>OR</span></div>
 
-        <div class="mcp-option-card">
-          <div class="mcp-option-card-head">
-            <div>
-              <strong>Manual run command</strong>
-              <p class="description">Use this only when an app asks you to start the MCP server yourself.</p>
+            <div class="mcp-option-card">
+              <div class="mcp-option-card-head">
+                <div>
+                  <strong>Manual run command</strong>
+                  <p class="description">Use this only when an app asks you to start the MCP server yourself.</p>
+                </div>
+                <button type="button" data-variant="secondary" data-copy-mcp="command">Copy command</button>
+              </div>
+              <div class="mcp-terminal">
+                <div class="mcp-terminal-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
+                <pre class="mcp-snippet mcp-snippet--compact"><code data-mcp-command>${escapeHtml(commandText)}</code></pre>
+              </div>
             </div>
-            <button type="button" data-variant="secondary" data-copy-mcp="command">Copy command</button>
-          </div>
-          <div class="mcp-terminal">
-            <div class="mcp-terminal-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
-            <pre class="mcp-snippet mcp-snippet--compact"><code data-mcp-command>${escapeHtml(commandText)}</code></pre>
           </div>
         </div>
       </div>
@@ -409,7 +436,7 @@ function renderProjectArchiveTab() {
   `;
 }
 
-function renderProjectRepositoryTab(context) {
+function renderProjectDataTab(context) {
   const project = context.board;
   if (repositoryDelete.boardId !== project.id) {
     repositoryDelete.boardId = project.id;
@@ -417,58 +444,72 @@ function renderProjectRepositoryTab(context) {
     repositoryDelete.exported = false;
   }
   const repoMeta = features.multiBoard
-    ? `
-    <div class="detail-head project-manual-head">
-      <div class="meta-grid">
-        <div class="meta meta--repo-path">
-          <span>Repo</span>
-          <strong>${escapeHtml(repoLabelFromUrl(project.repo_url))}</strong>
-          <span>Path</span>
-          <strong>${escapeHtml(project.system_path || context.deployment?.system_path || "Not available")}</strong>
+    ? ""
+    : `
+    <section class="settings-card">
+      <header class="settings-card-head">
+        <h3 class="settings-card-title">Data</h3>
+      </header>
+      <div class="settings-card-body">
+        <div class="settings-row">
+          <p class="description">This board lives in your browser only. Export a snapshot if you want to move it to a real Orbit install, or import one to seed this preview.</p>
         </div>
       </div>
-    </div>`
-    : `
-    <p class="description">This board lives in your browser only. Export a snapshot if you want to move it to a real Orbit install, or import one to seed this preview.</p>`;
+    </section>`;
   return `
-    ${repoMeta}
+    <div class="settings-stack">
+      ${repoMeta}
 
-    ${features.multiBoard ? renderBoardRenameSection(project) : ""}
+      ${features.multiBoard ? renderBoardRenameSection(project) : ""}
 
-    <div class="section">
-      <h3>Board Snapshot</h3>
-      <p class="description">Import accepts Orbit snapshots or Trello board JSON exports. The default import creates a separate board and leaves this board untouched.</p>
-      ${features.attachments ? `
-        <label class="orbit-check">
-          <input type="checkbox" id="exportProjectImages" />
-          <span class="orbit-check-box" aria-hidden="true">
-            <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
-          </span>
-          <span>Include attached images</span>
-        </label>
-        <p class="description">Image exports are embedded in the .orbit.json snapshot and may be much larger.</p>
-      ` : ""}
-      <div class="deployment-actions">
-        <button type="button" data-variant="secondary" id="exportProject">Export</button>
-        <input type="file" id="importSnapshotAsNewFile" class="import-file-input" accept=".orbit.json,.json,application/json" />
-        <button type="button" data-variant="secondary" id="importSnapshotAsNewButton">Import as New Board</button>
-      </div>
+      <section class="settings-card">
+        <header class="settings-card-head">
+          <h3 class="settings-card-title">Board Snapshot</h3>
+        </header>
+        <div class="settings-card-body">
+          <div class="settings-row">
+            <p class="description">Import accepts Orbit snapshots or Trello board JSON exports. The default import creates a separate board and leaves this board untouched.</p>
+            ${features.attachments ? `
+              <label class="orbit-check settings-toggle">
+                <input type="checkbox" id="exportProjectImages" />
+                <span class="orbit-check-box" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
+                </span>
+                <span class="settings-toggle-text">
+                  <span class="settings-row-title">Include attached images</span>
+                </span>
+              </label>
+            ` : ""}
+            <div class="deployment-actions">
+              <button type="button" data-variant="primary" id="exportProject">Export</button>
+              <input type="file" id="importSnapshotAsNewFile" class="import-file-input" accept=".orbit.json,.json,application/json" />
+              <button type="button" data-variant="primary" id="importSnapshotAsNewButton">Import as New Board</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-card settings-card--danger">
+        <header class="settings-card-head">
+          <h3 class="settings-card-title">Replace Current Board</h3>
+        </header>
+        <div class="settings-card-body">
+          <div class="settings-row">
+            <p class="description">Advanced: replace this board from an Orbit snapshot or Trello export after making the normal pre-import backup. Type <strong>${escapeHtml(project.slug || "")}</strong> to enable replacement.</p>
+            <label class="control-field repository-confirm-field">
+              <span class="control-field-label">Board slug</span>
+              <input id="replaceImportConfirmInput" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(project.slug || "")}" />
+            </label>
+            <div class="deployment-actions">
+              <input type="file" id="replaceCurrentBoardImportFile" class="import-file-input" accept=".orbit.json,.json,application/json" disabled />
+              <button type="button" data-variant="primary" data-arc="danger" id="replaceCurrentBoardImportButton" disabled>Replace Current Board</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      ${features.multiBoard ? renderDeleteBoardSection(project) : ""}
     </div>
-
-    <div class="section repository-danger-zone">
-      <h3>Replace Current Board</h3>
-      <p class="description">Advanced: replace this board from an Orbit snapshot or Trello export after making the normal pre-import backup. Type <strong>${escapeHtml(project.slug || "")}</strong> to enable replacement.</p>
-      <label class="repository-confirm-field">
-        <span>Board slug</span>
-        <input id="replaceImportConfirmInput" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(project.slug || "")}" />
-      </label>
-      <div class="deployment-actions">
-        <input type="file" id="replaceCurrentBoardImportFile" class="import-file-input" accept=".orbit.json,.json,application/json" disabled />
-        <button type="button" data-variant="secondary" id="replaceCurrentBoardImportButton" disabled>Replace Current Board</button>
-      </div>
-    </div>
-
-    ${features.multiBoard ? renderDeleteBoardSection(project) : ""}
   `;
 }
 
@@ -476,40 +517,51 @@ function renderHelperFilesSection(project) {
   const hasFolder = Boolean(project.system_path);
   const managed = Boolean(project.manage_helper_files);
   return `
-    <div class="section ai-subsection helper-files-section">
-      <div class="ai-context-title-row">
-        <span class="section-mark" aria-hidden="true">Files</span>
-        <h3>AI Helper Files</h3>
+    <section class="settings-card helper-files-section">
+      <header class="settings-card-head">
+        <h3 class="settings-card-title">AI Helper Files</h3>
+      </header>
+      <div class="settings-card-body">
+        <div class="settings-row">
+          <p class="description">Orbit can keep <code>SKILL-ORBIT.md</code> and <code>AGENTS.md</code> in this board's coding project folder so your AI agent knows how to use Orbit.${hasFolder ? "" : " Link a folder to enable this."}</p>
+          <div class="folder-picker-field helper-files-folder">
+            <input id="helperFolderInput" type="text" readonly placeholder="No folder linked" value="${escapeHtml(project.system_path || "")}" />
+            <button type="button" id="helperPickFolderBtn">${hasFolder ? "Change" : "Browse"}</button>
+          </div>
+          <label class="orbit-check settings-toggle">
+            <input type="checkbox" id="manageHelperFilesToggle" ${managed ? "checked" : ""} ${hasFolder ? "" : "disabled"} />
+            <span class="orbit-check-box" aria-hidden="true">
+              <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
+            </span>
+            <span class="settings-toggle-text">
+              <span class="settings-row-title">Generate &amp; maintain helper files in this folder</span>
+            </span>
+          </label>
+        </div>
       </div>
-      <p class="description">Orbit can keep <code>SKILL-ORBIT.md</code> and <code>AGENTS.md</code> in this board's coding project folder so your AI agent knows how to use Orbit.${hasFolder ? "" : " Link a folder to enable this."}</p>
-      <div class="folder-picker-field helper-files-folder">
-        <input id="helperFolderInput" type="text" readonly placeholder="No folder linked" value="${escapeHtml(project.system_path || "")}" />
-        <button type="button" id="helperPickFolderBtn">${hasFolder ? "Change" : "Browse"}</button>
-      </div>
-      <label class="orbit-check">
-        <input type="checkbox" id="manageHelperFilesToggle" ${managed ? "checked" : ""} ${hasFolder ? "" : "disabled"} />
-        <span class="orbit-check-box" aria-hidden="true">
-          <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
-        </span>
-        <span>Generate &amp; maintain helper files in this folder</span>
-      </label>
-    </div>
+    </section>
   `;
 }
 
 function renderBoardRenameSection(project) {
   return `
-    <div class="section board-rename-section">
-      <h3>Board Name</h3>
-      <p class="description">Rename the board display name only. The canonical URL slug stays <strong>${escapeHtml(project.slug || "")}</strong>, so existing board links keep working.</p>
-      <form id="boardRenameForm" class="field-form">
-        <label>
-          <span>Display name</span>
-          <input name="name" value="${escapeHtml(project.name || "")}" maxlength="120" required />
-        </label>
-        <button type="submit" data-variant="secondary">Rename Board</button>
-      </form>
-    </div>
+    <section class="settings-card board-rename-section">
+      <header class="settings-card-head">
+        <h3 class="settings-card-title">Board Name</h3>
+      </header>
+      <div class="settings-card-body">
+        <div class="settings-row">
+          <p class="description">Rename the board display name only. The canonical URL slug stays <strong>${escapeHtml(project.slug || "")}</strong>, so existing board links keep working.</p>
+          <form id="boardRenameForm" class="field-form">
+            <label class="control-field">
+              <span class="control-field-label">Display name</span>
+              <input name="name" value="${escapeHtml(project.name || "")}" maxlength="120" required />
+            </label>
+            <button type="submit" data-variant="primary">Rename Board</button>
+          </form>
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -517,15 +569,21 @@ function renderDeleteBoardSection(project) {
   const slug = escapeHtml(project.slug || "");
   if (repositoryDelete.step === "choice") {
     return `
-      <div class="section repository-danger-zone">
-        <h3>Delete Board</h3>
-        <p class="description">Delete this board from Orbit and remove its repo-local Orbit files. Export a snapshot first if you may need this board again.</p>
-        <div class="repository-delete-actions">
-          <button type="button" data-variant="secondary" id="deleteBoardExportFirst">Export first</button>
-          <button type="button" data-variant="ghost" class="danger-button" id="deleteBoardSkipExport">Delete without exporting</button>
-          <button type="button" data-variant="ghost" id="deleteBoardCancel">Cancel</button>
+      <section class="settings-card settings-card--danger">
+        <header class="settings-card-head">
+          <h3 class="settings-card-title">Delete Board</h3>
+        </header>
+        <div class="settings-card-body">
+          <div class="settings-row">
+            <p class="description">Delete this board from Orbit and remove its repo-local Orbit files. Export a snapshot first if you may need this board again.</p>
+            <div class="repository-delete-actions">
+              <button type="button" data-variant="primary" id="deleteBoardExportFirst">Export first</button>
+              <button type="button" data-variant="primary" data-arc="danger" id="deleteBoardSkipExport">Delete without exporting</button>
+              <button type="button" data-variant="ghost" id="deleteBoardCancel">Cancel</button>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     `;
   }
 
@@ -534,28 +592,40 @@ function renderDeleteBoardSection(project) {
       ? "Snapshot exported. Type the board slug to confirm permanent deletion."
       : "Type the board slug to confirm permanent deletion.";
     return `
-      <div class="section repository-danger-zone is-confirming">
-        <h3>Delete Board</h3>
-        <p class="description">${escapeHtml(exportedCopy)}</p>
-        <label class="repository-confirm-field">
-          <span>Board slug</span>
-          <strong>${slug}</strong>
-          <input id="deleteBoardConfirmInput" autocomplete="off" spellcheck="false" placeholder="${slug}" autofocus />
-        </label>
-        <div class="repository-delete-actions">
-          <button type="button" data-variant="primary" class="danger-button" id="deleteBoardConfirm" disabled>Delete board permanently</button>
-          <button type="button" data-variant="ghost" id="deleteBoardCancel">Cancel</button>
+      <section class="settings-card settings-card--danger is-confirming">
+        <header class="settings-card-head">
+          <h3 class="settings-card-title">Delete Board</h3>
+        </header>
+        <div class="settings-card-body">
+          <div class="settings-row">
+            <p class="description">${escapeHtml(exportedCopy)}</p>
+            <label class="control-field repository-confirm-field">
+              <span class="control-field-label">Board slug</span>
+              <strong>${slug}</strong>
+              <input id="deleteBoardConfirmInput" autocomplete="off" spellcheck="false" placeholder="${slug}" autofocus />
+            </label>
+            <div class="repository-delete-actions">
+              <button type="button" data-variant="primary" data-arc="danger" id="deleteBoardConfirm" disabled>Delete board permanently</button>
+              <button type="button" data-variant="ghost" id="deleteBoardCancel">Cancel</button>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     `;
   }
 
   return `
-    <div class="section repository-danger-zone">
-      <h3>Delete Board</h3>
-      <p class="description">Remove this board from Orbit and delete its repo-local Orbit files. This cannot be undone without an exported snapshot.</p>
-      <button type="button" data-variant="ghost" class="danger-button" id="deleteBoardStart">Delete Board</button>
-    </div>
+    <section class="settings-card settings-card--danger">
+      <header class="settings-card-head">
+        <h3 class="settings-card-title">Delete Board</h3>
+      </header>
+      <div class="settings-card-body">
+        <div class="settings-row">
+          <p class="description">Remove this board from Orbit and delete its repo-local Orbit files. This cannot be undone without an exported snapshot.</p>
+          <button type="button" data-variant="primary" data-arc="danger" id="deleteBoardStart">Delete Board</button>
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -568,9 +638,9 @@ function renderNotesSettingsTab(context) {
   const placeholderClass = hasNotes ? "" : "is-placeholder";
   const inner = hasNotes ? renderPreservedText(notes) : escapeHtml(notesPlaceholder);
   return `
-    <div class="section ai-fields">
+    <div class="section settings-notes-section">
       <div class="inline-md-field">
-        <span class="inline-md-field-label">Notes For You</span>
+        <span class="inline-md-field-label font-orbitron">Notes For You</span>
         <div
           class="inline-md-field-body preserved-text-body editable-field settings-notes-body ${placeholderClass}"
           data-edit-field="project_notes"
@@ -588,7 +658,7 @@ function renderProjectLanesTab() {
   const showPriority = state.showPriority;
   return `
     <div class="section">
-      <label class="orbit-check" for="showPriorityToggle">
+      <label class="orbit-check settings-toggle" for="showPriorityToggle">
         <input
           type="checkbox"
           id="showPriorityToggle"
@@ -597,7 +667,9 @@ function renderProjectLanesTab() {
         <span class="orbit-check-box" aria-hidden="true">
           <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
         </span>
-        <span class="orbit-check-label">Show priority label on cards</span>
+        <span class="settings-toggle-text">
+          <span class="settings-row-title">Show priority label on cards</span>
+        </span>
       </label>
       <p class="description lanes-description">Rename, reorder, add, or remove lanes.</p>
       ${renderLaneManager()}
@@ -619,31 +691,47 @@ function renderProjectAppearanceTab() {
     : "Using your saved preference.";
 
   return `
-    <div class="section appearance-theme-section">
-      <fieldset class="appearance-theme-field">
-        <legend>Theme</legend>
-        <div class="appearance-theme-options">
-          ${renderThemeOption("light", "Light", theme)}
-          ${renderThemeOption("dark", "Dark", theme)}
+    <div class="settings-stack appearance-settings">
+      <section class="settings-card">
+        <header class="settings-card-head">
+          <h3 class="settings-card-title">Theme</h3>
+        </header>
+        <div class="settings-card-body">
+          <div class="settings-toggle">
+            <button
+              type="button"
+              class="topbar-btn topbar-ctl-shrink"
+              data-variant="theme"
+              id="appearanceThemeToggle"
+              aria-label="Toggle theme"
+            >
+              <svg class="topbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">${themeIconMarkup(theme)}</svg>
+            </button>
+            <span class="settings-toggle-text">
+              <span class="settings-row-title" id="appearanceThemeLabel">${theme === "dark" ? "Dark" : "Light"}</span>
+              <span class="description">Tap to switch between the light and dark theme used across the app.</span>
+            </span>
+          </div>
+          <div class="settings-toggle">
+            <button
+              type="button"
+              class="topbar-btn topbar-ctl-shrink motion-toggle"
+              data-variant="theme"
+              id="appearanceMotionToggle"
+              aria-pressed="${reduceMotion ? "true" : "false"}"
+              aria-label="Toggle reduced theme motion"
+            >
+              ${motionIconMarkup()}
+            </button>
+            <span class="settings-toggle-text">
+              <span class="settings-row-title">Reduce theme motion</span>
+              <span class="description">Turns off the animated starfield, meteors, and theme animations. ${escapeHtml(sourceLabel)}</span>
+            </span>
+          </div>
         </div>
-        <p class="description">Applies the light/dark theme used by the top rail toggle.</p>
-      </fieldset>
+      </section>
+      ${renderTypographyControls()}
     </div>
-    <div class="section">
-      <label class="orbit-check" for="reduceMotionToggle">
-        <input
-          type="checkbox"
-          id="reduceMotionToggle"
-          ${reduceMotion ? "checked" : ""}
-        />
-        <span class="orbit-check-box" aria-hidden="true">
-          <svg viewBox="0 0 16 16" class="orbit-check-tick"><path d="M3.5 8.5l3 3 6-7" /></svg>
-        </span>
-        <span class="orbit-check-label">Reduce theme motion</span>
-      </label>
-      <p class="description">Turns off the animated starfield, meteors, and theme animations. ${escapeHtml(sourceLabel)}</p>
-    </div>
-    ${renderTypographyControls()}
   `;
 }
 
@@ -658,62 +746,59 @@ function renderTypographyControls() {
       .map(([id, font]) => `<option value="${id}"${id === current ? " selected" : ""}>${escapeHtml(font.label)}</option>`)
       .join("");
     return `
-      <label class="appearance-font-row">
-        <span>${escapeHtml(config.label)}</span>
+      <label class="control-field">
+        <span class="control-field-label">${escapeHtml(config.label)}</span>
         <select class="select-chevron-field" data-font-target="${target}">${options}</select>
       </label>
     `;
   }).join("");
 
   return `
-    <div class="section appearance-typography-section">
-      <fieldset class="appearance-font-group">
-        <legend>Site font</legend>
-        <select class="select-chevron-field" id="siteFontSelect" aria-label="Primary site font">${siteOptions}</select>
-        <p class="description">The main font used across the app. Each font carries its own default size.</p>
-      </fieldset>
-      <fieldset class="appearance-font-group">
-        <legend>Text size</legend>
-        <div class="appearance-font-scale-row">
-          <input type="range" id="fontScaleSlider" min="${USER_SCALE_MIN}" max="${USER_SCALE_MAX}" step="${USER_SCALE_STEP}" value="${prefs.userScale}" aria-label="Text size" />
-          <output id="fontScaleValue" class="appearance-font-scale-value">${Math.round(prefs.userScale * 100)}%</output>
+    <section class="settings-card appearance-typography-card">
+      <header class="settings-card-head">
+        <h3 class="settings-card-title">Typography</h3>
+      </header>
+      <div class="settings-card-body">
+        <div class="settings-row settings-slider-row">
+          <span class="control-field-label">Text size</span>
+          <input type="range" class="slider" id="fontScaleSlider" min="${USER_SCALE_MIN}" max="${USER_SCALE_MAX}" step="${USER_SCALE_STEP}" value="${prefs.userScale}" aria-label="Text size" />
+          <output id="fontScaleValue" class="control-value">${Math.round(prefs.userScale * 100)}%</output>
         </div>
-        <p class="description">Scales all text together. Fields with a permanently fixed size stay put.</p>
-      </fieldset>
-      <fieldset class="appearance-font-group">
-        <legend>Per-element overrides</legend>
-        <div class="appearance-font-grid">${overrideSelects}</div>
-        <p class="description">Optional — use a different font for a specific kind of text.</p>
-      </fieldset>
-    </div>
+        <div class="settings-row">
+          <label class="control-field">
+            <span class="control-field-label">Primary Font</span>
+            <select class="select-chevron-field" id="siteFontSelect">${siteOptions}</select>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="control-grid typography-overrides">${overrideSelects}</div>
+        </div>
+      </div>
+    </section>
   `;
 }
 
-function renderThemeOption(value, label, selectedTheme) {
-  const checked = selectedTheme === value ? "checked" : "";
-  const icon = value === "dark"
+// Mirrors the topbar theme toggle: moon when dark is active, sun when light.
+function themeIconMarkup(theme) {
+  return theme === "dark"
     ? '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />'
     : '<circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.2 4.2l1.4 1.4m12.8 12.8l1.4 1.4M1 12h2m18 0h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />';
+}
 
-  return `
-    <label class="appearance-theme-option">
-      <input type="radio" name="themePreference" value="${value}" ${checked} />
-      <span class="appearance-theme-option-mark" aria-hidden="true">
-        <svg
-          class="appearance-theme-option-icon"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >${icon}</svg>
-      </span>
-      <span class="appearance-theme-option-label">${label}</span>
-    </label>
-  `;
+// Twinkling starfield for the motion toggle. Stars shimmer (CSS) while motion
+// is allowed and freeze when the button is pressed (reduced). Each star's
+// --d staggers its animation so the field reads as alive, not pulsing in unison.
+function motionIconMarkup() {
+  const stars = [
+    { cx: 6, cy: 7, r: 1.1, d: "0s" },
+    { cx: 17.5, cy: 6, r: 1.5, d: "0.5s" },
+    { cx: 12, cy: 12, r: 1, d: "0.9s" },
+    { cx: 7.5, cy: 17, r: 1.4, d: "0.25s" },
+    { cx: 18, cy: 16.5, r: 1.1, d: "0.7s" }
+  ]
+    .map((s) => `<circle class="motion-star" cx="${s.cx}" cy="${s.cy}" r="${s.r}" style="animation-delay:${s.d}" />`)
+    .join("");
+  return `<svg class="topbar-icon motion-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">${stars}</svg>`;
 }
 
 function renderProjectJournalTab(context) {
@@ -750,7 +835,7 @@ function parseImportSnapshotText(text) {
 function bindProjectTabHandlers(context, tab) {
   const project = context.board;
 
-  if (tab === "repository") {
+  if (tab === "data") {
     const exportSnapshot = async (includeAttachments = Boolean($("#exportProjectImages")?.checked)) => {
       const suffix = includeAttachments ? "?include_attachments=true" : "";
       const snapshot = await api(`/api/boards/${encodeURIComponent(project.id)}/export${suffix}`);
@@ -960,30 +1045,36 @@ function bindProjectTabHandlers(context, tab) {
   }
 
   if (tab === "appearance") {
-    drawerInner.querySelectorAll("input[name='themePreference']").forEach((input) => {
-      input.addEventListener("change", (event) => {
-        if (!event.currentTarget.checked) return;
-        const theme = setThemePreference(event.currentTarget.value);
+    const themeToggleBtn = $("#appearanceThemeToggle");
+    if (themeToggleBtn) {
+      const themeLabel = $("#appearanceThemeLabel");
+      const themeIcon = themeToggleBtn.querySelector(".topbar-icon");
+      themeToggleBtn.addEventListener("click", () => {
+        const theme = toggleThemePreference();
+        if (themeIcon) themeIcon.innerHTML = themeIconMarkup(theme);
+        if (themeLabel) themeLabel.textContent = theme === "dark" ? "Dark" : "Light";
         toast.success(theme === "dark" ? "Dark theme enabled" : "Light theme enabled");
       });
-    });
+    }
 
-    $("#reduceMotionToggle")?.addEventListener("change", (event) => {
-      const reduce = !!event.currentTarget.checked;
+    const motionToggleBtn = $("#appearanceMotionToggle");
+    motionToggleBtn?.addEventListener("click", () => {
+      const reduce = motionToggleBtn.getAttribute("aria-pressed") !== "true";
+      motionToggleBtn.setAttribute("aria-pressed", reduce ? "true" : "false");
       setReducedMotionPreference(reduce);
       applyReducedMotionPreference();
       window.dispatchEvent(new CustomEvent("orbit:motion-preference-change", { detail: { reduce } }));
       toast.success(reduce ? "Theme motion reduced" : "Theme motion enabled");
     });
 
-    // Site font swap resets every target, so reflect that in the override
+    // Primary font swap resets every override, so reflect that in the category
     // selects without re-fetching/re-rendering the whole drawer.
     $("#siteFontSelect")?.addEventListener("change", (event) => {
       const next = setSiteFont(event.currentTarget.value);
       drawerInner.querySelectorAll("select[data-font-target]").forEach((select) => {
         select.value = next[select.dataset.fontTarget];
       });
-      toast.success(`Site font: ${FONT_OPTIONS[next.site]?.label || "updated"}`);
+      toast.success(`Primary font: ${FONT_OPTIONS[next.site]?.label || "updated"}`);
     });
 
     const fontScaleSlider = $("#fontScaleSlider");
@@ -994,6 +1085,8 @@ function bindProjectTabHandlers(context, tab) {
         if (scaleValue) scaleValue.textContent = `${Math.round(next.userScale * 100)}%`;
       });
     }
+
+    bindSliders(drawerInner);
 
     drawerInner.querySelectorAll("select[data-font-target]").forEach((select) => {
       select.addEventListener("change", (event) => {
@@ -1177,7 +1270,7 @@ function bindProjectTabHandlers(context, tab) {
           const id = deleteBtn.dataset.archiveDelete;
           if (!confirm(`Permanently delete "${cardTitle}"? This cannot be undone.`)) return;
           await api(withBoardQuery(`/api/tickets/${encodeURIComponent(id)}`), { method: "DELETE" });
-          toast.success(`Deleted: ${cardTitle}`);
+          toast.removed(`Deleted: ${cardTitle}`);
           await refresh();
         }
       });
@@ -1236,25 +1329,28 @@ function renderProjectEntries(entries = []) {
         const isStruck = Boolean(entry.struck_at);
         return `
         <div class="comment project-entry ${escapeHtml(entry.type)} ${isStruck ? "is-struck" : ""}">
-          <div class="comment-meta">
-            <div>
-              <strong>${escapeHtml(entry.type.toUpperCase())}: ${escapeHtml(entry.title)}</strong>
+          <div class="comment-head">
+            <div class="comment-head-main">
+              <div class="comment-head-title">
+                <span class="entry-type-pill ${escapeHtml(entry.type)}">${escapeHtml(entry.type)}</span>
+                <strong class="entry-title">${escapeHtml(entry.title)}</strong>
+              </div>
               ${isStruck ? `<span class="project-entry-status">Excluded from agent context</span>` : ""}
-            </div>
-            <div class="project-entry-actions">
-              <span>${escapeHtml(entry.created_by)} - ${formatDate(entry.created_at)}</span>
-              <button
-                type="button"
-                data-variant="ghost"
-                class="project-entry-strike"
-                data-entry-action="toggle-struck"
-                data-entry-id="${escapeHtml(entry.id)}"
-                data-struck="${isStruck ? "true" : "false"}"
-                aria-pressed="${isStruck ? "true" : "false"}"
-              >${isStruck ? "Restore" : "Strike"}</button>
             </div>
           </div>
           <div class="comment-body">${escapeHtml(entry.body)}</div>
+          <div class="comment-footer">
+            <span class="comment-footer-meta">${escapeHtml(entry.created_by)} · ${formatDate(entry.created_at)}</span>
+            <button
+              type="button"
+              data-variant="ghost"
+              class="project-entry-strike detail-action-btn"
+              data-entry-action="toggle-struck"
+              data-entry-id="${escapeHtml(entry.id)}"
+              data-struck="${isStruck ? "true" : "false"}"
+              aria-pressed="${isStruck ? "true" : "false"}"
+            >${isStruck ? "Restore" : "Strike"}</button>
+          </div>
         </div>
       `;
       }

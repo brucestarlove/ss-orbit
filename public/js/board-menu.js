@@ -78,8 +78,6 @@ function renderBoardFlyoutInner() {
           </label>
         </div>
         <input name="slug" type="text" placeholder="Slug (optional)" autocomplete="off" />
-        <input name="default_branch" type="text" placeholder="Default branch (optional)" autocomplete="off" />
-        <input name="repo_url" type="text" placeholder="Repo URL (optional)" autocomplete="off" />
         <button type="submit">Create board</button>
       </form>
     </div>`
@@ -137,8 +135,6 @@ function wireBoardFlyout() {
       event.preventDefault();
       const fd = new FormData(form);
       const slug = String(fd.get("slug") || "").trim();
-      const branch = String(fd.get("default_branch") || "").trim();
-      const repo = String(fd.get("repo_url") || "").trim();
       const repoPath = String(fd.get("repo_path") || "").trim();
       // Folder is optional. Only forward the helper-files choice when a folder
       // is set; the server ignores it otherwise.
@@ -147,9 +143,7 @@ function wireBoardFlyout() {
         body: {
           name: fd.get("name"),
           ...(repoPath ? { repo_path: repoPath, manage_helper_files: fd.get("manage_helper_files") === "on" } : {}),
-          ...(slug ? { slug } : {}),
-          ...(branch ? { default_branch: branch } : {}),
-          ...(repo ? { repo_url: repo } : {})
+          ...(slug ? { slug } : {})
         }
       });
       closeBoardFlyout();

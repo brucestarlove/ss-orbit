@@ -2,6 +2,7 @@
 @import "@starlove/ui/components/button";
 @import "@starlove/ui/components/button-arc";
 @import "@starlove/ui/components/input";
+@import "@starlove/ui/components/slider";
 @import "@starlove/ui/components/topbar-btn";
 @import "@starlove/ui/components/topbar-search";
 @import "@starlove/ui/components/topbar-notes";
@@ -357,30 +358,35 @@ input[type="file"] {
     --orbit-font-system:
         "Aptos Display", "Bahnschrift", "Segoe UI Variable", "Segoe UI",
         sans-serif;
-    /* Inter is the default content font. App chrome and labels default to Orbitron;
-     Appearance can override either bucket independently. */
+    /* Inter is the default font across every category. Appearance can override
+     common text categories independently. */
     --orbit-font-default:
         "Orbit Inter", "Inter", "Segoe UI Variable", "Segoe UI", Arial,
         sans-serif;
-    --orbit-font-app:
-        "Orbit Orbitron", "Orbitron", "Segoe UI Variable", "Segoe UI", Arial,
-        sans-serif;
-    --orbit-font-ui: var(--orbit-font-app);
+    --orbit-font-control: var(--orbit-font-default);
     --orbit-font-heading: var(--orbit-font-default);
     --orbit-font-body: var(--orbit-font-default);
-    --orbit-font-label: var(--orbit-font-app);
-    --orbit-font-prose: var(--orbit-font-default);
+    --orbit-font-label: var(--orbit-font-default);
+    --orbit-font-badge: var(--orbit-font-default);
     --orbit-letter-spacing: 0.3px;
     --orbit-line-height: normal;
     /* Type-scale lever. The root font-size stays fixed so layout (padding, gaps,
      widths — all rem) never moves; only font-size declarations multiply by
      --type-scale, so the slider resizes text without resizing the UI.
-     family-scale is the active site font's preset (big fonts ship smaller);
-     user-scale is the Appearance size slider. */
+     --type-scale is driven solely by the Appearance size slider; font family no
+     longer affects text size. */
     --type-base: 16px;
-    --type-family-scale: 1;
+    --type-min: 14px;
     --type-user-scale: 1;
-    --type-scale: calc(var(--type-family-scale) * var(--type-user-scale));
+    --type-scale: var(--type-user-scale);
+    /* Semantic text sizes — route eyebrows/labels through these before the
+     major CSS refactor replaces scattered rem multipliers. */
+    --type-size-eyebrow: max(var(--type-min), calc(0.875rem * var(--type-scale)));
+    /* Coupled field labels (Operating system, Text size, …) and toggle-row titles
+       (Dark, Reduce theme motion) — one size for every label-beside-a-control. */
+    --type-size-label: calc(0.9rem * var(--type-scale));
+    /* Detail drawer section titles (Epic, Status History, …). */
+    --type-size-section-heading: calc(1.17rem * var(--type-scale));
 }
 
 @media (max-width: 720px) {
@@ -562,7 +568,7 @@ button[data-variant="ghost"]:active,
 
 /* Dark-mode submit buttons would render near-white-on-white without this
    override, since var(--ink) remaps to near-white in dark mode. Scoped to
-   button[type="submit"] so topbar chips, icon buttons, and .btn-sun are
+   button[type="submit"] so topbar chips, icon buttons, and CTAs are
    left alone. */
 [data-theme="dark"] button[type="submit"]:not([data-variant]) {
     color: #e8efff;
@@ -638,6 +644,109 @@ input[type="week"],
 select,
 textarea {
     padding: var(--field-padding-y) var(--field-padding-x);
+}
+
+.control-section {
+    --control-section-gap: 0.5rem;
+    --control-legend-gap: 0.35rem;
+    display: grid;
+    gap: var(--control-section-gap);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.control-section legend {
+    margin-bottom: var(--control-legend-gap);
+    color: var(--ink);
+    font-size: calc((0.88rem) * var(--type-scale));
+    font-weight: 800;
+}
+
+.control-grid {
+    --control-grid-row-gap: 0.6rem;
+    --control-grid-column-gap: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--control-grid-row-gap) var(--control-grid-column-gap);
+    margin: 0.5rem 0;
+}
+
+.control-grid--single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.control-section > .control-field,
+.control-section > .control-inline {
+    margin-top: 0;
+}
+
+.control-field {
+    --control-field-gap: 0.35rem;
+    display: grid;
+    gap: var(--control-field-gap);
+    min-width: 0;
+}
+
+/* Section titles in the detail drawer and matching field labels share one heading
+   voice — not the small-caps eyebrow style used for drawer/card eyebrows. */
+.section > h3,
+details.section > summary h3 {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--orbit-font-heading);
+    font-size: var(--type-size-section-heading);
+    font-weight: 700;
+    letter-spacing: normal;
+    line-height: 1.4;
+    text-transform: none;
+}
+
+.control-field-label,
+.ticket-meta dt,
+.settings-row-title {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--orbit-font-label);
+    font-size: var(--type-size-label);
+    font-weight: 700;
+    letter-spacing: normal;
+    line-height: 1.3;
+    text-transform: none;
+}
+
+.control-field input,
+.control-field select,
+.control-field textarea {
+    min-width: 0;
+    font-size: calc((0.88rem) * var(--type-scale));
+}
+
+.control-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.control-inline input[type="range"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.control-value {
+    min-width: 3.5ch;
+    color: var(--ink);
+    font-size: calc((0.85rem) * var(--type-scale));
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+@media (max-width: 720px) {
+    .control-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .topbar {
@@ -748,13 +857,10 @@ textarea {
     display: none;
 }
 
-.brand-focus-popover__eyebrow {
-    margin-bottom: 0.65rem;
-    color: var(--muted);
-    font-size: calc((0.72rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+.brand-focus-notes-field {
+    display: grid;
+    min-height: 0;
+    flex: 1;
 }
 
 .brand-focus-notes-body {
@@ -764,7 +870,6 @@ textarea {
 }
 
 .brand-focus-notes-edit {
-    min-height: 7rem;
     overflow-x: hidden;
     overflow-wrap: anywhere;
 }
@@ -793,53 +898,9 @@ p {
     margin: 0;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    font-family: var(--orbit-font-heading);
-}
-
-p,
-.description,
-.card-description {
-    font-family: var(--orbit-font-body);
-}
-
-/* Long-form prose surfaces: rich-text fields and their read-only renders share
-   one font so edit mode and read mode match (previously the editor inherited
-   App chrome while the read-only render was hard-coded monospace). */
-.comment-body,
-.markdown-body,
-.preserved-text-body,
-.artifact-drawer-body {
-    font-family: var(--orbit-font-prose);
-}
-
-label,
-.state-pill,
-.priority-pill,
-.detail-meta-badge {
-    font-family: var(--orbit-font-label);
-}
-
-button,
-.topbar-btn,
-.topbar-chip,
-.menu-flyout-item {
-    font-family: var(--orbit-font-ui);
-}
-
-input,
-select,
-textarea,
-.topbar-notes__text,
-.topbar-search input,
-.topbar-search input::placeholder {
-    font-family: var(--orbit-font-body);
-}
+/* Font category routing lives in one place — see "Final font category routing"
+   near the end of this file (it must sit after component rules that use
+   `font: inherit`, so Appearance overrides win on source order). */
 
 /* Font utility classes for per-field overrides. Pair with a literal px
    font-size for a field that must always use one font at a fixed size,
@@ -924,7 +985,7 @@ h1 {
 
 /* @starlove/ui topbar control rail: every top-right control shares one height. */
 .controls .topbar-search input,
-.controls .btn-sun,
+.controls button[data-variant="cta"],
 .controls .topbar-chip,
 .controls .segmented,
 .controls .topbar-btn {
@@ -933,7 +994,7 @@ h1 {
     box-sizing: border-box;
 }
 
-.controls .btn-sun,
+.controls button[data-variant="cta"],
 .controls .topbar-chip,
 .controls .topbar-btn {
     display: inline-flex;
@@ -1296,12 +1357,25 @@ h1 {
 }
 
 .topbar-btn .topbar-icon,
-.topbar-chip .topbar-icon,
-.topbar-btn-label,
+.topbar-chip .topbar-icon {
+    display: inline-grid;
+    place-items: center;
+    align-self: center;
+    line-height: 1;
+}
+
+.topbar-btn-label {
+    display: inline-grid;
+    place-items: center;
+    align-self: center;
+    line-height: 0;
+}
+
 .topbar-chip-label {
     display: inline-grid;
     place-items: center;
     align-self: center;
+    min-width: 0;
     line-height: 1;
 }
 
@@ -1319,12 +1393,12 @@ h1 {
     box-shadow: none;
 }
 
-/* ---- Epic-CTA chrome — shared by .btn-sun, .column-add-btn, and .add-card-phantom ----
+/* ---- Epic-CTA chrome — shared by data-variant="cta", .column-add-btn, and
+   .add-card-phantom ----
    Teal border + amber inner ring + teal-to-amber gradient wash. In dark mode
    the palette shifts to cyan + violet (the starscape dual-color signature).
    Structural properties (size, padding, border-radius, font, display) stay on
    each component class. */
-.btn-sun,
 button[data-variant="cta"],
 button.column-add-btn,
 .column-add-btn,
@@ -1347,7 +1421,6 @@ button.add-card-phantom,
         rgba(var(--paper-rgb), 0.96);
 }
 
-.btn-sun:hover,
 button[data-variant="cta"]:hover,
 button.column-add-btn:hover,
 .column-add-btn:hover,
@@ -1370,7 +1443,6 @@ button.add-card-phantom:hover,
         rgba(var(--paper-rgb), 0.98);
 }
 
-[data-theme="dark"] .btn-sun,
 [data-theme="dark"] button[data-variant="cta"],
 [data-theme="dark"] button.column-add-btn,
 [data-theme="dark"] .column-add-btn,
@@ -1393,7 +1465,6 @@ button.add-card-phantom:hover,
         rgba(var(--cosmos-rgb), 0.92);
 }
 
-[data-theme="dark"] .btn-sun:hover,
 [data-theme="dark"] button[data-variant="cta"]:hover,
 [data-theme="dark"] button.column-add-btn:hover,
 [data-theme="dark"] .column-add-btn:hover,
@@ -1416,25 +1487,18 @@ button.add-card-phantom:hover,
         rgba(var(--cosmos-rgb), 0.95);
 }
 
-/* "Create" CTA */
-.btn-sun {
+/* Topbar "New Card" CTA — flex layout matches other .controls .topbar-btn chips. */
+.topbar-btn[data-variant="cta"] {
     position: relative;
-    grid-auto-flow: column;
-    grid-template-columns: 0.78rem auto;
     align-items: center;
     justify-content: center;
-    column-gap: 0.3rem;
+    gap: 0.3rem;
     font-weight: 700;
     line-height: 1;
 }
 
-.controls .btn-sun {
-    display: inline-grid;
+.controls .topbar-btn[data-variant="cta"] {
     padding-inline: 0.68rem;
-}
-
-.btn-sun .topbar-icon {
-    color: var(--teal-deep);
 }
 
 /* Font-independent plus icon for the topbar New Card CTA. */
@@ -1443,8 +1507,8 @@ button.add-card-phantom:hover,
     display: inline-grid;
     place-items: center;
     align-self: center;
-    width: 0.78rem;
-    height: 0.78rem;
+    width: 1rem;
+    height: 1rem;
     flex: 0 0 auto;
     padding: 0;
     border: 0;
@@ -1472,7 +1536,6 @@ button.add-card-phantom:hover,
     transform: translate(-50%, -50%) rotate(90deg);
 }
 
-.btn-sun .btn-plus,
 button[data-variant="cta"] .btn-plus {
     border: 0;
     background: transparent;
@@ -1482,20 +1545,8 @@ button[data-variant="cta"] .btn-plus {
     transform: none;
 }
 
-.btn-sun .btn-sun-label {
-    display: inline-grid;
-    place-items: center;
-    align-self: center;
-    line-height: 1;
-    transform: none;
-}
-
 [data-theme="dark"] .btn-plus {
     color: #d2deff;
-}
-
-[data-theme="dark"] .btn-sun .topbar-icon {
-    color: #e8efff;
 }
 
 /* Top-right sheet for “New” — anchored under the thin top bar, separate from the main ticket drawer. */
@@ -1589,16 +1640,15 @@ button.create-flyout-close::after {
     background-color: var(--surface-input);
 }
 
-.create-flyout-grid label,
-.create-flyout-form > label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    font-size: calc((0.72rem) * var(--type-scale));
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+/* The New card flyout packs Lane/Type/Priority onto one row. */
+.create-flyout-form .control-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Type = Epic hides the Parent epic field. .control-field is display:grid, so the
+   plain [hidden] attribute can't collapse it without this. */
+.create-flyout-form .control-field[hidden] {
+    display: none;
 }
 
 .create-flyout-form button[type="submit"] {
@@ -1612,12 +1662,6 @@ button.create-flyout-close::after {
     color: #fff;
     cursor: url("cursors/live_link.cur"), pointer;
     background: var(--btn-gradient);
-}
-
-@media (max-width: 520px) {
-    .create-flyout-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1643,12 +1687,12 @@ button.create-flyout-close::after {
     border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--surface-input);
-    font-family: var(--orbit-font-body);
+    font-family: var(--orbit-font-control);
     font-size: calc((0.85rem) * var(--type-scale));
 }
 
 .topbar-search input::placeholder {
-    font-family: var(--orbit-font-body);
+    font-family: var(--orbit-font-control);
 }
 
 /* Create-ticket form when shown inside the right drawer. */
@@ -1674,10 +1718,9 @@ button.create-flyout-close::after {
 
 .composer-row {
     display: grid;
-    grid-template-columns: 8rem minmax(10rem, 14rem) 9rem 9rem minmax(
-            8rem,
-            1fr
-        ) auto;
+    grid-template-columns:
+        8rem minmax(10rem, 14rem) 9rem 9rem minmax(8rem, 1fr)
+        auto;
     gap: 0.55rem;
 }
 
@@ -2710,6 +2753,20 @@ button.card-action-button:disabled {
     display: none;
 }
 
+.drawer-eyebrow,
+.card-eyebrow {
+    display: block;
+    color: var(--muted);
+    font-size: var(--type-size-eyebrow);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.card-eyebrow {
+    margin-bottom: 0.3rem;
+}
+
 /* Below-title kanban-style sub-line: ticket #N + colored type pill, mirroring
    the second line of cards in the lanes for visual consistency. */
 .drawer-subtitle {
@@ -3033,8 +3090,49 @@ select.detail-meta-badge::-ms-expand {
     display: block;
 }
 
-.drawer-tabs {
+.drawer-tabs-shell {
     grid-area: tabs;
+    position: relative;
+    min-width: 0;
+}
+
+.drawer-tabs-shell[hidden] {
+    display: none;
+}
+
+/* Edge fades hint that more tabs exist off-screen when the strip overflows. */
+.drawer-tabs-shell::before,
+.drawer-tabs-shell::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.25rem;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 160ms ease;
+}
+
+.drawer-tabs-shell::before {
+    left: 0;
+    background: linear-gradient(to right, var(--drawer-head-bg), transparent);
+}
+
+.drawer-tabs-shell::after {
+    right: 0;
+    background: linear-gradient(to left, var(--drawer-head-bg), transparent);
+}
+
+.drawer-tabs-shell.can-scroll-left::before {
+    opacity: 1;
+}
+
+.drawer-tabs-shell.can-scroll-right::after {
+    opacity: 1;
+}
+
+.drawer-tabs {
     display: flex;
     gap: 0.3rem;
     /* min-width:0 lets this grid item shrink to its column so the tabs overflow
@@ -3044,6 +3142,8 @@ select.detail-meta-badge::-ms-expand {
     overflow-x: auto;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 0.25rem;
     scrollbar-width: none;
 }
 
@@ -3051,13 +3151,19 @@ select.detail-meta-badge::-ms-expand {
     display: none;
 }
 
-.drawer-tabs[hidden] {
-    display: none;
+.drawer-tabs.is-grabbing {
+    cursor: url("cursors/live_move.cur"), grabbing;
+    scroll-behavior: auto;
+}
+
+.drawer-tabs.is-grabbing .drawer-tab {
+    pointer-events: none;
 }
 
 .drawer-tab,
 button.drawer-tab {
     flex-shrink: 0;
+    scroll-snap-align: start;
     min-height: 0;
     padding: 0.38rem 0.78rem;
     border: 1px solid transparent;
@@ -3128,6 +3234,22 @@ button.drawer-archive::after {
 
 .drawer.is-settings {
     user-select: none;
+}
+
+.drawer.is-settings .drawer-header {
+    align-items: center;
+}
+
+.drawer.is-settings .drawer-title-block {
+    padding-top: 0;
+}
+
+.drawer.is-settings .drawer-close,
+.drawer.is-settings button.drawer-close {
+    width: 1.625rem;
+    height: 1.625rem;
+    font-size: calc((1rem) * var(--type-scale));
+    align-self: center;
 }
 
 .drawer.is-settings input,
@@ -3239,12 +3361,12 @@ button.drawer-archive::after {
     outline: none;
 }
 
-/* Each editor uses the same font as the read-only surface it replaces:
-   titles render as headings, descriptions/notes render as prose. */
+/* Each editor uses the same font as the read-only surface it replaces: card
+   titles and long-form notes both render in the body font. */
 .inline-title-editor {
     margin-inline: -0.35rem;
     padding: var(--field-padding-y) var(--field-padding-x);
-    font-family: var(--orbit-font-heading);
+    font-family: var(--orbit-font-body);
     font-size: calc((1.35rem) * var(--type-scale));
     font-weight: inherit;
     letter-spacing: -0.04em;
@@ -3255,7 +3377,7 @@ button.drawer-archive::after {
     margin-top: 0.5rem;
     padding: var(--field-padding-y) var(--field-padding-x);
     min-height: 5rem;
-    font-family: var(--orbit-font-prose);
+    font-family: var(--orbit-font-body);
     font-size: calc((1rem) * var(--type-scale));
     line-height: 1.45;
     tab-size: 4;
@@ -3503,7 +3625,7 @@ p.description,
 .meta span {
     display: block;
     color: var(--muted);
-    font-size: calc((0.74rem) * var(--type-scale));
+    font-size: var(--type-size-eyebrow);
     text-transform: uppercase;
 }
 
@@ -3563,14 +3685,7 @@ p.description,
 }
 
 .ticket-meta dt {
-    margin: 0;
     padding-top: 0.15rem;
-    color: var(--muted);
-    font-size: calc((0.7rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    line-height: 1.2;
-    text-transform: uppercase;
     white-space: nowrap;
 }
 
@@ -3890,32 +4005,23 @@ details.section > summary {
     gap: 0.4rem;
 }
 
-/* The MCP setup section is itself display:grid with gap — the generic
-   margin-top above would double-space after summary. Reset it and let the
-   grid gap own the rhythm. Also neutralise the title-row's own bottom margin
-   when it sits inside a <summary> flex container. */
-details.section.mcp-setup[open] > summary + * {
-    margin-top: 0;
-}
-
-details.section > summary .mcp-title-row {
-    margin-bottom: 0;
-}
-
 .comment {
-    border-left: 3px solid var(--accent-border);
+    display: grid;
+    gap: 0.45rem;
     margin-top: 0.55rem;
-    padding: 0.6rem 0.7rem;
-    border-radius: 0 12px 12px 0;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
     background: var(--surface-dim);
 }
 
 .comment.checkpoint {
-    border-left-color: var(--danger);
+    border-color: rgba(var(--red-rgb), 0.28);
 }
 
 .comment.status-change {
-    border-left-color: var(--muted);
+    gap: 0;
+    padding: 0.6rem 0.75rem;
 }
 
 .status-route {
@@ -3933,8 +4039,69 @@ details.section > summary .mcp-title-row {
     font-size: calc((0.76rem) * var(--type-scale));
 }
 
+.comment-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.65rem;
+}
+
+.comment-head-main {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.comment-head-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.45rem;
+}
+
+.entry-type-pill,
+.comment-kind-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.12rem 0.48rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    color: var(--muted);
+    font-size: calc((0.68rem) * var(--type-scale));
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.entry-type-pill.decision {
+    border-color: rgba(var(--accent-rgb), 0.32);
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.08);
+}
+
+.entry-type-pill.lesson {
+    border-color: rgba(var(--amber-rgb), 0.32);
+    color: var(--accent-2);
+    background: rgba(var(--amber-rgb), 0.08);
+}
+
+.comment-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-top: 0.1rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid var(--line);
+}
+
+.comment-footer-meta {
+    color: var(--muted);
+    font-size: calc((0.74rem) * var(--type-scale));
+}
+
 .comment-body {
-    margin-top: 0.35rem;
     line-height: 1.4;
 }
 
@@ -3955,22 +4122,14 @@ details.section > summary .mcp-title-row {
     resize: vertical;
 }
 
+#boardRenameForm {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+}
+
 .field-form {
     display: grid;
     gap: 0.65rem;
-}
-
-.field-form label {
-    display: grid;
-    gap: 0.32rem;
-}
-
-.field-form span {
-    color: var(--muted);
-    font-size: calc((0.76rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
 }
 
 .field-form textarea {
@@ -4011,6 +4170,12 @@ details.section > summary .mcp-title-row {
     gap: 0.42rem;
 }
 
+/* Notes For You — extra air between the Orbitron label and the scratch pad. */
+.settings-notes-section .inline-md-field,
+.brand-focus-notes-field {
+    gap: 0.85rem;
+}
+
 .inline-md-field-head {
     display: flex;
     align-items: center;
@@ -4026,17 +4191,12 @@ details.section > summary .mcp-title-row {
     text-transform: uppercase;
 }
 
-.inline-md-artifact-btn {
-    border-radius: var(--radius-pill);
-    padding: 0.28rem 0.58rem;
-    font-size: calc((0.72rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.02em;
-}
-
-.inline-md-artifact-btn:hover,
-.inline-md-artifact-btn:focus-visible {
-    outline: none;
+/* Notes tab label — Orbitron eyebrow, matching settings card titles. */
+.settings-notes-section .inline-md-field-label.font-orbitron,
+.brand-focus-popover .inline-md-field-label.font-orbitron {
+    color: var(--ink);
+    font-size: calc((0.74rem) * var(--type-scale));
+    letter-spacing: 0.08em;
 }
 
 .inline-md-field-body {
@@ -4056,61 +4216,49 @@ details.section > summary .mcp-title-row {
     min-height: 11rem;
 }
 
-/* Repository tab head — borderless, transparent meta tiles. The eyebrow is
-   muted/uppercase, the value sits beneath in the project ink color. No fill,
-   no per-tile border; the parent .detail-head hairline is the only divider. */
-.project-manual-head {
-    background: transparent;
-    padding-bottom: 0.4rem;
+/* Notes For You — resting accent so the field reads as a personal scratch pad
+   before hover; hover keeps the shared editable-field affordance. */
+.settings-notes-body.editable-field,
+.settings-agent-instructions-body.editable-field {
+    border: 1px solid rgba(var(--accent-rgb), 0.22);
+    border-radius: var(--radius-control);
+    background: linear-gradient(
+        165deg,
+        rgba(var(--accent-rgb), 0.07),
+        rgba(var(--paper-rgb), 0.72) 55%
+    );
+    box-shadow:
+        0 3px 16px rgba(var(--warmth-rgb), 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.project-manual-head .meta-grid {
-    margin-top: 0.2rem;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.95rem;
+.settings-notes-body.editable-field:hover,
+.settings-notes-body.editable-field:focus-visible,
+.settings-agent-instructions-body.editable-field:hover,
+.settings-agent-instructions-body.editable-field:focus-visible {
+    background: var(--accent-hover);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 
-.project-manual-head .meta {
-    border: 0;
-    padding: 0;
-    background: transparent;
+[data-theme="dark"] .settings-notes-body.editable-field,
+[data-theme="dark"] .settings-agent-instructions-body.editable-field {
+    border-color: rgba(var(--starlight-rgb), 0.2);
+    background: linear-gradient(
+        165deg,
+        rgba(var(--starlight-rgb), 0.08),
+        rgba(var(--cosmos-rgb), 0.55) 60%
+    );
+    box-shadow:
+        0 6px 28px rgba(var(--void-rgb), 0.45),
+        inset 0 1px 0 rgba(var(--starlight-rgb), 0.08);
 }
 
-.project-manual-head .meta span {
-    font-size: calc((0.68rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-}
-
-.project-manual-head .meta strong {
-    margin-top: 0.2rem;
-    font-size: calc((0.95rem) * var(--type-scale));
-    font-weight: 600;
-    letter-spacing: -0.005em;
-    color: var(--ink);
-    overflow-wrap: anywhere;
-}
-
-.project-manual-head .meta--repo-path {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.28rem;
-    width: 100%;
-}
-
-.project-manual-head .meta--repo-path strong + span {
-    margin-top: 0.4rem;
-}
-
-.repository-danger-zone {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(var(--red-rgb), 0.22);
-}
-
-.repository-danger-zone h3 {
-    color: var(--danger);
+[data-theme="dark"] .settings-notes-body.editable-field:hover,
+[data-theme="dark"] .settings-notes-body.editable-field:focus-visible,
+[data-theme="dark"] .settings-agent-instructions-body.editable-field:hover,
+[data-theme="dark"] .settings-agent-instructions-body.editable-field:focus-visible {
+    background: var(--accent-hover);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 
 .repository-delete-actions {
@@ -4120,74 +4268,22 @@ details.section > summary .mcp-title-row {
     margin-top: 0.8rem;
 }
 
-.repository-danger-zone > button {
-    margin-top: 0.8rem;
+/* Danger-card actions: primary arc surface; red sweep ring only (no red fill/text). */
+.settings-card--danger button[data-arc="danger"] {
+    --arc-c1: rgba(var(--red-rgb), 0.95);
+    --arc-c2: rgba(var(--amber-rgb), 0.9);
+    --arc-duration: 1.2s;
 }
 
-.repository-danger-zone button.danger-button {
-    color: #fff;
-    border: 1px solid rgba(var(--red-rgb), 0.42);
-    background: var(--danger);
-}
-
-.repository-danger-zone button[data-variant="ghost"].danger-button {
-    color: var(--danger);
-    background: rgba(var(--red-rgb), 0.06);
-}
-
-.repository-danger-zone button.danger-button:hover:not(:disabled) {
-    box-shadow: 0 10px 24px rgba(var(--red-rgb), 0.18);
-}
-
-.repository-confirm-field {
-    display: grid;
-    gap: 0.35rem;
-    margin-top: 0.85rem;
-}
-
-.repository-confirm-field span {
-    color: var(--muted);
-    font-size: calc((0.72rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+.settings-card--danger .settings-row > button[data-arc="danger"] {
+    justify-self: start;
+    width: auto;
 }
 
 .repository-confirm-field strong {
     color: var(--ink);
     font-size: calc((0.95rem) * var(--type-scale));
     overflow-wrap: anywhere;
-}
-
-.repository-confirm-field input {
-    width: 100%;
-    padding: var(--field-padding-y) var(--field-padding-x);
-}
-
-[data-theme="dark"] .repository-danger-zone {
-    border-top-color: rgba(var(--coral-rgb), 0.28);
-}
-
-[data-theme="dark"] .repository-danger-zone h3,
-[data-theme="dark"]
-    .repository-danger-zone
-    button[data-variant="ghost"].danger-button {
-    color: #ffb4b4;
-}
-
-[data-theme="dark"] .repository-danger-zone button.danger-button {
-    border-color: rgba(var(--coral-rgb), 0.55);
-    background: linear-gradient(
-        135deg,
-        rgba(127, 29, 29, 0.92),
-        rgba(153, 27, 27, 0.88)
-    );
-}
-
-[data-theme="dark"]
-    .repository-danger-zone
-    button[data-variant="ghost"].danger-button {
-    background: rgba(var(--coral-rgb), 0.1);
 }
 
 .project-entry-form {
@@ -4198,49 +4294,29 @@ details.section > summary .mcp-title-row {
     padding: var(--field-padding-y) var(--field-padding-x);
 }
 
-.project-entry-form select.select-chevron-field {
-    padding: var(--field-padding-y) var(--select-chevron-pad-x);
-    padding-right: calc(
-        var(--select-chevron-pad-x) * 2 + var(--select-chevron-size)
-    );
-}
-
-.project-entry-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-left: auto;
-}
-
-.project-entry-strike {
-    padding: 0.38rem 0.65rem;
-    font-size: calc((0.7rem) * var(--type-scale));
+.comment-form input,
+.comment-form select,
+.comment-form textarea {
+    font-size: calc((0.88rem) * var(--type-scale));
 }
 
 .project-entry-status {
-    display: block;
-    margin-top: 0.15rem;
+    color: var(--muted);
+    font-size: calc((0.7rem) * var(--type-scale));
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
-.project-entry.is-struck {
-    opacity: 0.7;
+.project-entry.is-struck,
+.comment.is-ai-omitted {
+    opacity: 0.72;
 }
 
-.project-entry.is-struck .comment-meta strong,
+.project-entry.is-struck .entry-title,
 .project-entry.is-struck .comment-body {
     text-decoration: line-through;
     text-decoration-thickness: 0.1em;
-}
-
-.project-entry.decision {
-    border-left-color: var(--accent);
-}
-
-.project-entry.lesson {
-    border-left-color: var(--accent-2);
 }
 
 .backup-list,
@@ -4250,253 +4326,245 @@ details.section > summary .mcp-title-row {
     gap: 0.55rem;
 }
 
-.appearance-theme-section {
-    margin-top: 0.4rem;
-}
-
-.appearance-theme-section + .section:has(> .orbit-check:first-child) {
-    margin-top: 1.25rem;
-}
-
-.appearance-theme-field {
-    display: grid;
-    gap: 0.55rem;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-
-.appearance-theme-field legend {
-    margin-bottom: 0.55rem;
-    color: var(--ink);
-    font-size: calc((0.88rem) * var(--type-scale));
-    font-weight: 800;
-}
-
-.appearance-theme-options {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-}
-
-/* Appearance → Typography: site-font swap, size slider, per-element overrides. */
-.appearance-typography-section {
+/* ---- Appearance settings cards ----
+   The Appearance tab groups its controls into bordered panels (Theme,
+   Typography). Each card has a tinted header strip and a body whose rows are
+   separated by hairline dividers, so related controls read as one unit.
+   Reusable .settings-card / .settings-row primitives — intended to move
+   upstream to @starlove/ui alongside the rest of the settings drawer. */
+.settings-stack {
     display: grid;
     gap: 1rem;
-    margin-top: 1.25rem;
+    margin-top: 0.5rem;
+    min-width: 0;
 }
 
-.appearance-font-group {
-    display: grid;
+.settings-card {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface-dim);
+    box-shadow: 0 1px 2px rgba(var(--warmth-rgb), 0.04);
+    overflow: hidden;
+}
+
+[data-theme="dark"] .settings-card {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.settings-card-head {
+    display: flex;
+    align-items: center;
     gap: 0.5rem;
-    min-width: 0;
+    padding: 0.6rem 0.95rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--subtle-bg);
+}
+
+.settings-card-title {
     margin: 0;
-    padding: 0;
-    border: 0;
-}
-
-.appearance-font-group legend {
-    margin-bottom: 0.35rem;
     color: var(--ink);
-    font-size: calc((0.88rem) * var(--type-scale));
+    font-size: calc((0.74rem) * var(--type-scale));
     font-weight: 800;
-}
-
-.appearance-font-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem 0.75rem;
-}
-
-.appearance-font-row {
-    display: grid;
-    gap: 0.3rem;
-    min-width: 0;
-    color: var(--muted);
-    font-size: calc((0.72rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
-.appearance-font-scale-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+/* Danger variant — destructive sections (Replace / Delete Board) get a red
+   border + tinted header + red title so they read as set-apart from routine
+   settings, while keeping the same card structure. */
+.settings-card--danger {
+    border-color: rgba(var(--red-rgb), 0.32);
 }
 
-.appearance-font-scale-row input[type="range"] {
+.settings-card--danger .settings-card-head {
+    border-bottom-color: rgba(var(--red-rgb), 0.22);
+    background: rgba(var(--red-rgb), 0.07);
+}
+
+.settings-card--danger .settings-card-title {
+    color: var(--danger);
+}
+
+/* Collapsible variant — the card header doubles as a <details>/<summary>
+   toggle with a chevron that flips when open (e.g. the MCP setup card). */
+.settings-card--collapsible > summary.settings-card-head {
+    justify-content: space-between;
+    list-style: none;
+    cursor: url("cursors/live_link.cur"), pointer;
+    transition: background 160ms ease;
+}
+
+.settings-card--collapsible > summary.settings-card-head::-webkit-details-marker {
+    display: none;
+}
+
+.settings-card--collapsible > summary.settings-card-head:hover {
+    background: var(--accent-hover);
+}
+
+/* Collapsed: nothing sits below the header, so drop its bottom divider. */
+.settings-card--collapsible:not([open]) > summary.settings-card-head {
+    border-bottom-color: transparent;
+}
+
+.settings-card-chevron {
+    flex: 0 0 auto;
+    color: var(--muted);
+    transition: transform 180ms ease;
+}
+
+.settings-card--collapsible[open] > summary .settings-card-chevron {
+    transform: rotate(180deg);
+}
+
+/* Horizontal padding lives on the body so the row dividers (border-top on each
+   row) stop short of the card edges — an inset hairline rather than full-bleed. */
+.settings-card-body {
+    display: grid;
+    min-width: 0;
+    padding: 0 0.95rem;
+}
+
+.settings-card-body > * {
+    padding: 0.8rem 0;
+    min-width: 0;
+}
+
+.settings-card-body > * + * {
+    border-top: 1px solid var(--line);
+}
+
+.settings-row {
+    display: grid;
+    gap: 0.5rem;
+}
+
+/* Control-in-its-own-column row: the toggle/button sits left, a stacked
+   title + description block reads to its right (see Theme + Reduce motion). */
+.settings-toggle {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: 0.85rem;
+    row-gap: 0;
+}
+
+.settings-toggle > .topbar-btn {
+    margin-top: 0.1rem;
+}
+
+/* When the row is itself the orbit-check <label> (a checkbox toggle rather than
+   a button), strip its standalone pill chrome so the box + text read as a flush
+   left/right row — same alignment as the button toggles. */
+.orbit-check.settings-toggle {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    font-weight: inherit;
+    align-items: center;
+}
+
+/* Sole direct-child toggle in a card body (Enable AI) — restore the row
+   inset that .settings-card-body > * normally provides; nested toggles inside
+   .settings-row keep their own spacing and must not pick this up. */
+.settings-card-body > .orbit-check.settings-toggle {
+    padding: 0.8rem 0;
+}
+
+.orbit-check.settings-toggle:hover {
+    border-color: transparent;
+    background: none;
+}
+
+.orbit-check.settings-toggle > .orbit-check-box {
+    margin-top: 0;
+}
+
+/* Explainer line after a flush settings checkbox — space comes from the
+   description, not margin on the toggle itself. */
+.orbit-check.settings-toggle + .description {
+    margin-top: 1rem;
+}
+
+.settings-toggle-text {
+    display: grid;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+/* Motion toggle: the starfield icon shimmers while motion is allowed and
+   freezes (dimmed) once the button is pressed = reduced. Each star scales
+   around its own center via fill-box; --d staggering lives inline per star. */
+.motion-icon {
+    overflow: visible;
+}
+
+.motion-star {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: motion-star-twinkle 1.9s ease-in-out infinite;
+}
+
+.motion-toggle[aria-pressed="true"] .motion-star {
+    animation: none;
+    opacity: 0.5;
+    transform: scale(0.8);
+}
+
+@keyframes motion-star-twinkle {
+    0%,
+    100% {
+        opacity: 0.3;
+        transform: scale(0.6);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.15);
+    }
+}
+
+.settings-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.settings-slider-row > .control-field-label {
+    flex: 0 0 auto;
+}
+
+.settings-slider-row > input[type="range"].slider {
     flex: 1;
     min-width: 0;
 }
 
-.appearance-font-scale-value {
-    min-width: 3.5ch;
-    color: var(--ink);
-    font-size: calc((0.85rem) * var(--type-scale));
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-}
-
-@media (max-width: 720px) {
-    .appearance-font-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-.appearance-theme-option {
-    position: relative;
-    display: inline-flex;
-    min-width: 0;
-    min-height: 2.5rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    padding: 0.5rem 0.72rem;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface-dim);
-    color: var(--ink);
-    font-size: calc((0.86rem) * var(--type-scale));
-    font-weight: 700;
-    cursor: url("cursors/live_link.cur"), pointer;
-    transition:
-        border-color 160ms ease,
-        background 160ms ease,
-        box-shadow 160ms ease,
-        color 160ms ease;
-}
-
-.appearance-theme-option:hover {
-    border-color: var(--accent-border);
-    background: var(--accent-hover);
-}
-
-.appearance-theme-option input[type="radio"] {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
-.appearance-theme-option-mark {
-    display: grid;
-    width: 1.35rem;
-    height: 1.35rem;
+.settings-slider-row > .control-value {
     flex: 0 0 auto;
-    place-items: center;
-    border: 1px solid var(--accent-border);
-    border-radius: 999px;
-    background: var(--surface-input);
-    transition:
-        background 160ms ease,
-        border-color 160ms ease,
-        box-shadow 160ms ease;
 }
 
-.appearance-theme-option-icon {
-    width: 0.9rem;
-    height: 0.9rem;
+.settings-card-body .description {
+    font-size: calc((0.8rem) * var(--type-scale));
 }
 
-.appearance-theme-option-label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+/* Appearance → Typography: site-font swap, size slider, per-element overrides. */
+.appearance-typography-card {
+    --control-field-gap: 0.42rem;
+    --control-grid-row-gap: 0.85rem;
+    --control-grid-column-gap: 0.75rem;
 }
 
-.appearance-theme-option:has(input[type="radio"]:checked) {
-    border-color: var(--accent);
-    background:
-        linear-gradient(
-            135deg,
-            rgba(var(--accent-rgb), 0.12),
-            rgba(var(--blue-rgb), 0.08)
-        ),
-        var(--surface-dim);
-    box-shadow:
-        inset 0 0 0 1px rgba(var(--accent-rgb), 0.18),
-        0 4px 10px rgba(var(--accent-rgb), 0.12);
-}
-
-.appearance-theme-option:has(input[type="radio"]:checked)
-    .appearance-theme-option-mark {
-    border-color: var(--accent);
-    color: #fff;
-    background: linear-gradient(
-        135deg,
-        rgba(var(--accent-rgb), 0.95),
-        rgba(var(--blue-rgb), 0.95)
-    );
-}
-
-.appearance-theme-option
-    input[type="radio"]:focus-visible
-    ~ .appearance-theme-option-mark {
-    box-shadow: var(--accent-ring);
-}
-
-[data-theme="dark"] .appearance-theme-option {
-    background: rgba(15, 25, 50, 0.55);
-    border-color: rgba(var(--starlight-rgb), 0.16);
-}
-
-[data-theme="dark"] .appearance-theme-option:hover {
-    border-color: rgba(var(--starlight-rgb), 0.4);
-    background: rgba(var(--starlight-rgb), 0.08);
-}
-
-[data-theme="dark"] .appearance-theme-option-mark {
-    border-color: rgba(var(--starlight-rgb), 0.35);
-    background:
-        linear-gradient(
-            135deg,
-            rgba(var(--starlight-rgb), 0.06),
-            rgba(var(--cosmos-rgb), 0) 65%
-        ),
-        rgba(15, 25, 50, 0.7);
-}
-
-[data-theme="dark"] .appearance-theme-option:has(input[type="radio"]:checked) {
-    border-color: rgba(var(--starlight-rgb), 0.55);
-    background:
-        linear-gradient(
-            135deg,
-            rgba(var(--starlight-rgb), 0.13),
-            rgba(var(--violet-rgb), 0.08)
-        ),
-        rgba(15, 25, 50, 0.65);
-    box-shadow:
-        inset 0 0 0 1px rgba(var(--starlight-rgb), 0.18),
-        0 4px 14px rgba(var(--starlight-rgb), 0.16);
-}
-
-[data-theme="dark"]
-    .appearance-theme-option:has(input[type="radio"]:checked)
-    .appearance-theme-option-mark {
-    border-color: rgba(var(--starlight-rgb), 0.7);
-    color: #0a1024;
-    background: linear-gradient(135deg, #d6e6ff, #a8c0ff);
+.appearance-typography-card .control-grid {
+    margin: 0;
 }
 
 /* Lanes tab opens directly with the checkbox — drop the default .section
    top margin so it sits flush under the drawer tabs. */
-.section:has(> .orbit-check:first-child) {
+.section:has(> .orbit-check:first-child),
+.section.settings-notes-section {
     margin-top: 0.4rem;
-}
-
-/* AI Settings stacks two checkbox-driven sections in sequence. Give these
-   groups clearer vertical rhythm so each toggle + explainer reads as one unit. */
-.section.ai-subsection:has(> .orbit-check:first-child) {
-    margin-top: 1rem;
 }
 
 /* ---- Orbit checkbox ----
@@ -4513,6 +4581,7 @@ details.section > summary .mcp-title-row {
     border-radius: 10px;
     background: var(--surface-dim);
     color: var(--ink);
+    font-family: var(--orbit-font-control);
     font-size: calc((0.86rem) * var(--type-scale));
     font-weight: 600;
     cursor: url("cursors/live_link.cur"), pointer;
@@ -4652,32 +4721,10 @@ details.section > summary .mcp-title-row {
 }
 
 .deployment-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
     margin-top: 0.8rem;
-}
-
-.mcp-setup {
-    display: grid;
-    gap: 0.9rem;
-}
-
-.mcp-setup h3 {
-    margin: 0;
-}
-
-/* Keep the MCP badge inline with the section title, as a compact cue instead
-   of a full hero card. */
-.mcp-title-row,
-.ai-context-title-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin-bottom: 0.35rem;
-}
-
-.mcp-title-row h3,
-.ai-context-title-row h3 {
-    margin: 0;
 }
 
 .mcp-hero {
@@ -4728,59 +4775,11 @@ details.section > summary .mcp-title-row {
     text-transform: uppercase;
 }
 
-.mcp-flow,
-.mcp-path-grid {
-    display: grid;
-    gap: 0.7rem;
-}
-
-.mcp-flow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.mcp-path-grid {
-    grid-template-columns: minmax(0, 1fr);
-}
-
-/* MCP intro copy/controls spacing: keep the header text readable while making
-   the control rows feel intentionally grouped below it. */
-.mcp-setup > div > .mcp-flow {
-    margin-top: 0.85rem;
-}
-
-.mcp-flow label,
-.mcp-path-grid label {
-    display: grid;
-    gap: 0.35rem;
-}
-
-.mcp-flow label > span,
-.mcp-path-grid label > span {
-    color: var(--muted);
-    font-size: calc((0.76rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-
-.mcp-flow small {
-    color: var(--muted);
-    font-size: calc((0.74rem) * var(--type-scale));
-}
-
 .mcp-path-note {
     margin: 0.5rem 0 0;
     color: var(--muted);
     font-size: calc((0.76rem) * var(--type-scale));
     line-height: 1.35;
-}
-
-.mcp-flow select.select-chevron-field {
-    padding: var(--field-padding-y) var(--select-chevron-pad-x);
-    padding-right: calc(
-        var(--select-chevron-pad-x) * 2 + var(--select-chevron-size)
-    );
-    font-size: calc((0.88rem) * var(--type-scale));
 }
 
 .mcp-step-grid {
@@ -4860,6 +4859,7 @@ details.section > summary .mcp-title-row {
 .mcp-path-grid input {
     min-width: 0;
     padding: var(--field-padding-y) var(--field-padding-x);
+    font-family: "Cascadia Mono", "Consolas", monospace;
     font-size: calc((0.82rem) * var(--type-scale));
 }
 
@@ -5045,8 +5045,6 @@ details.section > summary .mcp-title-row {
 }
 
 @media (max-width: 800px) {
-    .mcp-flow,
-    .mcp-path-grid,
     .mcp-step-grid,
     .system-impact-grid {
         grid-template-columns: 1fr;
@@ -5210,13 +5208,35 @@ button.settings-lane-new-toggle::after {
     display: none;
 }
 
-/* New-cards-default toggle — sun metaphor: a hollow ring when off (like an
-   unselected radio button), a glowing warm disc with an amber halo when on.
-   Tiny "NEW" caption underneath so the purpose is always readable. */
-.settings-lane-new-toggle {
+/* New-cards-default toggle — sun metaphor: a soft ring when off (like an
+   unselected radio), a glowing disc when on. The "NEW" caption sits beneath.
+   Unlike the up/down/delete actions this is a state indicator, so it drops the
+   boxed-button chrome and reads as a borderless radio — which also keeps the
+   orb↔label spacing identical between the on (glowing) and off states. */
+.settings-lane-new-toggle,
+button.settings-lane-new-toggle {
     grid-template-rows: auto auto;
-    gap: 0.08rem;
-    padding: 0.22rem 0;
+    align-content: center;
+    justify-items: center;
+    gap: 0.2rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+}
+
+.settings-lane-new-toggle:hover:not(:disabled),
+button.settings-lane-new-toggle:hover:not(:disabled) {
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .settings-lane-new-toggle,
+[data-theme="dark"] .settings-lane-new-toggle:hover:not(:disabled) {
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
 }
 
 .lane-new-sun {
@@ -5231,6 +5251,14 @@ button.settings-lane-new-toggle::after {
         box-shadow 240ms ease;
 }
 
+.settings-lane-new-toggle:hover:not(:disabled) .lane-new-sun {
+    border-color: var(--accent);
+}
+
+.settings-lane-new-toggle:hover:not(:disabled) .lane-new-label {
+    color: var(--ink);
+}
+
 .lane-new-label {
     font-size: calc((0.52rem) * var(--type-scale));
     font-weight: 800;
@@ -5241,23 +5269,13 @@ button.settings-lane-new-toggle::after {
     transition: color 200ms ease;
 }
 
-/* "New cards land here" toggle — Epic-card palette to match the .btn-sun CTA.
+/* "New cards land here" toggle — Epic-card palette to match the topbar CTA.
    Light: teal border + amber inner ring + teal halo, with a teal glowing
    center dot. Dark: starlight-blue + violet inner ring, with a starlight dot. */
 .settings-lane-new-toggle.is-on {
-    border-color: rgba(var(--accent-rgb), 0.55);
-    background:
-        linear-gradient(
-            135deg,
-            rgba(var(--accent-rgb), 0.16),
-            rgba(var(--amber-rgb), 0.1) 55%,
-            rgba(var(--paper-rgb), 0) 100%
-        ),
-        var(--surface);
-    box-shadow:
-        inset 0 0 0 1px rgba(var(--paper-rgb), 0.85),
-        0 0 0 1px rgba(var(--amber-rgb), 0.32),
-        0 4px 12px rgba(var(--accent-rgb), 0.2);
+    border: 0;
+    background: none;
+    box-shadow: none;
 }
 
 .settings-lane-new-toggle.is-on .lane-new-sun {
@@ -5270,7 +5288,7 @@ button.settings-lane-new-toggle::after {
     );
     box-shadow:
         0 0 3px rgba(var(--accent-rgb), 0.85),
-        0 0 8px rgba(var(--accent-rgb), 0.55);
+        0 0 7px rgba(var(--accent-rgb), 0.5);
 }
 
 .settings-lane-new-toggle.is-on .lane-new-label {
@@ -5279,19 +5297,9 @@ button.settings-lane-new-toggle::after {
 }
 
 [data-theme="dark"] .settings-lane-new-toggle.is-on {
-    border-color: rgba(var(--starlight-rgb), 0.5);
-    background:
-        linear-gradient(
-            135deg,
-            rgba(var(--cyan-rgb), 0.14),
-            rgba(var(--indigo-rgb), 0.1) 55%,
-            rgba(var(--cosmos-rgb), 0) 100%
-        ),
-        var(--surface);
-    box-shadow:
-        inset 0 0 0 1px rgba(var(--cosmos-rgb), 0.7),
-        0 0 0 1px rgba(var(--violet-rgb), 0.36),
-        0 4px 16px rgba(var(--void-rgb), 0.42);
+    border: 0;
+    background: none;
+    box-shadow: none;
 }
 
 [data-theme="dark"] .settings-lane-new-toggle.is-on .lane-new-sun {
@@ -5372,9 +5380,40 @@ button:disabled {
     margin-top: auto;
 }
 
+/* Accordion meta row: type + priority pills share one height. The type icon was
+   the taller flex item; cap both boxes and shrink the icon to match text-only
+   priority pills. */
+.card-expand-trigger .card-type-id,
+.card-expand-trigger .card-priority-id.priority-pill {
+    box-sizing: border-box;
+    align-items: center;
+    height: 1.125rem;
+    padding-block: 0;
+    padding-inline: 0.45rem;
+    line-height: 1;
+}
+
+.card-expand-trigger .card-type-icon {
+    width: 10px;
+    height: 10px;
+}
+
+.card-expand-trigger .card-type-label,
+.card-expand-trigger .card-priority-label {
+    line-height: 1rem;
+}
+
 .card--detail .card-expand-trigger--static {
     flex-wrap: wrap;
     row-gap: 0.4rem;
+    /* The shared trigger bleeds ±0.4rem horizontally for the accordion hover
+       background, but with width:100% + border-box the negative right margin
+       can't widen the box — so inline content (e.g. the trailing archive/detach
+       actions) lands ~0.8rem short of the right content edge while the left
+       ticket number sits flush. The static variant has no hover bleed, so drop
+       the horizontal margin/padding and let pills + actions span edge to edge. */
+    margin-inline: 0;
+    padding-inline: 0;
 }
 
 .detail-card-state {
@@ -5396,21 +5435,13 @@ button:disabled {
     white-space: nowrap;
 }
 
-.card-eyebrow {
-    display: block;
-    margin-bottom: 0.3rem;
-    color: var(--muted);
-    font-size: calc((0.68rem) * var(--type-scale));
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
+/* Detach (×) and archive actions ride the end of the bottom meta row — last
+   flex item, pushed right with margin-left:auto — so they share the exact
+   baseline and edge inset as the ticket-num / type / status cluster. */
 .card-detach-btn,
 button.card-detach-btn {
-    position: absolute;
-    top: 0.35rem;
-    right: 0.35rem;
+    margin-left: auto;
+    flex: 0 0 auto;
     width: 1.4rem;
     height: 1.4rem;
     min-width: 0;
@@ -5430,7 +5461,6 @@ button.card-detach-btn {
         opacity 120ms ease,
         background 120ms ease,
         color 120ms ease;
-    z-index: 2;
 }
 
 .card-detach-btn:hover,
@@ -5449,12 +5479,10 @@ button.card-detach-btn::after {
 }
 
 .card-archive-actions {
-    position: absolute;
-    top: 0.35rem;
-    right: 0.35rem;
+    margin-left: auto;
+    flex: 0 0 auto;
     display: flex;
     gap: 0.3rem;
-    z-index: 2;
 }
 
 .card-archive-btn,
@@ -5750,13 +5778,15 @@ button.toast-close::after {
     color: #f59e0b;
 }
 
-.toast-error {
+.toast-error,
+.toast-removed {
     background: #fef2f2;
     border: 1px solid #fecaca;
     color: #991b1b;
 }
 
-.toast-error .toast-icon {
+.toast-error .toast-icon,
+.toast-removed .toast-icon {
     color: #ef4444;
 }
 
@@ -5809,13 +5839,15 @@ button.toast-close::after {
     color: #facc15;
 }
 
-[data-theme="dark"] .toast-error {
+[data-theme="dark"] .toast-error,
+[data-theme="dark"] .toast-removed {
     background: rgba(55, 18, 18, 0.92);
     border-color: rgba(var(--coral-rgb), 0.25);
     color: #fca5a5;
 }
 
-[data-theme="dark"] .toast-error .toast-icon {
+[data-theme="dark"] .toast-error .toast-icon,
+[data-theme="dark"] .toast-removed .toast-icon {
     color: #f87171;
 }
 
@@ -5874,6 +5906,17 @@ button.toast-close::after {
         margin-left: auto;
     }
 
+    /* Collapse topbar control labels once the rail wraps — matches the Board
+       chip and keeps New Card, Help, and Settings on one row. */
+    .controls .topbar-chip-label,
+    .controls .topbar-btn-label {
+        display: none;
+    }
+
+    .controls .topbar-btn[data-variant="cta"] {
+        padding-inline: 0.68rem;
+    }
+
     .composer-row {
         grid-template-columns: 1fr 1fr;
     }
@@ -5888,17 +5931,8 @@ button.toast-close::after {
         flex-wrap: wrap;
     }
 
-    /* Phone: collapse the action controls to icon-only so New Card, Board, theme,
-     Help, and Settings all fit on a single line. */
-    .btn-sun-label,
-    .topbar-chip-label,
-    .topbar-btn-label {
-        display: none;
-    }
-
-    .composer-row,
-    .deployment-actions {
-        grid-template-columns: 1fr;
+    .composer-row {
+        grid-template-columns: 1fr 1fr;
     }
 
     .detail-card-grid {
@@ -6740,7 +6774,7 @@ button.attachment-thumb-button::after {
     display: grid;
     gap: 0.15rem;
     min-width: 0;
-    padding: 0 2rem 0 0;
+    padding: 0 1.55rem 0 0;
 }
 
 .attachment-card-meta strong,
@@ -6762,7 +6796,7 @@ button.attachment-thumb-button::after {
 .attachment-delete,
 button.attachment-delete {
     position: absolute;
-    right: 0.45rem;
+    right: 0;
     bottom: 0.45rem;
     display: inline-grid;
     width: 1.45rem;
@@ -6983,4 +7017,112 @@ button.attachment-lightbox-close::after {
 
 .artifact-drawer-error {
     color: var(--danger, #dc2626);
+}
+
+/* Final font category routing. This sits after local component rules that use
+   `font: inherit`, so Appearance category overrides are not lost to source
+   order. Keep these selectors aligned with FONT_TARGETS in font-preference.js
+   for a future @starlove/ui extraction. */
+
+/* Headings = drawer & section headings: the uppercase "SETTINGS" drawer label,
+   the section titles (THEME, TYPOGRAPHY, …), and kanban lane titles (AI READY, …). */
+.drawer-eyebrow,
+.settings-card-title,
+.section > h3,
+details.section > summary h3,
+h2.lane-title {
+    font-family: var(--orbit-font-heading);
+}
+
+/* Body text = the primary font: readable copy including card titles, drawer
+   titles, paragraphs, descriptions, and long-form prose / editor surfaces. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+.description,
+.card-description,
+.comment-body,
+.markdown-body,
+.preserved-text-body,
+.artifact-drawer-body,
+.topbar-notes__text {
+    font-family: var(--orbit-font-body);
+}
+
+label,
+.card-eyebrow,
+.brand-focus-popover .inline-md-field-label,
+.meta span {
+    font-family: var(--orbit-font-label);
+}
+
+.state-pill,
+.priority-pill,
+.detail-meta-badge,
+.card-type-label {
+    font-family: var(--orbit-font-badge);
+}
+
+button,
+input,
+select,
+textarea,
+.topbar-btn,
+.topbar-chip,
+.menu-flyout-item,
+.detail-action-btn,
+.topbar-search input,
+.topbar-search input::placeholder {
+    font-family: var(--orbit-font-control);
+}
+
+/* Explicit utility classes are the escape hatch after category routing. Pair
+   them with a literal px font-size for fixed-size previews or samples. */
+.font-inter {
+    font-family:
+        "Orbit Inter", "Inter", "Segoe UI Variable", "Segoe UI", Arial,
+        sans-serif;
+}
+
+.font-open-sans {
+    font-family:
+        "Orbit Open Sans", "Open Sans", "Segoe UI Variable", "Segoe UI", Arial,
+        sans-serif;
+}
+
+.font-jetbrains-mono {
+    font-family:
+        "Orbit JetBrains Mono", "JetBrains Mono", "Cascadia Mono",
+        "SFMono-Regular", Consolas, monospace;
+}
+
+.font-chakra-petch {
+    font-family:
+        "Orbit Chakra Petch", "Chakra Petch", "Segoe UI Variable", "Segoe UI",
+        Arial, sans-serif;
+}
+
+.font-orbitron {
+    font-family:
+        "Orbit Orbitron", "Orbitron", "Segoe UI Variable", "Segoe UI", Arial,
+        sans-serif;
+}
+
+.font-rajdhani {
+    font-family:
+        "Orbit Rajdhani", "Rajdhani", "Segoe UI Variable", "Segoe UI", Arial,
+        sans-serif;
+}
+
+.font-runescape-uf {
+    font-family: "Orbit Runescape UF", "Cascadia Mono", monospace;
+}
+
+.font-open-ring {
+    font-family:
+        "Orbit Open Ring", "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
 }

@@ -110,10 +110,10 @@ export const boardRuntime = {
   port: PORT
 };
 
-export function startupSummary(port = PORT) {
+export function startupSummary(port = PORT, host = "localhost") {
   const rows = listBoards();
   return {
-    url: `http://localhost:${port}`,
+    url: `http://${host}:${port}`,
     registryPath: REGISTRY_DB_PATH,
     boardCount: rows.length,
     boardPaths: rows.map((row) => row.db_path)

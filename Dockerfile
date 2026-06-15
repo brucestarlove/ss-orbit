@@ -5,7 +5,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     PORT=13701 \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    ORBIT_USE_DIST=1
 
 COPY package.json ./
 COPY SKILL-ORBIT.md ./SKILL-ORBIT.md

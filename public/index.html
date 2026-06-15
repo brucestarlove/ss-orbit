@@ -44,38 +44,46 @@
                     runescapeUF: '"Orbit Runescape UF", "Cascadia Mono", monospace',
                     openRing: '"Orbit Open Ring", "Segoe UI Variable", "Segoe UI", Arial, sans-serif'
                 };
-                // Per-font size presets — must mirror font-preference.js. Fonts
-                // not listed default to 1.
-                var scales = { runescapeUF: 0.95, openRing: 1.2 };
-                var letterSpacings = { openRing: "0.4px" };
-                var lineHeights = {};
                 var defaults = {
-                    ui: "orbitron",
+                    control: "inter",
                     heading: "inter",
-                    body: "inter",
-                    prose: "inter",
-                    label: "orbitron"
+                    label: "inter",
+                    badge: "orbitron"
                 };
+                var aliases = { ui: "control" };
                 var targets = {
-                    ui: "--orbit-font-ui",
+                    control: "--orbit-font-control",
                     heading: "--orbit-font-heading",
-                    body: "--orbit-font-body",
-                    prose: "--orbit-font-prose",
-                    label: "--orbit-font-label"
+                    label: "--orbit-font-label",
+                    badge: "--orbit-font-badge"
                 };
+                var dataAttrs = {
+                    control: "data-font-control",
+                    heading: "data-font-heading",
+                    label: "data-font-label",
+                    badge: "data-font-badge"
+                };
+                if (!fp.badge && fp.label && fp.label !== "inter" && stacks[fp.label]) {
+                    fp.badge = fp.label;
+                }
                 Object.keys(targets).forEach(function (target) {
                     var id = stacks[fp[target]] ? fp[target] : defaults[target];
+                    Object.keys(aliases).forEach(function (legacy) {
+                        if (aliases[legacy] === target && !stacks[fp[target]] && stacks[fp[legacy]]) {
+                            id = fp[legacy];
+                        }
+                    });
                     document.documentElement.style.setProperty(targets[target], stacks[id]);
+                    document.documentElement.setAttribute(dataAttrs[target], id);
                 });
                 var siteFont = stacks[fp.site] ? fp.site : "inter";
-                var familyScale = scales[siteFont] || 1;
+                // Body text always follows the primary font.
+                document.documentElement.style.setProperty("--orbit-font-body", stacks[siteFont]);
                 var userScale = Number(fp.userScale);
                 if (!isFinite(userScale)) userScale = 1;
                 userScale = Math.min(1.3, Math.max(0.85, userScale));
-                document.documentElement.style.setProperty("--type-family-scale", String(familyScale));
                 document.documentElement.style.setProperty("--type-user-scale", String(userScale));
-                document.documentElement.style.setProperty("--orbit-letter-spacing", letterSpacings[siteFont] || "0.3px");
-                document.documentElement.style.setProperty("--orbit-line-height", lineHeights[siteFont] || "normal");
+                document.documentElement.setAttribute("data-font-site", siteFont);
             } catch (e) {}
         </script>
         <link rel="preload" as="image" href="./orbits-logo.png" />
@@ -208,11 +216,13 @@
                     id="brandFocusPopover"
                     class="brand-focus-popover"
                     role="dialog"
-                    aria-label="Board notes"
+                    aria-label="Notes For You"
                     hidden
                 >
-                    <div class="brand-focus-popover__eyebrow">Board notes</div>
-                    <div id="brandFocusNotes" class="brand-focus-notes-body">No board notes yet</div>
+                    <div class="inline-md-field brand-focus-notes-field">
+                        <span class="inline-md-field-label font-orbitron">Notes For You</span>
+                        <div id="brandFocusNotes" class="brand-focus-notes-body"></div>
+                    </div>
                 </div>
             </div>
             <div class="controls">
@@ -239,11 +249,12 @@
                 <button
                     id="newTicketBtn"
                     type="button"
-                    class="topbar-btn btn-sun topbar-ctl-shrink"
+                    class="topbar-btn topbar-ctl-shrink"
                     data-variant="cta"
+                    aria-label="New Card"
                 >
                     <span class="btn-plus" aria-hidden="true"></span>
-                    <span class="btn-sun-label">New Card</span>
+                    <span class="topbar-btn-label">New Card</span>
                 </button>
                 <div class="topbar-menu">
                     <button
@@ -405,12 +416,13 @@
                     id="drawerTitleBlock"
                     class="drawer-title-block"
                 ></div>
-                <nav
-                    id="drawerTabs"
-                    class="drawer-tabs"
-                    role="tablist"
-                    hidden
-                ></nav>
+                <div id="drawerTabsShell" class="drawer-tabs-shell" hidden>
+                    <nav
+                        id="drawerTabs"
+                        class="drawer-tabs"
+                        role="tablist"
+                    ></nav>
+                </div>
                 <button
                     type="button"
                     id="drawerArchiveBtn"

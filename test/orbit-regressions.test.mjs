@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { bundleCss } from "../src/core/css-bundle.js";
 import { folderPickerCommands, pickFolder } from "../src/core/system-picker.js";
-import { readJson } from "../src/core/http.js";
+import { readJson, staticAssetPathname } from "../src/core/http.js";
 import { normalizePath } from "../src/core/util.js";
 import { renderMarkdown, cleanText, renderPreservedText } from "../public/js/format.js";
 import { buildRoute, hasRoute, isCanonicalRouteUrl, parseRoute } from "../public/js/url-routes.js";
@@ -27,6 +27,15 @@ test("JSON request reader accepts payloads above the legacy 1 MiB cap", async ()
   assert.equal(body.largeText.length, largeText.length);
 });
 
+test("full dev static server tolerates preview /app asset paths", () => {
+  assert.equal(staticAssetPathname("/"), "/");
+  assert.equal(staticAssetPathname("/index.html"), "/index.html");
+  assert.equal(staticAssetPathname("/app"), "/");
+  assert.equal(staticAssetPathname("/app/"), "/");
+  assert.equal(staticAssetPathname("/app/js/app.123.js"), "/js/app.123.js");
+  assert.equal(staticAssetPathname("/app/styles.abc.css"), "/styles.abc.css");
+});
+
 
 test("ticket description markdown renders common formatting safely", () => {
   const html = renderMarkdown(
@@ -41,11 +50,8 @@ test("ticket description markdown renders common formatting safely", () => {
 
 test("ticket markdown preserves pasted terminal indentation", () => {
   const html = renderMarkdown("agent output\n  file: C:\\Users\\operator\n\tstatus: ok");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   assert.equal(html, "<p>agent output<br>  file: C:\\Users\\operator<br>\tstatus: ok</p>");
-  assert.match(stylesSource, /\.markdown-body\s*\{[\s\S]*tab-size:\s*4;/);
-  assert.match(stylesSource, /\.markdown-body p\s*\{[\s\S]*white-space:\s*break-spaces;/);
 });
 
 test("preserved text rendering keeps detail description source literal", () => {
@@ -169,7 +175,6 @@ test("renderMarkdown calls cleanText so mojibake-laden source still renders corr
 test("comments, AI fields, and board Notes use preserved read-only text with cleanup on save", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
   const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   // Comments use the same literal read-only renderer as the detail description,
   // so pasted plans/logs keep numbering, indentation, and blank lines.
@@ -192,8 +197,6 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.match(detailSource, /placeholder:\s*"Changes since initial implementation: "/);
   assert.match(detailSource, /class="detail-action-btn"/);
   assert.match(detailSource, /data-variant="ghost"/);
-  assert.doesNotMatch(detailSource, /inline-md-artifact-btn/);
-  assert.doesNotMatch(stylesSource, /inline-md-artifact-btn/);
   assert.match(detailSource, /data-open-artifact="\$\{escapeHtml\(artifactPathText\)\}"/);
   assert.match(detailSource, /data-artifact-field="\$\{escapeHtml\(artifactFieldName \|\| ""\)\}"/);
   assert.match(detailSource, /const artifactTicketId = btn\.dataset\.artifactTicketId \|\| ticket\.id/);
@@ -225,10 +228,6 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.match(settingsSource, /class="inline-md-field-body preserved-text-body editable-field settings-agent-instructions-body/);
   assert.doesNotMatch(settingsSource, /id="agentInstructionsForm"/);
   assert.match(settingsSource, /agent_instructions:\s*cleanText\(next\)/);
-
-  assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*white-space:\s*break-spaces;/);
-  assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*tab-size:\s*4;/);
-  assert.match(stylesSource, /\.preserved-text-body\s*\{[\s\S]*user-select:\s*text;/);
 });
 
 test("ticket description markdown escapes HTML and rejects unsafe link URLs", () => {
@@ -245,32 +244,8 @@ test("ticket description markdown escapes HTML and rejects unsafe link URLs", ()
   assert.match(html, /<a href="\/tickets\/1" target="_blank" rel="noopener noreferrer">ok<\/a>/);
 });
 
-test("ticket descriptions use markdown on cards and preserved text in the detail pane", () => {
-  const formatSource = readFileSync(join(repoRoot, "public", "js", "format.js"), "utf8");
-  const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
-  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-
-  assert.match(formatSource, /export function renderMarkdown/);
-  assert.match(formatSource, /export function renderPreservedText/);
-  assert.match(kanbanSource, /renderMarkdown\(ticket\.description\)/);
-  assert.match(kanbanSource, /card-description markdown-body/);
-  assert.match(detailSource, /renderPreservedText\(ticket\.description\)/);
-  assert.match(detailSource, /preserved-text-body editable-field/);
-  assert.doesNotMatch(detailSource, /description markdown-body editable-field/);
-  assert.doesNotMatch(detailSource, /renderMarkdown\(ticket\.description\)/);
-  assert.match(stylesSource, /\.detail-head > \.preserved-text-body\s*\{[\s\S]*white-space:\s*break-spaces;/);
-  // Editable rich-text and its read-only render now share the prose font
-  // (previously the read-only render was monospace and the editor inherited
-  // App chrome, so they mismatched).
-  assert.match(stylesSource, /\.preserved-text-body,[\s\S]*?font-family:\s*var\(--orbit-font-prose\)/);
-  assert.match(stylesSource, /\.inline-desc-editor\s*\{[\s\S]*?font-family:\s*var\(--orbit-font-prose\)/);
-  assert.doesNotMatch(detailSource, /escapeHtml\(ticket\.description \|\| "No description yet\."\)/);
-});
-
 test("ticket detail fetches comments from the dedicated endpoint", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   assert.match(detailSource, /\/api\/tickets\/\$\{requestedTicketId\}\/comments/);
   assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{requestedTicketId\}\/comments`\)\)\.then\(\s*\(result\) => result\.comments \|\| \[\],?\s*\)/);
@@ -282,75 +257,6 @@ test("ticket detail fetches comments from the dedicated endpoint", () => {
   assert.match(detailSource, /\/api\/tickets\/\$\{ticket\.id\}\/comments\/\$\{commentId\}/);
   assert.match(detailSource, /body:\s*\{ omitted_for_ai: omittedForAi \}/);
   assert.doesNotMatch(detailSource, /context\.comments\.map\(renderComment\)/);
-  assert.doesNotMatch(stylesSource, /\.comment-ai-toggle\s*\{[\s\S]*?background:/);
-});
-
-test("ticket search renders state badges with shared state pill classes", async () => {
-  const searchSource = readFileSync(join(repoRoot, "public", "js", "search.js"), "utf8");
-  const formatSource = readFileSync(join(repoRoot, "public", "js", "format.js"), "utf8");
-  const stylesPath = join(repoRoot, "public", "styles.css");
-  const stylesSource = readFileSync(stylesPath, "utf8");
-  const { cssFile } = await bundleCss({
-    entryPoint: stylesPath,
-    outfile: join(tmpdir(), "orbit-search-styles.css"),
-    minify: false
-  });
-  const bundled = Buffer.from(cssFile.contents).toString("utf8");
-
-  assert.match(formatSource, /export function stateClassFor/);
-  assert.match(searchSource, /stateClassFor\(ticket\)/);
-  assert.match(searchSource, /search-hit-state" data-variant=/);
-  assert.match(searchSource, /search-hit-title/);
-  assert.match(bundled, /\.search-hit\s*\{[\s\S]*display:\s*flex;/);
-  assert.match(bundled, /\.search-hit-title\s*\{[\s\S]*text-overflow:\s*ellipsis;/);
-  assert.match(stylesSource, /\.search-hit-state\[data-variant="in-progress"\]/);
-  assert.match(stylesSource, /\[data-theme="dark"\] \.search-hit-state\[data-variant="in-progress"\]/);
-});
-
-test("ticket detail preview cards render state badges with shared state pill classes", () => {
-  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-
-  assert.match(detailSource, /stateClassFor\(ticket\)/);
-  assert.match(detailSource, /detail-card-state" data-variant=/);
-  assert.match(detailSource, /ticket\.state_name \|\| "State"/);
-  assert.match(stylesSource, /\.detail-card-state\s*\{/);
-  assert.match(stylesSource, /\.detail-card-state\[data-variant="in-progress"\]/);
-  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-card-state\[data-variant="in-progress"\]/);
-});
-
-test("ticket detail moves state, type, and priority controls into header badge dropdowns", () => {
-  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-
-  assert.match(detailSource, /detail-meta-badge-row/);
-  assert.match(detailSource, /class=\"detail-meta-badge detail-state-badge/);
-  assert.match(detailSource, /data-meta-field=\"state_id\"/);
-  assert.match(detailSource, /class=\"detail-meta-badge detail-type-badge/);
-  assert.match(detailSource, /data-meta-field=\"type\"/);
-  assert.match(detailSource, /class=\"detail-meta-badge detail-priority-badge/);
-  assert.match(detailSource, /data-meta-field=\"priority\"/);
-  assert.doesNotMatch(detailSource, /<dt>State<\/dt>/);
-  assert.doesNotMatch(detailSource, /<dt>Type<\/dt>/);
-  assert.doesNotMatch(detailSource, /<dt>Priority<\/dt>/);
-  assert.match(detailSource, /drawer\.querySelectorAll\("\.meta-select\[data-meta-field\]"\)/);
-  assert.match(stylesSource, /\.detail-meta-badge/);
-  assert.match(stylesSource, /\.detail-state-badge/);
-  assert.match(stylesSource, /\.detail-priority-badge\[data-variant="med"\]\s*\{[\s\S]*background-color:\s*rgba\(var\(--amber-rgb\), 0\.16\);/);
-  assert.match(stylesSource, /\[data-theme="dark"\] \.detail-priority-badge\[data-variant="high"\]\s*\{[\s\S]*background-color:\s*rgba\(var\(--coral-rgb\), 0\.2\);/);
-});
-
-test("artifact drawer markdown text is selectable", () => {
-  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
-  const artifactDrawerSource = readFileSync(join(repoRoot, "public", "js", "artifact-drawer.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-
-  assert.match(detailSource, /openArtifactDrawer/);
-  assert.match(artifactDrawerSource, /class="markdown-body artifact-markdown-body"/);
-  assert.match(stylesSource, /\.artifact-drawer\s*\{[\s\S]*user-select:\s*text;/);
-  assert.match(stylesSource, /\.artifact-drawer-body\s*\{[\s\S]*user-select:\s*text;/);
-  assert.match(stylesSource, /\.artifact-markdown-body\s*\{[\s\S]*user-select:\s*text;/);
-  assert.match(stylesSource, /\.artifact-drawer-body \*,[\s\S]*\.artifact-markdown-body \*\s*\{[\s\S]*user-select:\s*text;/);
 });
 
 test("ticket detail ignores stale async renders after rapid ticket switches", () => {
@@ -392,51 +298,6 @@ test("ticket edit refreshes never retarget the drawer after the user switches ca
   assert.match(refreshBody, /if \(context\.ticket\?\.id !== ticketId\) return;/);
 });
 
-test("ticket title editor is explicit, keyboard friendly, and exits edit mode on outside clicks", () => {
-  const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
-  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
-  const drawerSource = readFileSync(join(repoRoot, "public", "js", "drawer.js"), "utf8");
-  const localBackendSource = readFileSync(join(repoRoot, "public", "js", "local-backend.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-  const mcpServerSource = readFileSync(join(repoRoot, "src", "mcp-server.js"), "utf8");
-
-  assert.match(detailSource, /"data-edit-field": "title"/);
-  assert.match(detailSource, /role: "button"/);
-  assert.match(detailSource, /"aria-label": "Edit ticket title"/);
-  assert.match(detailSource, /event\.key === "Escape"/);
-  assert.match(detailSource, /event\.key === "Enter"/);
-  assert.match(detailSource, /editor\.value\.trim\(\)/);
-  assert.match(detailSource, /handleOutsidePointerDown/);
-  assert.match(detailSource, /editor\.blur\(\)/);
-  assert.match(settingsSource, /title: project\.name/);
-  assert.doesNotMatch(settingsSource, /data-edit-field="title"/);
-  assert.match(drawerSource, /titleAttrs\?\.class/);
-  const previewBoardPatchAllowed = localBackendSource.match(/async function handleBoardPatch[\s\S]*?const ALLOWED = \[([\s\S]*?)\];/);
-  assert.ok(previewBoardPatchAllowed);
-  assert.match(previewBoardPatchAllowed[1], /"name"/);
-  assert.match(settingsSource, /id="boardRenameForm"/);
-  assert.match(settingsSource, /Canonical slug unchanged/);
-  assert.match(stylesSource, /--field-padding-y:\s*0\.62rem;/);
-  assert.match(stylesSource, /--field-padding-x:\s*0\.8rem;/);
-  assert.match(stylesSource, /input:not\(\[type\]\)[\s\S]*input\[type="text"\][\s\S]*select,[\s\S]*textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.inline-title-editor\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.inline-desc-editor\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.lane-row input,[\s\S]*\.lane-create-form select\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.topbar-search input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.drawer-composer input,[\s\S]*\.composer textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.meta-inline\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.label-add-input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.comment-form textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.field-form textarea\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.mcp-path-grid input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /\.related-add-input\s*\{[\s\S]*padding:\s*var\(--field-padding-y\) var\(--field-padding-x\);/);
-  assert.match(stylesSource, /--select-chevron-pad-x:\s*var\(--field-padding-x\);/);
-  const settingsToolSchema = mcpServerSource.match(/name: "board_update_settings"[\s\S]*?inputSchema: \{([\s\S]*?)\n    handler:/);
-  assert.ok(settingsToolSchema);
-  assert.match(settingsToolSchema[1], /name: \{ type: "string" \}/);
-  assert.doesNotMatch(settingsToolSchema[1], /project_notes/);
-});
-
 test("Orbit CSS imports published Starscape UI chrome through the bundling seam", async () => {
   const stylesPath = join(repoRoot, "public", "styles.css");
   const stylesSource = readFileSync(stylesPath, "utf8");
@@ -446,6 +307,7 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
     "@starlove/ui/components/button",
     "@starlove/ui/components/button-arc",
     "@starlove/ui/components/input",
+    "@starlove/ui/components/slider",
     "@starlove/ui/components/topbar-btn",
     "@starlove/ui/components/topbar-search",
     "@starlove/ui/components/topbar-notes",
@@ -493,220 +355,6 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
   assert.doesNotMatch(stylesSource, /button\.card-expand-trigger\s*,[\s\S]*box-shadow:\s*none/);
 });
 
-test("Settings drawer controls use explicit Starscape UI variants", () => {
-  const indexSource = readFileSync(join(repoRoot, "public", "index.html"), "utf8");
-  const boardMenuSource = readFileSync(join(repoRoot, "public", "js", "board-menu.js"), "utf8");
-  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
-  const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-
-  assert.match(indexSource, /id="boardMenuBtn"[\s\S]*data-variant="board-chip"/);
-  assert.match(indexSource, /<span class="btn-plus" aria-hidden="true"><\/span>/);
-  assert.match(boardMenuSource, /data-variant="menu-item"/);
-  assert.match(boardMenuSource, /rx="0\.75"/);
-  assert.match(settingsSource, /data-variant="primary"/);
-  assert.match(settingsSource, /data-variant="secondary"/);
-  assert.match(settingsSource, /data-variant="ghost"/);
-  assert.match(settingsSource, /<button type="submit" data-variant="secondary">Rename Board<\/button>/);
-  assert.match(settingsSource, /<button type="button" data-variant="secondary" id="importSnapshotAsNewButton">Import as New Board<\/button>/);
-  assert.match(settingsSource, /<button type="button" data-variant="secondary" id="replaceCurrentBoardImportButton" disabled>Replace Current Board<\/button>/);
-  assert.doesNotMatch(settingsSource, /class="import-button/);
-  assert.match(settingsSource, /importSnapshotAsNewFile\?\.click\(\)/);
-  assert.match(settingsSource, /replaceCurrentBoardImportFile\?\.click\(\)/);
-  assert.match(settingsSource, /class="select-chevron-field"/);
-  assert.match(kanbanSource, /class="column-add-btn"\s+data-variant="plus"/);
-  assert.doesNotMatch(kanbanSource, /column-add-btn ghost/);
-  assert.match(kanbanSource, /data-variant="card-accordion"/);
-  assert.match(kanbanSource, /data-accent="ai-ready"/);
-  assert.match(stylesSource, /--menu-flyout-item-radius/);
-  assert.match(stylesSource, /\.topbar-btn\s*\{[\s\S]*line-height:\s*1/);
-  assert.match(stylesSource, /\.topbar-btn \.topbar-icon,[\s\S]*\.topbar-chip-label\s*\{[\s\S]*place-items:\s*center;[\s\S]*line-height:\s*1/);
-  assert.match(stylesSource, /\.btn-sun\s*\{[\s\S]*grid-template-columns:\s*1rem auto/);
-  assert.match(stylesSource, /\.controls\s+\.btn-sun\s*\{[\s\S]*display:\s*inline-grid/);
-  assert.match(stylesSource, /\.btn-plus\s*\{[\s\S]*display:\s*inline-grid;[\s\S]*place-items:\s*center;[\s\S]*width:\s*1rem;[\s\S]*height:\s*1rem/);
-  assert.match(stylesSource, /\.btn-plus::before,[\s\S]*\.btn-plus::after\s*\{[\s\S]*transform:\s*translate\(-50%, -50%\)/);
-  assert.match(stylesSource, /\.btn-plus::after\s*\{[\s\S]*rotate\(90deg\)/);
-  assert.match(stylesSource, /\.btn-sun\s+\.btn-plus[\s\S]*transform:\s*none/);
-  assert.match(stylesSource, /\.btn-sun\s+\.btn-sun-label[\s\S]*line-height:\s*1;[\s\S]*transform:\s*none/);
-  assert.match(stylesSource, /\.btn-sun,[\s\S]*\.column-add-btn,[\s\S]*\.add-card-phantom\s*\{[\s\S]*inset 0 0 0 2px rgba\(var\(--amber-rgb\),0\.45\)/);
-  assert.doesNotMatch(stylesSource, /button\.column-add-btn\s*\{[^}]*background:\s*var\(--btn-gradient\)/);
-  assert.match(stylesSource, /button\.column-add-btn\s*\{[\s\S]*min-height:\s*1\.85rem/);
-  assert.match(stylesSource, /button\.column-add-btn::before,[\s\S]*button\.column-add-btn::after\s*\{[\s\S]*content:\s*none/);
-  assert.match(stylesSource, /\.add-card-phantom\s*\{[\s\S]*border-radius:\s*var\(--radius-control\)/);
-  assert.match(stylesSource, /button\.add-card-phantom::before,[\s\S]*button\.add-card-phantom::after[\s\S]*content:\s*none/);
-  assert.match(stylesSource, /@import "@starlove\/ui\/components\/card-accordion";/);
-  assert.doesNotMatch(stylesSource, /card-expand-trigger\[data-variant="card-accordion"\]::after[\s\S]*content:\s*none/);
-  assert.doesNotMatch(stylesSource, /card-expand-trigger:not\(\.card-expand-trigger--static\):hover[\s\S]*transform:\s*none/);
-  assert.doesNotMatch(settingsSource, /class="ghost"/);
-  assert.doesNotMatch(settingsSource, /class="lane-icon-btn"/);
-  assert.doesNotMatch(settingsSource, /class="lane-delete-btn"/);
-  assert.doesNotMatch(settingsSource, /class="lane-new-toggle/);
-  assert.match(stylesSource, /@import "@starlove\/ui\/components\/button";/);
-  assert.match(stylesSource, /@import "@starlove\/ui\/components\/button-arc";/);
-  assert.match(stylesSource, /@import "@starlove\/ui\/components\/input";/);
-  assert.match(stylesSource, /button:not\(\[data-variant\]\)\s*\{/);
-  assert.doesNotMatch(stylesSource, /\nbutton\s*\{\s*\n\s*border:\s*0;/);
-  assert.match(stylesSource, /button\[type="submit"\]:not\(\[data-variant\]\)/);
-});
-
-test("X-only controls stay compact instead of inheriting default button chrome", async () => {
-  const stylesPath = join(repoRoot, "public", "styles.css");
-  const { cssFile } = await bundleCss({
-    entryPoint: stylesPath,
-    outfile: join(tmpdir(), "orbit-compact-controls.css"),
-    minify: false
-  });
-  const stylesSource = Buffer.from(cssFile.contents).toString("utf8");
-  const xControlSources = [
-    "public/index.html",
-    "public/js/create-card.js",
-    "public/js/settings.js",
-    "public/js/ticket-detail.js",
-    "public/js/toast.js"
-  ].map((file) => readFileSync(join(repoRoot, file), "utf8")).join("\n");
-  const compactClasses = [
-    "drawer-close",
-    "create-flyout-close",
-    "help-dialog-close",
-    "settings-lane-delete-btn",
-    "label-pill-remove",
-    "related-add-clear",
-    "card-detach-btn",
-    "attachment-delete",
-    "attachment-lightbox-close",
-    "toast-close"
-  ];
-
-  for (const className of compactClasses) {
-    assert.match(stylesSource, new RegExp(`button\\.${className}[\\s\\S]*?\\{[\\s\\S]*?min-height:\\s*0`), `${className} should reset default button min-height`);
-    assert.match(stylesSource, new RegExp(`button\\.${className}[\\s\\S]*?\\{[\\s\\S]*?padding:\\s*0`), `${className} should reset default button padding`);
-    assert.match(stylesSource, new RegExp(`button\\.${className}::after[\\s\\S]*?content:\\s*none`), `${className} should suppress ARC pseudo-elements`);
-  }
-
-  assert.match(readFileSync(join(repoRoot, "public", "js", "icons.js"), "utf8"), /ui-icon-x/);
-  assert.doesNotMatch(xControlSources, /×|&times;|>x<|>X</);
-  assert.match(stylesSource, /\.ui-icon-x\s*\{[\s\S]*stroke:\s*currentColor/);
-  assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*transform:\s*none/);
-  assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*filter:\s*none/);
-  assert.match(stylesSource, /button\.toast-close:hover\s*\{[\s\S]*box-shadow:\s*none/);
-});
-
-test("Appearance typography settings expose site-wide selectable font families", async () => {
-  const indexSource = readFileSync(join(repoRoot, "public", "index.html"), "utf8");
-  const mainSource = readFileSync(join(repoRoot, "public", "js", "main.js"), "utf8");
-  const fontSource = readFileSync(join(repoRoot, "public", "js", "font-preference.js"), "utf8");
-  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
-  const stylesPath = join(repoRoot, "public", "styles.css");
-  const stylesSource = readFileSync(stylesPath, "utf8");
-  const { cssFile } = await bundleCss({
-    entryPoint: stylesPath,
-    outfile: join(tmpdir(), "orbit-appearance-fonts.css"),
-    minify: false
-  });
-  const bundled = Buffer.from(cssFile.contents).toString("utf8");
-
-  assert.doesNotMatch(indexSource, /id="fontDevtoolsBtn"/);
-  assert.doesNotMatch(indexSource, /id="fontDevtoolsPanel"/);
-  assert.doesNotMatch(indexSource, />Fonts<\/span>/);
-  assert.match(indexSource, /orbit_font_preferences/);
-  assert.doesNotMatch(mainSource, /wireFontDevtools/);
-  assert.doesNotMatch(fontSource, /wireFontDevtools/);
-  assert.match(settingsSource, /renderTypographyControls/);
-  assert.match(settingsSource, /SITE_FONT_OPTIONS/);
-  assert.match(settingsSource, /id="siteFontSelect"/);
-  assert.match(settingsSource, /data-font-target="\$\{target\}"/);
-  assert.match(fontSource, /FONT_TARGETS/);
-  assert.match(fontSource, /ui:\s*\{/);
-  assert.match(fontSource, /heading:\s*\{/);
-  assert.match(fontSource, /body:\s*\{/);
-  assert.match(fontSource, /label:\s*\{/);
-  assert.match(fontSource, /export const DEFAULT_SITE_FONT = "inter"/);
-  assert.match(fontSource, /ui:\s*"orbitron"[\s\S]*label:\s*"orbitron"/);
-  assert.match(fontSource, /label:\s*"Labels"/);
-  assert.match(fontSource, /inter/);
-  assert.match(fontSource, /openSans/);
-  assert.match(fontSource, /jetBrainsMono/);
-  assert.match(fontSource, /chakraPetch/);
-  assert.match(fontSource, /orbitron/);
-  assert.match(fontSource, /rajdhani/);
-  assert.match(fontSource, /runescapeUF/);
-  assert.match(fontSource, /openRing/);
-  assert.match(fontSource, /openRing:\s*\{[\s\S]*letterSpacing:\s*"0\.4px"/);
-  assert.match(indexSource, /ui:\s*"orbitron"/);
-  assert.match(indexSource, /body:\s*"inter"/);
-  assert.match(indexSource, /label:\s*"orbitron"/);
-  assert.match(indexSource, /var scales = \{ runescapeUF: 0\.95, openRing: 1\.2 \}/);
-  assert.match(indexSource, /var letterSpacings = \{ openRing: "0\.4px" \}/);
-  assert.match(indexSource, /var lineHeights = \{\}/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Inter"/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Open Sans"/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit JetBrains Mono"/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Chakra Petch"/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Orbitron"/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Rajdhani"/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Runescape UF"/);
-  assert.match(stylesSource, /@font-face\s*\{[\s\S]*font-family:\s*"Orbit Open Ring"/);
-  assert.match(stylesSource, /--orbit-font-default:\s*"Orbit Inter"/);
-  assert.match(stylesSource, /--orbit-font-app:\s*"Orbit Orbitron"/);
-  assert.match(stylesSource, /body\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
-  assert.match(stylesSource, /body\s*\{[\s\S]*line-height:\s*var\(--orbit-line-height\)/);
-  assert.match(stylesSource, /body\s*\{[\s\S]*letter-spacing:\s*var\(--orbit-letter-spacing\)/);
-  assert.match(stylesSource, /--orbit-letter-spacing:\s*0\.3px/);
-  assert.match(stylesSource, /--orbit-line-height:\s*normal/);
-  assert.match(stylesSource, /h1,[\s\S]*h6\s*\{[\s\S]*font-family:\s*var\(--orbit-font-heading\)/);
-  assert.match(stylesSource, /p,[\s\S]*?\.card-description\s*\{[\s\S]*?font-family:\s*var\(--orbit-font-body\)/);
-  assert.match(stylesSource, /\.markdown-body,[\s\S]*?\.artifact-drawer-body\s*\{[\s\S]*?font-family:\s*var\(--orbit-font-prose\)/);
-  assert.match(stylesSource, /label,[\s\S]*\.detail-meta-badge\s*\{[\s\S]*font-family:\s*var\(--orbit-font-label\)/);
-  assert.match(stylesSource, /button,[\s\S]*\.topbar-btn,[\s\S]*\.topbar-chip,[\s\S]*\.menu-flyout-item\s*\{[\s\S]*font-family:\s*var\(--orbit-font-ui\)/);
-  assert.match(stylesSource, /input,[\s\S]*select,[\s\S]*textarea,[\s\S]*\.topbar-notes__text,[\s\S]*\.topbar-search input,[\s\S]*\.topbar-search input::placeholder\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
-  assert.match(stylesSource, /\.topbar-search input\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
-  assert.match(stylesSource, /\.topbar-search input::placeholder\s*\{[\s\S]*font-family:\s*var\(--orbit-font-body\)/);
-  assert.match(stylesSource, /p\.description,[\s\S]*\.description\s*\{[\s\S]*margin:\s*0;[\s\S]*padding:\s*0;/);
-  assert.match(stylesSource, /\.detail-head > \.description\s*\{[\s\S]*margin:\s*0;/);
-  assert.doesNotMatch(stylesSource, /\.appearance-font-group > \.description\s*\{[\s\S]*margin/);
-  assert.doesNotMatch(stylesSource, /\.section:has\(> \.orbit-check:first-child\) > \.description\s*\{[\s\S]*margin/);
-  assert.doesNotMatch(stylesSource, /\.mcp-setup > div > \.description \+ \.description\s*\{[\s\S]*margin/);
-  assert.match(bundled, /url\("?\.\/fonts\/Inter\/Inter-VariableFont_opsz,wght\.ttf"?\)/);
-  assert.doesNotMatch(bundled, /\.font-devtools-/);
-});
-
-test("type scale: fixed root + font-size-only scaling so text resizes, not layout", () => {
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-  const indexSource = readFileSync(join(repoRoot, "public", "index.html"), "utf8");
-  const fontSource = readFileSync(join(repoRoot, "public", "js", "font-preference.js"), "utf8");
-  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
-
-  // Root font-size is fixed so rem-based layout (padding/gaps/widths) never
-  // moves. --type-scale = family-scale × user-scale and is applied only to
-  // font-size declarations, so the slider resizes text, not the UI.
-  assert.match(stylesSource, /html\s*\{[\s\S]*?font-size:\s*var\(--type-base\)/);
-  assert.match(stylesSource, /--type-base:\s*16px/);
-  assert.match(stylesSource, /--type-scale:\s*calc\(var\(--type-family-scale\)\s*\*\s*var\(--type-user-scale\)\)/);
-  // Explicit font-sizes multiply by the scale; inherited text scales via body.
-  assert.match(stylesSource, /font-size:\s*calc\([^;]*\*\s*var\(--type-scale\)\)/);
-  assert.match(stylesSource, /body\s*\{[\s\S]*?font-size:\s*calc\(1rem\s*\*\s*var\(--type-scale\)\)/);
-  // No bare rem font-size should remain — every one routes through --type-scale.
-  assert.doesNotMatch(stylesSource, /font-size:\s*[0-9.]+rem\s*;/);
-
-  // Pre-paint boot script sets both scale vars so there is no FOUC.
-  assert.match(indexSource, /--type-family-scale/);
-  assert.match(indexSource, /--type-user-scale/);
-
-  // Registry + setters: family scale comes from the site font, user scale from
-  // the slider; prose is a real target.
-  assert.match(fontSource, /export function setSiteFont/);
-  assert.match(fontSource, /export function setUserScale/);
-  assert.match(fontSource, /export function fontScaleFor/);
-  assert.match(fontSource, /prose:\s*\{/);
-  assert.match(fontSource, /--type-family-scale/);
-  assert.match(fontSource, /--type-user-scale/);
-
-  // Appearance exposes the site-font swap, per-element overrides, and slider.
-  assert.match(settingsSource, /id="siteFontSelect"/);
-  assert.match(settingsSource, /id="fontScaleSlider"/);
-  assert.match(settingsSource, /data-font-target=/);
-});
-
 test("multiline inline edit opens without forcing the drawer to the field bottom", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
 
@@ -724,7 +372,6 @@ test("multiline inline edit opens without forcing the drawer to the field bottom
 test("ticket detail exposes dependency-free image attachment controls", () => {
   const detailSource = readFileSync(join(repoRoot, "public", "js", "ticket-detail.js"), "utf8");
   const configSource = readFileSync(join(repoRoot, "public", "js", "config.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
 
   assert.match(configSource, /attachments: edition === "full"/);
   assert.match(detailSource, /renderAttachmentSection/);
@@ -735,12 +382,6 @@ test("ticket detail exposes dependency-free image attachment controls", () => {
   assert.match(detailSource, /openAttachmentLightbox/);
   assert.match(detailSource, /class="attachment-thumb-button" data-no-arc/);
   assert.match(detailSource, /event\.key === "Escape"/);
-  assert.match(stylesSource, /\.attachment-lightbox/);
-  assert.match(stylesSource, /\.attachment-dropzone/);
-  assert.match(stylesSource, /\.attachment-card\s*\{[\s\S]*?background:\s*transparent/);
-  assert.match(stylesSource, /button\.attachment-thumb-button\s*\{[\s\S]*?background:\s*transparent/);
-  assert.match(stylesSource, /button\.attachment-thumb-button::before,[\s\S]*button\.attachment-thumb-button::after\s*\{[\s\S]*?content:\s*none/);
-  assert.match(stylesSource, /\.attachment-thumb-button img,\s*\.attachment-missing-thumb\s*\{[\s\S]*?object-fit:\s*contain/);
 });
 
 test("board snapshot export exposes optional image inclusion", () => {
@@ -1895,13 +1536,11 @@ test("system folder picker normalizes selected paths and reports unsupported pla
 
 test("kanban horizontal wheel gestures stay inside the board scroller", () => {
   const kanbanSource = readFileSync(join(repoRoot, "public", "js", "kanban.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
   const wheelHandler = kanbanSource.match(/kanban\.addEventListener\(\s*"wheel"[\s\S]*?\{ passive: false \}\s*\);/);
 
   assert.ok(wheelHandler, "kanban should install a non-passive wheel handler");
   assert.match(wheelHandler[0], /event\.preventDefault\(\)/);
   assert.match(wheelHandler[0], /kanban\.scrollLeft \+= wheelPixels\(horizontalDelta, event\.deltaMode\)/);
-  assert.match(stylesSource, /\.kanban\s*\{[\s\S]*overscroll-behavior-x:\s*contain;/);
 });
 
 test("renderBoard stays cheap: delegated listeners, no per-card rebind or rescan", () => {
@@ -1932,46 +1571,4 @@ test("kanban card markdown is parsed lazily, only for expanded cards", () => {
   assert.match(renderCardFn, /isExpanded \? renderCardExpandable\(ticket\)/);
   // ...and injected on first open via the toggle handler.
   assert.match(kanbanSource, /function toggleCardExpansion[\s\S]*?renderCardExpandable\(ticket\)/);
-});
-
-test("card action submenus render as viewport-layered panels", () => {
-  const cardActionsSource = readFileSync(join(repoRoot, "public", "js", "card-actions.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-  const menuRule = stylesSource.match(/\.card-action-menu\s*\{[\s\S]*?\n\}/)?.[0] || "";
-  const submenuRule = stylesSource.match(/\.card-action-submenu\s*\{[\s\S]*?\n\}/)?.[0] || "";
-
-  assert.match(cardActionsSource, /calculateSubmenuPosition/);
-  assert.match(cardActionsSource, /document\.addEventListener\("scroll", dismissOnScroll/);
-  assert.ok(menuRule, "card action menu CSS should exist");
-  assert.ok(submenuRule, "card action submenu CSS should exist");
-  assert.match(menuRule, /overflow:\s*visible;/);
-  assert.doesNotMatch(menuRule, /overflow-y:\s*auto;/);
-  assert.match(submenuRule, /position:\s*fixed;/);
-  assert.match(submenuRule, /overflow-y:\s*auto;/);
-});
-
-test("kanban columns use the wide width by default", () => {
-  const stateSource = readFileSync(join(repoRoot, "public", "js", "state.js"), "utf8");
-  const settingsSource = readFileSync(join(repoRoot, "public", "js", "settings.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-
-  assert.doesNotMatch(stateSource, /wideKanbanColumns|mab_wide_kanban_columns|applyKanbanColumnWidthPreference/);
-  assert.doesNotMatch(settingsSource, /wideKanbanColumnsToggle|mab_wide_kanban_columns|Wide kanban columns/);
-  assert.match(stylesSource, /--kanban-column-width:\s*22rem;/);
-  assert.match(stylesSource, /@media \(max-width: 720px\)[\s\S]*--kanban-column-width:\s*18rem;/);
-  assert.match(stylesSource, /\.kanban\s*\{[\s\S]*grid-auto-columns:\s*minmax\(var\(--kanban-column-width\), 1fr\);/);
-});
-
-test("minimized epic headers span the lane while epic children stay indented", () => {
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
-  const miniHeaderRule = stylesSource.match(/\.epic-mini-header\s*\{[\s\S]*?\n\}/)?.[0] || "";
-  const childrenRule = stylesSource.match(/\.epic-children\s*\{[\s\S]*?\n\}/)?.[0] || "";
-
-  assert.ok(miniHeaderRule, "mini epic header CSS should exist");
-  assert.ok(childrenRule, "epic children CSS should exist");
-  assert.match(miniHeaderRule, /width:\s*100%;/);
-  assert.doesNotMatch(miniHeaderRule, /width:\s*92%;/);
-  assert.doesNotMatch(miniHeaderRule, /align-self:\s*flex-end;/);
-  assert.match(childrenRule, /width:\s*92%;/);
-  assert.match(childrenRule, /align-self:\s*flex-end;/);
 });

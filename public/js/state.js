@@ -16,7 +16,7 @@ export const state = {
   expandedCardIds: new Set(),
   /** "empty" | "ticket" | "settings" — drives the main right overlay drawer (not the New flyout). */
   detailMode: "empty",
-  /** "lanes" | "ai" | "repository" | "notes" | "journal" — which Settings tab is active. */
+  /** "lanes" | "ai" | "data" | "notes" | "journal" — which Settings tab is active. */
   settingsTab: normalizeSettingsTab(localStorage.getItem("mab_settings_tab")),
   /** Whether to render the priority pill on kanban / related cards. The detail
    *  drawer header always shows it. Default on; user can toggle it from the

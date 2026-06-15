@@ -94,7 +94,7 @@ Rules:
 
 The board is the unit of organization. Each board is tied to one repo and carries:
 
-- `repo_url`, `system_path`, `default_branch`: where the code lives.
+- `repo_url`, `system_path`, `default_branch`: where the code lives. `system_path` is the project folder linked under Settings → AI → AI Helper Files.
 - `agent_instructions`: project-level context for agents (purpose, surface area, stack, constraints, operating rules — included in ticket context packs). Edited under Settings → AI.
 - `project_notes`: Notes For You — personal reminders on the board (Settings → Notes).
 
@@ -109,7 +109,7 @@ Board Journal entries are durable project memory loaded for agents working this 
 
 Two distinct, non-overlapping mechanisms:
 
-- **Hierarchy** — `parent_ticket_id` on the ticket row. One epic owns many features/tasks/bugs. Set on create or via `PATCH /api/tickets/:id`. Only epics can have children; pass `null` to detach. Do not duplicate this link in `relations`.
+- **Hierarchy** — `parent_ticket_id` on the ticket row. One epic owns many features/tasks/bugs. Set on create or via `PATCH /api/tickets/:id`. Only epics can have children; pass `null` to detach. An epic itself cannot have a parent (`parent_ticket_id` must be `null`). Do not duplicate this link in `relations`.
 - **Relations** — rows in the `relations` table with `type` of `relates_to`, `blocks`, or `blocked_by`. Use these for cross-cutting connections that aren't ownership: another team's ticket relates to mine, ticket A blocks ticket B, etc. The board rejects relations between a ticket and its direct parent epic (`relation_redundant_with_parent`) and self-relations (`relation_self`).
 
 Before working a ticket, check blockers. A ticket is **not workable** while it has any `blocked_by` relation row. The relation row is the source of truth — it gets removed when the blocking ticket moves into the Done lane (state role `done`, server auto-deletes) or when a user removes the link manually in the UI. If a `blocked_by` target is an epic, the rule expands to *the epic's open children* — the ticket only becomes workable once every child sits in a Done-role lane (or is archived). The `claim-next` scheduler skips blocked tickets automatically; for ad-hoc checks call `GET /api/tickets/:id/blockers` (returns `can_start` + the unresolved blockers list, with `via_epic_id` on entries that came from epic expansion).

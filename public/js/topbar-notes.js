@@ -32,12 +32,12 @@ function renderNotesBody(board) {
   const inner = hasNotes ? renderPreservedText(notes) : escapeHtml(NOTES_PLACEHOLDER);
   return `
     <div
-      class="inline-md-field-body preserved-text-body editable-field brand-focus-notes-edit${placeholderClass}"
+      class="inline-md-field-body preserved-text-body editable-field settings-notes-body brand-focus-notes-edit${placeholderClass}"
       data-edit-field="project_notes"
       tabindex="0"
       title="Click to edit"
       role="button"
-      aria-label="Edit board notes"
+      aria-label="Edit Notes For You"
     >${inner}</div>
   `;
 }
@@ -86,7 +86,7 @@ async function startBoardNotesEdit(sourceEvent) {
     fieldName: "project_notes",
     multiline: true,
     initialValue: lastRenderedBoard.project_notes || "",
-    ariaLabel: "Edit board notes",
+    ariaLabel: "Edit Notes For You",
     sourceEvent,
     rerender: async () => {
       renderTopbarFocus(lastRenderedBoard);

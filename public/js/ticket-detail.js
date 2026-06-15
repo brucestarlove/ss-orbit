@@ -537,7 +537,7 @@ export async function renderDetail(options = {}) {
     )
     .join("");
 
-  const priorityOptions = [0, 1, 2, 3, 4]
+  const priorityOptions = [4, 3, 2, 1, 0]
     .map(
       (p) =>
         `<option value="${p}" ${Number(ticket.priority) === p ? "selected" : ""}>${escapeHtml(priorityLabel(p))}</option>`,
@@ -1161,11 +1161,21 @@ function renderStatusHistory(history) {
 
 function renderComment(comment) {
   const omittedForAi = Boolean(comment.omitted_for_ai);
+  const kindLabel =
+    comment.kind === "human_comment" ? "" : escapeHtml(comment.kind.replace(/_/g, " "));
   return `
-    <div class="comment ${comment.kind === "checkpoint" ? "checkpoint" : ""}">
-      <div class="comment-meta">
-        <strong>${escapeHtml(formatCommentAuthor(comment))}</strong>
-        <span>${comment.kind === "human_comment" ? "" : `${escapeHtml(comment.kind)} - `}${formatDate(comment.created_at)}</span>
+    <div class="comment ${comment.kind === "checkpoint" ? "checkpoint" : ""} ${omittedForAi ? "is-ai-omitted" : ""}">
+      <div class="comment-head">
+        <div class="comment-head-main">
+          <div class="comment-head-title">
+            <strong>${escapeHtml(formatCommentAuthor(comment))}</strong>
+            ${kindLabel ? `<span class="comment-kind-pill">${kindLabel}</span>` : ""}
+          </div>
+        </div>
+      </div>
+      <div class="comment-body preserved-text-body">${renderPreservedText(comment.body)}</div>
+      <div class="comment-footer">
+        <span class="comment-footer-meta">${formatDate(comment.created_at)}</span>
         <button
           type="button"
           class="comment-ai-toggle detail-action-btn"
@@ -1175,7 +1185,6 @@ function renderComment(comment) {
           data-omitted-for-ai="${omittedForAi ? "true" : "false"}"
         >${omittedForAi ? "AI Include" : "AI Ignore"}</button>
       </div>
-      <div class="comment-body preserved-text-body">${renderPreservedText(comment.body)}</div>
     </div>
   `;
 }
@@ -1370,7 +1379,6 @@ export function renderDetailCard(ticket, options = {}) {
   return `
     <article class="card card--detail type-${escapeHtml(canonicalType)} priority-${escapeHtml(priorityKey)}" data-variant="${escapeHtml(canonicalType)}"${options.disableOpen ? "" : ` data-open-ticket="${escapeHtml(ticket.id)}"`}>
       ${unreadDot}
-      ${detachBtn}
       ${eyebrow}
       <h3>${escapeHtml(ticket.title)}</h3>
       <div class="card-meta">
@@ -1382,6 +1390,7 @@ export function renderDetailCard(ticket, options = {}) {
           </div>
           <span class="detail-card-state" data-variant="${escapeHtml(stateClass)}">${escapeHtml(ticket.state_name || "State")}</span>
           ${state.showPriority ? renderPriorityPill(ticket.priority) : ""}
+          ${detachBtn}
         </div>
       </div>
     </article>

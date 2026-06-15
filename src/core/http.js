@@ -75,13 +75,20 @@ function shouldBundleSourceStyles(pathname, filePath) {
   return pathname === "/styles.css" && filePath === join(ROOT_DIR, "public", "styles.css");
 }
 
+export function staticAssetPathname(pathname) {
+  return pathname === "/app" || pathname.startsWith("/app/")
+    ? pathname.slice(4) || "/"
+    : pathname;
+}
+
 export async function serveStatic(req, res, pathname) {
   if (req.method !== "GET" && req.method !== "HEAD") {
     sendEmpty(res, 405);
     return;
   }
 
-  const requested = pathname === "/" ? "/index.html" : pathname;
+  const staticPathname = staticAssetPathname(pathname);
+  const requested = staticPathname === "/" ? "/index.html" : staticPathname;
   const filePath = resolvePath(PUBLIC_DIR, `.${decodeURIComponent(requested)}`);
   if (!filePath.startsWith(PUBLIC_DIR)) {
     sendEmpty(res, 403);
@@ -89,7 +96,7 @@ export async function serveStatic(req, res, pathname) {
   }
 
   try {
-    const data = shouldBundleSourceStyles(pathname, filePath)
+    const data = shouldBundleSourceStyles(staticPathname, filePath)
       ? Buffer.from((await bundleCss({ entryPoint: filePath, outfile: filePath })).cssFile.contents)
       : await readFile(filePath);
     res.writeHead(200, {

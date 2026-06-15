@@ -431,13 +431,3 @@ export function renderLabels(labels = []) {
     </div>
   `;
 }
-
-export function repoLabelFromUrl(repoUrl) {
-  const raw = String(repoUrl || "").trim();
-  if (!raw) return "Not set";
-  const githubHttps = raw.match(/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i);
-  if (githubHttps) return `${githubHttps[1]}/${githubHttps[2]}`;
-  const githubSsh = raw.match(/github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i);
-  if (githubSsh) return `${githubSsh[1]}/${githubSsh[2]}`;
-  return raw;
-}

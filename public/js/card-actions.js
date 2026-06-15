@@ -133,7 +133,7 @@ export function createCardActionHandlers({ apiClient = api, navigator = null, co
     async archive(ticket) {
       if (typeof confirmer === "function" && !confirmer(`Archive "${ticket.title || "card"}"? You can restore it from Settings → Card Archive.`)) return false;
       await apiClient(withBoardQuery(`/api/tickets/${encodeURIComponent(ticket.id)}/archive`), { method: "POST" });
-      toast.error(`Archived: ${ticket.title || "card"}`);
+      toast.removed(`Archived: ${ticket.title || "card"}`);
       return true;
     }
   };

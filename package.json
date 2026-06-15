@@ -1,6 +1,6 @@
 {
   "name": "@starlove/orbit",
-  "version": "1.3.11",
+  "version": "1.3.12",
   "description": "Starscape Orbit — local-first, pretty, human-ai-first kanban system.",
   "license": "AGPL-3.0",
   "type": "module",
@@ -35,9 +35,6 @@
     "serve:site": "node serve-site.mjs",
     "test": "node --test"
   },
-  "devDependencies": {
-    "esbuild": "^0.25.0"
-  },
   "engines": {
     "node": ">=22.13.0"
   },
@@ -58,6 +55,7 @@
     "claude-code"
   ],
   "dependencies": {
-    "@starlove/ui": "^3.3.0"
+    "@starlove/ui": "^3.3.0",
+    "esbuild": "^0.25.0"
   }
 }

@@ -129,7 +129,7 @@ Each repo gets its own board database. Orbit keeps a small central registry that
 - **Central registry** — `registry.db` records each board's path, slug, and last-active timestamp. Host `orbit run` uses `~/.orbit`; `orbit docker` uses `<repo>/.orbit/docker-data`. Keep one mode unless you intentionally share `DATA_DIR`, re-register boards, or import snapshots.
 - **Project-root discovery** — `orbit run`, `orbit mcp`, and MCP-attached agents resolve a board from an explicit `--cwd` / `PROJECT_ROOT` first, then fall back to walking up from process cwd to find `.orbit/board.db`. Persistent MCP configs should use an explicit root so the right board attaches even when the agent launches elsewhere.
 - **Two channels for AI** — `AGENTS.md` is the auto-loaded briefing, with an Orbit-managed pointer to `SKILL-ORBIT.md`; the *MCP config* tells the agent runtime how to launch Orbit's MCP server for the right project. The briefing travels with the repo; the MCP registration is per-agent-install.
-- **Snapshot-portable** — Settings → Repository → Export downloads a `.orbit.json` snapshot, with an option to embed attached images. Import on another install (or in the browser preview at [orbit.starscape.app/app](https://orbit.starscape.app/app)) to restore the same board.
+- **Snapshot-portable** — Settings → Data → Export downloads a `.orbit.json` snapshot, with an option to embed attached images. Import on another install (or in the browser preview at [orbit.starscape.app/app](https://orbit.starscape.app/app)) to restore the same board.
 
 ## Developing Orbit
 
@@ -231,7 +231,7 @@ orbit docker --data-dir /path/to/data
 $env:DATA_DIR="C:\path\to\data"; orbit run
 ```
 
-The UI exposes **Export** and **Import** from **Settings → Repository**.
+The UI exposes **Export** and **Import** from **Settings → Data**.
 
 **Export** downloads a portable `.orbit.json` file you can move to another computer or import later. By default it stores image attachment records without image bytes; enable **Include attached images** to embed the images in the snapshot.
 
