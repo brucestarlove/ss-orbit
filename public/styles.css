@@ -2357,6 +2357,219 @@ button.add-card-phantom::after,
     }
 }
 
+/* "Update available" flag on the Settings topbar button. Same purple signal as
+   .agent-dot, anchored to the button's top-right corner. Toggled by the
+   .has-update class + the dot's [hidden] from update-check.js. */
+#settingsBtn {
+    position: relative;
+}
+
+.topbar-update-dot {
+    position: absolute;
+    top: 0.15rem;
+    right: 0.15rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle at 38% 38%,
+        #f4e4ff 0%,
+        #c084fc 50%,
+        #7c3aed 100%
+    );
+    box-shadow:
+        0 0 5px rgba(168, 85, 247, 0.85),
+        0 0 12px rgba(168, 85, 247, 0.5);
+    animation: agent-dot-pulse 3.6s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion="full"]) .topbar-update-dot {
+        animation: none;
+    }
+}
+
+/* Clickable toast (e.g. the update nudge that opens Settings). */
+.toast-clickable {
+    cursor: pointer;
+}
+
+/* Settings → Data "Version & Updates" card. Neutral by default; the whole card
+   lifts to a purple accent (header tint + ring) when an update is available. */
+.update-card--available {
+    border-color: rgba(var(--purple-rgb), 0.4);
+    box-shadow: 0 8px 24px rgba(var(--purple-rgb), 0.16);
+}
+
+.update-card--available .settings-card-head {
+    border-bottom-color: rgba(var(--purple-rgb), 0.26);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--purple-rgb), 0.2),
+        rgba(var(--purple-rgb), 0.02)
+    );
+}
+
+/* Status chip pinned to the right of the card header. */
+.update-status-chip {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.16rem 0.55rem;
+    border-radius: 999px;
+    font-size: calc(0.62rem * var(--type-scale));
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.update-status-chip svg {
+    width: 0.8rem;
+    height: 0.8rem;
+}
+
+.update-status-chip--current {
+    background: rgba(var(--green-rgb, 34, 197, 94), 0.16);
+    color: rgb(var(--green-rgb, 34, 197, 94));
+}
+
+.update-status-chip--available {
+    background: rgba(var(--purple-rgb), 0.2);
+    color: rgb(var(--purple-rgb));
+}
+
+.update-status-chip--warn {
+    background: rgba(var(--amber-rgb), 0.18);
+    color: rgb(var(--amber-rgb));
+}
+
+.update-status-chip--idle {
+    background: var(--subtle-bg);
+    color: var(--muted);
+}
+
+.update-status-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle at 38% 38%,
+        #f4e4ff 0%,
+        #c084fc 50%,
+        #7c3aed 100%
+    );
+    box-shadow: 0 0 5px rgba(168, 85, 247, 0.85);
+    animation: agent-dot-pulse 3.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion="full"]) .update-status-dot {
+        animation: none;
+    }
+}
+
+/* Version line: "v1.3.16" alone, or "v1.3.16 → v1.3.17" when an update exists. */
+.update-version-line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-family: var(--orbit-font-heading);
+}
+
+.update-version-now {
+    font-size: calc(1.25rem * var(--type-scale));
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.update-card--available .update-version-now {
+    font-size: calc(1.05rem * var(--type-scale));
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.update-version-arrow {
+    color: rgb(var(--purple-rgb));
+    font-weight: 700;
+}
+
+.update-version-next {
+    font-size: calc(1.3rem * var(--type-scale));
+    font-weight: 800;
+    color: rgb(var(--purple-rgb));
+}
+
+.update-row .deployment-actions {
+    margin-top: 0;
+}
+
+/* "How to update" disclosure: framed panel with a dark terminal command block
+   (matching .mcp-snippet) and a footer for copy + changelog. */
+.update-howto {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--subtle-bg-2);
+    overflow: hidden;
+}
+
+.update-howto > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    cursor: pointer;
+    font-weight: 700;
+    list-style: none;
+}
+
+.update-howto > summary::-webkit-details-marker {
+    display: none;
+}
+
+.update-howto-mode {
+    margin-left: auto;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(var(--purple-rgb), 0.16);
+    color: rgb(var(--purple-rgb));
+    font-size: calc(0.66rem * var(--type-scale));
+    font-weight: 700;
+}
+
+.update-commands {
+    margin: 0;
+    padding: 0.8rem 0.95rem;
+    border-top: 1px solid var(--line);
+    background: rgba(10, 14, 28, 0.95);
+    color: #d6e6ff;
+    overflow-x: auto;
+    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-size: calc(0.82rem * var(--type-scale));
+    line-height: 1.6;
+    white-space: pre;
+}
+
+.update-howto-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.55rem 0.75rem;
+}
+
+.update-changes-link {
+    font-size: calc(0.85rem * var(--type-scale));
+    font-weight: 600;
+}
+
+.update-docs-hint {
+    margin-top: 0.1rem;
+}
+
 .agents-pill {
     display: inline-block;
     margin-left: 0.15rem;
@@ -4604,8 +4817,25 @@ details.section > summary {
     overflow-wrap: anywhere;
 }
 
+/* The composer reads as a distinct "create" panel — a raised surface with its
+   own header — so it never blurs into the recessed (--surface-dim) entry cards
+   stacked above it. */
 .project-entry-form {
-    margin-top: 0.9rem;
+    margin-top: 1.1rem;
+    padding: 0.8rem 0.85rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+}
+
+.project-entry-form-header {
+    color: var(--muted);
+    font-size: calc((0.72rem) * var(--type-scale));
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid var(--line);
 }
 
 .project-entry-form input {
@@ -6426,7 +6656,7 @@ button.toast-close::after {
 
 .welcome-dialog-notices {
     list-style: none;
-    margin: 0;
+    margin: 1rem 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;

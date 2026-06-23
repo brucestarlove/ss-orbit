@@ -43,6 +43,7 @@ import { edition } from "./config.js";
 import { openModal, wireModal } from "./modal.js";
 import { wireTopbarFocus } from "./topbar-notes.js";
 import { wireHelpMenu } from "./help-menu.js";
+import { checkForUpdate } from "./update-check.js";
 import { applyStoredFontPreferences } from "./font-preference.js";
 
 async function init() {
@@ -152,6 +153,9 @@ async function init() {
   } else {
     syncUrlFromState({ replace: true });
   }
+
+  // Best-effort, non-blocking: nudge if a newer Orbit is available.
+  checkForUpdate();
 }
 
 init();

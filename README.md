@@ -17,11 +17,11 @@ These screenshots show Orbit in dark and light mode. They were captured before t
 
 ![Orbit app in light mode](docs/SS-Orbit-Light.png)
 
-## 🛰️ Zero runtime dependencies
+## 🛰️ Zero external runtime dependencies
 
-**Orbit installs with zero third-party runtime dependencies.** The server, CLI, and MCP layer use Node.js built-ins: `node:sqlite`, `node:http`, `node:crypto`, and friends.
+**Orbit's server, CLI, and MCP layer run with zero external runtime dependencies.** They use Node.js built-ins: `node:sqlite`, `node:http`, `node:crypto`, and friends.
 
-The single dev-only dependency is [`esbuild`](https://esbuild.github.io/), used to bundle the web UI at build time. It never ships and is not needed to run the server, CLI, or MCP.
+Build-time packages include Starscape's own `@starlove/ui` styling and [`esbuild`](https://esbuild.github.io/) for bundling the web UI. They are not needed by initialized project boards at runtime.
 
 ## Install and use Orbit
 

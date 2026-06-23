@@ -34,6 +34,8 @@ import {
   setFontPreference
 } from "./font-preference.js";
 import { closeIconSvg } from "./icons.js";
+import { exportAllBoards } from "./board-export.js";
+import { getUpdateInfo, fetchVersionInfo, syncUpdateBadge } from "./update-check.js";
 
 const repositoryDelete = {
   boardId: "",
@@ -458,6 +460,8 @@ function renderProjectDataTab(context) {
     </section>`;
   return `
     <div class="settings-stack">
+      ${renderUpdateCard()}
+
       ${repoMeta}
 
       ${features.multiBoard ? renderBoardRenameSection(project) : ""}
@@ -681,6 +685,87 @@ function renderProjectLanesTab() {
   `;
 }
 
+const UPDATE_INSTRUCTIONS = {
+  source: "git pull\npnpm install\npnpm run build:bundle\n# then restart Orbit",
+  docker: "git pull\ndocker compose build\ndocker compose up -d",
+  dist: "npm install -g @starlove/orbit@latest\n# then restart Orbit"
+};
+
+const UPDATE_MODE_LABEL = {
+  source: "local / server",
+  docker: "Docker",
+  dist: "npm"
+};
+
+const updateCheckGlyph = `<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L4.3 10.7a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0z" clip-rule="evenodd"/></svg>`;
+
+// "Version & Updates" card (top of the Data tab). Reads the cached /api/version
+// payload (populated by the boot-time check in update-check.js); renders
+// neutrally when it's missing (preview edition / check disabled). The whole
+// card gains an accent when an update is available so it reads at a glance.
+function renderUpdateCard() {
+  const info = getUpdateInfo();
+  const mode = info?.deployMode || "source";
+  const available = Boolean(info?.updateAvailable);
+  const current = info?.current ? `v${escapeHtml(info.current)}` : "—";
+  const showSelfUpdate = Boolean(info?.selfUpdate && available);
+
+  const chip = !info
+    ? `<span class="update-status-chip update-status-chip--idle">Not checked</span>`
+    : info.error
+      ? `<span class="update-status-chip update-status-chip--warn">Couldn't check</span>`
+      : available
+        ? `<span class="update-status-chip update-status-chip--available"><span class="update-status-dot" aria-hidden="true"></span>Update available</span>`
+        : `<span class="update-status-chip update-status-chip--current">${updateCheckGlyph} Up to date</span>`;
+
+  const statusLine = !info
+    ? "Check whether a newer version of Orbit has shipped."
+    : info.error
+      ? `Couldn't reach GitHub (${escapeHtml(info.error)}). Try again in a moment.`
+      : available
+        ? "Back up your boards, then update with the steps below."
+        : "You have the latest version of Orbit.";
+
+  const versionBlock = available
+    ? `<span class="update-version-now">${current}</span>
+       <span class="update-version-arrow" aria-hidden="true">→</span>
+       <span class="update-version-next">v${escapeHtml(info.latest)}</span>`
+    : `<span class="update-version-now">${current}</span>`;
+
+  const howto = available
+    ? `
+        <details class="update-howto" open>
+          <summary>How to update <span class="update-howto-mode">${escapeHtml(UPDATE_MODE_LABEL[mode] || mode)}</span></summary>
+          <pre class="update-commands"><code id="updateCommands">${escapeHtml(UPDATE_INSTRUCTIONS[mode] || UPDATE_INSTRUCTIONS.source)}</code></pre>
+          <div class="update-howto-foot">
+            <button type="button" data-variant="ghost" id="updateCopyCommands">Copy commands</button>
+            ${info.changesUrl ? `<a class="update-changes-link" href="${escapeHtml(info.changesUrl)}" target="_blank" rel="noopener">View changes ↗</a>` : ""}
+          </div>
+        </details>`
+    : "";
+
+  return `
+    <section class="settings-card update-card${available ? " update-card--available" : ""}">
+      <header class="settings-card-head">
+        <h3 class="settings-card-title">Version &amp; Updates</h3>
+        ${chip}
+      </header>
+      <div class="settings-card-body">
+        <div class="settings-row update-row">
+          <div class="update-version-line">${versionBlock}</div>
+          <p class="description" id="updateStatusLine">${statusLine}</p>
+          <div class="deployment-actions update-actions">
+            <button type="button" data-variant="${available ? "secondary" : "primary"}" id="updateCheckNow">Check now</button>
+            <button type="button" data-variant="secondary" id="updateBackupBoards">Back up all boards</button>
+            ${showSelfUpdate ? `<button type="button" data-variant="primary" id="updateRunNow">Update now</button>` : ""}
+          </div>
+          ${howto}
+          <p class="description update-docs-hint">Full guide: <a href="https://github.com/brucestarlove/ss-orbit/blob/master/docs/UPDATING.md" target="_blank" rel="noopener">docs/UPDATING.md</a></p>
+        </div>
+      </div>
+    </section>`;
+}
+
 function renderProjectAppearanceTab() {
   const theme = currentTheme();
   const reduceMotion = effectiveReducedMotionPreference();
@@ -808,6 +893,7 @@ function renderProjectJournalTab(context) {
     <div class="section">
       ${renderProjectEntries(context.entries, aiEnabled)}
       <form id="projectEntryForm" class="comment-form project-entry-form">
+        <div class="project-entry-form-header">Add entry</div>
         <select name="type" class="select-chevron-field" aria-label="Entry type">
           <option value="decision">Decision</option>
           <option value="lesson">Lesson</option>
@@ -973,6 +1059,60 @@ function bindProjectTabHandlers(context, tab) {
       await load();
       toast.success(`Deleted board: ${project.name}`);
       navigate({ boardId: state.boardId, view: "board" }, { replace: true });
+    });
+
+    // Version & Updates card (top of the Data tab).
+    $("#updateCheckNow")?.addEventListener("click", async () => {
+      const btn = $("#updateCheckNow");
+      btn.disabled = true;
+      btn.textContent = "Checking…";
+      await fetchVersionInfo({ force: true });
+      syncUpdateBadge();
+      state.detailMode = "settings";
+      await renderProjectDetail();
+    });
+
+    $("#updateBackupBoards")?.addEventListener("click", async () => {
+      const btn = $("#updateBackupBoards");
+      const orig = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Backing up…";
+      try {
+        await exportAllBoards();
+      } catch (error) {
+        toast.error(`Backup failed: ${error?.message || "request failed"}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    });
+
+    $("#updateCopyCommands")?.addEventListener("click", async () => {
+      const text = $("#updateCommands")?.textContent || "";
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success("Update commands copied");
+      } catch {
+        toast.error("Couldn't copy — select the commands manually");
+      }
+    });
+
+    $("#updateRunNow")?.addEventListener("click", async () => {
+      const ok = window.confirm(
+        "Update Orbit now? It will pull the latest code, rebuild, and restart. Back up your boards first."
+      );
+      if (!ok) return;
+      const btn = $("#updateRunNow");
+      btn.disabled = true;
+      btn.textContent = "Updating…";
+      try {
+        await api("/api/update", { method: "POST" });
+        toast.success("Update started — Orbit will restart shortly. Reload in a minute.", 9000);
+      } catch (error) {
+        toast.error(`Update failed to start: ${error?.message || "request failed"}`);
+        btn.disabled = false;
+        btn.textContent = "Update now";
+      }
     });
   }
 

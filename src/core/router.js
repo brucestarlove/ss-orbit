@@ -47,6 +47,7 @@ import {
 } from "./tickets.js";
 import { archivedTicketsForBoard } from "./queries.js";
 import { httpError } from "./util.js";
+import { getVersionInfo, startSelfUpdate } from "./version-check.js";
 import { pickFolder } from "./system-picker.js";
 import {
   createRelation,
@@ -123,6 +124,21 @@ export async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/health") {
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  // Update check (no actor needed). The client polls this on load and on a
+  // manual "Check now" (?refresh=1 bypasses the server's cached result).
+  if (req.method === "GET" && url.pathname === "/api/version") {
+    sendJson(res, 200, await getVersionInfo({ force: url.searchParams.get("refresh") === "1" }));
+    return;
+  }
+
+  // Opt-in self-update. Hidden (404) unless the operator set ORBIT_SELF_UPDATE=1,
+  // since it pulls + rebuilds + restarts the running server.
+  if (req.method === "POST" && url.pathname === "/api/update") {
+    if (process.env.ORBIT_SELF_UPDATE !== "1") throw httpError(404, "not_found");
+    sendJson(res, 202, startSelfUpdate());
     return;
   }
 

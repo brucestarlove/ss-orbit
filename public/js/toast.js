@@ -21,7 +21,7 @@ function ensureToastContainer() {
   return toastContainer;
 }
 
-export function toast(message, type = "info", duration = 4000) {
+export function toast(message, type = "info", duration = 4000, options = {}) {
   const container = ensureToastContainer();
 
   const node = document.createElement("div");
@@ -31,7 +31,19 @@ export function toast(message, type = "info", duration = 4000) {
   const icon = toastIcons[type];
   node.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-msg">${escapeHtml(message)}</span><button class="toast-close" aria-label="Dismiss">${closeIconSvg}</button>`;
 
-  node.querySelector(".toast-close").addEventListener("click", () => dismissToast(node));
+  node.querySelector(".toast-close").addEventListener("click", (event) => {
+    event.stopPropagation();
+    dismissToast(node);
+  });
+
+  // Optional whole-toast click action (e.g. "Update available → open Settings").
+  if (typeof options.onClick === "function") {
+    node.classList.add("toast-clickable");
+    node.addEventListener("click", () => {
+      options.onClick();
+      dismissToast(node);
+    });
+  }
 
   container.prepend(node);
   requestAnimationFrame(() => requestAnimationFrame(() => node.classList.add("toast-enter")));

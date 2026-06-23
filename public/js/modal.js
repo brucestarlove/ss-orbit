@@ -8,7 +8,9 @@
 // Escape key is handled natively by the browser; no extra wiring needed.
 
 export function openModal(dialogEl) {
-  dialogEl?.showModal();
+  if (!dialogEl) return;
+  dialogEl.showModal();
+  dialogEl.querySelector("[data-modal-initial-focus]")?.focus({ preventScroll: true });
 }
 
 export function closeModal(dialogEl) {

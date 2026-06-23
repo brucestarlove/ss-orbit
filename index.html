@@ -582,6 +582,7 @@
         --b-muted: rgba(255, 255, 255, 0.55);
         --b-line: rgba(168, 192, 255, 0.14);
         --b-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+        --ticket-number: #60a5fa;
 
         /* Dark preview lets the starfield show through — no grid, no fill. */
         --board-bg: transparent;
@@ -622,6 +623,14 @@
         --rail-bg: rgba(15, 25, 50, 0.92);
         --rail-color: #e8efff;
         --rail-accent: #fbbf24;
+        --priority-maybe-color: rgba(255, 255, 255, 0.62);
+        --priority-maybe-bg: rgba(255, 255, 255, 0.1);
+        --priority-low-color: #4ade80;
+        --priority-low-bg: rgba(74, 222, 128, 0.15);
+        --priority-med-color: #fbbf24;
+        --priority-med-bg: rgba(251, 191, 36, 0.18);
+        --priority-high-color: #f87171;
+        --priority-high-bg: rgba(248, 113, 113, 0.2);
       }
 
       [data-board-theme="light"] {
@@ -629,6 +638,7 @@
         --b-muted: #66716d;
         --b-line: rgba(23, 27, 29, 0.16);
         --b-shadow: 0 24px 70px rgba(23, 27, 29, 0.16);
+        --ticket-number: #3657c8;
 
         --board-bg: rgba(255, 250, 241, 0.94);
         --board-overlay: linear-gradient(180deg, rgba(255, 250, 241, 0), rgba(23, 27, 29, 0.045));
@@ -668,6 +678,14 @@
         --rail-bg: rgba(23, 27, 29, 0.92);
         --rail-color: #fff;
         --rail-accent: #f7c948;
+        --priority-maybe-color: #6b7280;
+        --priority-maybe-bg: rgba(100, 116, 139, 0.14);
+        --priority-low-color: #1e6f5c;
+        --priority-low-bg: rgba(15, 118, 110, 0.14);
+        --priority-med-color: #a4550f;
+        --priority-med-bg: rgba(242, 163, 74, 0.16);
+        --priority-high-color: #b53a1a;
+        --priority-high-bg: rgba(214, 86, 46, 0.2);
       }
 
       /* Mirrors public/styles.css .kanban — board is its own horizontal scroll
@@ -1014,14 +1032,17 @@
       .ticket-meta {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 0.55rem;
+        row-gap: 0.35rem;
         margin-top: 0.15rem;
       }
 
       .ticket-num {
-        color: var(--b-muted);
-        font-size: 0.72rem;
+        color: var(--ticket-number);
+        font-size: 0.75rem;
         font-weight: 800;
+        font-variant-numeric: tabular-nums;
         letter-spacing: 0.02em;
       }
 
@@ -1072,6 +1093,46 @@
         background: rgba(248, 113, 113, 0.12);
         border-color: rgba(248, 113, 113, 0.25);
         color: #f87171;
+      }
+
+      .priority-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.15rem 0.45rem;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .priority-pill[data-variant="maybe"] {
+        color: var(--priority-maybe-color);
+        background: var(--priority-maybe-bg);
+      }
+
+      .priority-pill[data-variant="low"] {
+        color: var(--priority-low-color);
+        background: var(--priority-low-bg);
+      }
+
+      .priority-pill[data-variant="med"] {
+        color: var(--priority-med-color);
+        background: var(--priority-med-bg);
+      }
+
+      .priority-pill[data-variant="high"] {
+        color: var(--priority-high-color);
+        background: var(--priority-high-bg);
+        box-shadow: inset 0 0 0 1px rgba(214, 86, 46, 0.35);
+      }
+
+      .priority-pill[data-variant="urgent"] {
+        color: #fff;
+        background: linear-gradient(135deg, #dc2626, #991b1b);
+        box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35), 0 4px 10px rgba(248, 113, 113, 0.3);
       }
 
       .agent-rail {
@@ -1649,31 +1710,34 @@
                       <article class="ticket epic">
                         <h4 class="ticket-title">Use Orbit to manage your next project</h4>
                         <div class="ticket-meta">
-                          <span class="ticket-num">ORBIT-1</span>
+                          <span class="ticket-num">#1</span>
                           <span class="type-pill type-pill-epic">
                             <svg class="type-pill-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="currentColor" /></svg>
                             Epic
                           </span>
+                          <span class="priority-pill" data-variant="high">HIGH</span>
                         </div>
                       </article>
                       <article class="ticket">
                         <h4 class="ticket-title">Share and support Orbit development</h4>
                         <div class="ticket-meta">
-                          <span class="ticket-num">ORBIT-2</span>
+                          <span class="ticket-num">#2</span>
                           <span class="type-pill type-pill-feature">
                             <svg class="type-pill-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z" fill="currentColor" /></svg>
                             Feature
                           </span>
+                          <span class="priority-pill" data-variant="med">MED</span>
                         </div>
                       </article>
                       <article class="ticket bug">
                         <h4 class="ticket-title">Submit bugs and feedback</h4>
                         <div class="ticket-meta">
-                          <span class="ticket-num">ORBIT-4</span>
+                          <span class="ticket-num">#4</span>
                           <span class="type-pill type-pill-bug">
                             <svg class="type-pill-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
                             Bug
                           </span>
+                          <span class="priority-pill" data-variant="urgent">URGENT</span>
                         </div>
                       </article>
                     </div>
@@ -1688,11 +1752,12 @@
                       <article class="ticket task">
                         <h4 class="ticket-title">Task your AI to complete this ticket</h4>
                         <div class="ticket-meta">
-                          <span class="ticket-num">ORBIT-3</span>
+                          <span class="ticket-num">#3</span>
                           <span class="type-pill type-pill-task">
                             <svg class="type-pill-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></svg>
                             Task
                           </span>
+                          <span class="priority-pill" data-variant="urgent">URGENT</span>
                         </div>
                       </article>
                     </div>
@@ -1705,11 +1770,12 @@
                       <article class="ticket task">
                         <h4 class="ticket-title">Learn how to install Orbit</h4>
                         <div class="ticket-meta">
-                          <span class="ticket-num">ORBIT-5</span>
+                          <span class="ticket-num">#5</span>
                           <span class="type-pill type-pill-task">
                             <svg class="type-pill-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></svg>
                             Task
                           </span>
+                          <span class="priority-pill" data-variant="low">LOW</span>
                         </div>
                       </article>
                     </div>
@@ -1722,11 +1788,12 @@
                       <article class="ticket">
                         <h4 class="ticket-title">Discover the best kanban solution</h4>
                         <div class="ticket-meta">
-                          <span class="ticket-num">ORBIT-6</span>
+                          <span class="ticket-num">#6</span>
                           <span class="type-pill type-pill-feature">
                             <svg class="type-pill-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z" fill="currentColor" /></svg>
                             Feature
                           </span>
+                          <span class="priority-pill" data-variant="maybe">MAYBE</span>
                         </div>
                       </article>
                     </div>
@@ -1752,7 +1819,7 @@
               <div class="setup-card">
                 <div class="step">
                   <div class="star" aria-hidden="true"></div>
-                  <div><strong>Simplicity, elegance, speed</strong><span>No slop and no dependencies. Per-repo SQLite database. Pretty and performant.</span></div>
+                  <div><strong>Simplicity, elegance, speed</strong><span>No slop and zero external dependencies at runtime. Per-repo SQLite database. Pretty and performant.</span></div>
                 </div>
                 <div class="step">
                   <div class="star" aria-hidden="true"></div>
@@ -1848,11 +1915,12 @@ claude "Read SKILL-ORBIT.md in this repo and do ticket 12"</pre>
                   <article class="ticket task flow-ticket" aria-label="Animated AI workflow card">
                     <h4 class="ticket-title">Add import validation</h4>
                     <div class="ticket-meta">
-                      <span class="ticket-num">ORBIT-12</span>
+                      <span class="ticket-num">#12</span>
                       <span class="type-pill type-pill-task">
                         <svg class="type-pill-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></svg>
                         Task
                       </span>
+                      <span class="priority-pill" data-variant="high">HIGH</span>
                     </div>
                     <div class="flow-ticket-badge flow-ticket-badge--agent" aria-hidden="true">
                       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1872,7 +1940,7 @@ claude "Read SKILL-ORBIT.md in this repo and do ticket 12"</pre>
                   aria-label="Example MCP tools and handoff, synced to the demo card above"
                 >
                   <span class="pulse" aria-hidden="true"></span>
-                  <code data-mcp-rail-line aria-hidden="true">board_claim_next({ ticket_id: "ORBIT-12" })</code>
+                  <code data-mcp-rail-line aria-hidden="true">board_claim_next({ ticket: "#12" })</code>
                   <b data-mcp-rail-label aria-hidden="true">AI MCP</b>
                 </div>
               </div>
@@ -2275,15 +2343,15 @@ Starscape Orbit listening on http://localhost:13701</pre>
         const flowTicket = document.querySelector(".agent-flow-board .flow-ticket");
         if (!board || !lineEl || !labelEl || !flowTicket) return;
 
-        const TID = "ORBIT-12";
+        const TID = "#12";
         const AI_LABEL = "AI MCP";
         const RAIL = [
-          { line: `board_claim_next({ ticket_id: "${TID}" })`, label: AI_LABEL, humanLine: false },
-          { line: `board_get_ticket_context({ ticket_id: "${TID}" })`, label: AI_LABEL, humanLine: false },
-          { line: `board_complete({ ticket_id: "${TID}", summary: "…" })`, label: AI_LABEL, humanLine: false },
+          { line: `board_claim_next({ ticket: "${TID}" })`, label: AI_LABEL, humanLine: false },
+          { line: `board_get_ticket_context({ ticket: "${TID}" })`, label: AI_LABEL, humanLine: false },
+          { line: `board_complete({ ticket: "${TID}", summary: "…" })`, label: AI_LABEL, humanLine: false },
           { line: "You review the work", label: "Human-in-the-loop", humanLine: true },
         ];
-        const REST = { line: `board_get_ticket_context({ ticket_id: "${TID}" })`, label: AI_LABEL, humanLine: false };
+        const REST = { line: `board_get_ticket_context({ ticket: "${TID}" })`, label: AI_LABEL, humanLine: false };
         const STYLE_TTL_MS = 2000;
         const fallBackPeriodS = () => {
           const v = getComputedStyle(board).getPropertyValue("--agent-flow-duration-s").trim();

@@ -8,7 +8,7 @@ import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(import.meta.url), "..", "dist", "site");
-const PORT = Number(process.env.PORT || 4310);
+const PORT = Number(process.env.PORT || 13711);
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
