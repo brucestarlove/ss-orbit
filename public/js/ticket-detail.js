@@ -42,6 +42,8 @@ import { formatActorLabel, formatCommentAuthor } from "./actor-labels.js";
 import { openArtifactDrawer } from "./artifact-drawer.js";
 import { closeIconSvg } from "./icons.js";
 import { handleTextareaIndentationKeydown } from "./text-editing.js";
+import { renderPanel, renderTogglePanel } from "./panel.js";
+import { attachTypeahead } from "./typeahead.js";
 
 /**
  * Refresh the open drawer from the focused ticket context endpoint. When the
@@ -314,7 +316,7 @@ async function promptAndSaveArtifactPath({ ticketId, fieldName, currentPath, lab
 }
 
 /** Wire inline editors on the ticket detail header (meta fields, labels). */
-function wireTicketDetailEditors(ticket) {
+function wireTicketDetailEditors(ticket, context) {
   const ticketId = ticket.id;
 
   const editTitle = () =>
@@ -457,6 +459,10 @@ function wireTicketDetailEditors(ticket) {
     ?.addEventListener("click", () => {
       void addLabel();
     });
+  // Attach the typeahead first so its Enter handler runs before the add-on-Enter
+  // handler below; when a suggestion is highlighted it stops propagation so the
+  // partial typed text isn't added instead.
+  attachLabelTypeahead(drawerInner.querySelector("[data-label-input]"), ticket);
   drawerInner
     .querySelector("[data-label-input]")
     ?.addEventListener("keydown", (event) => {
@@ -554,14 +560,6 @@ export async function renderDetail(options = {}) {
     )
     .join("");
 
-  const catalogNames = boardLabelCatalog()
-    .map((l) => l.name)
-    .filter((name) => !ticket.labels?.some((tl) => tl.name === name));
-
-  const datalistOptions = catalogNames
-    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
-    .join("");
-
   const detailCanonicalType = canonicalTicketType(ticket.type);
   const priorityKey = priorityKeyFor(ticket.priority);
   const currentState = states.find((s) => s.id === ticket.state_id);
@@ -570,8 +568,8 @@ export async function renderDetail(options = {}) {
     ? renderPreservedText(ticket.description)
     : escapeHtml("No description yet.");
   const descriptionClass = ticket.description
-    ? "description preserved-text-body editable-field"
-    : "description editable-field is-placeholder";
+    ? "description preserved-text-body editable-field detail-description-body"
+    : "description editable-field detail-description-body is-placeholder";
   const detailSubtitleHtml = `
     <span class="ticket-number">${escapeHtml(ticketLabel(ticket))}</span>
     <div class="detail-meta-badge-row" aria-label="Ticket metadata controls">
@@ -597,86 +595,96 @@ export async function renderDetail(options = {}) {
     <div class="detail-head">
       <p class="detail-updated" title="Last saved change">Updated ${escapeHtml(formatDateDetail(ticket.updated_at))}</p>
       <div class="${descriptionClass}" data-edit-field="description" tabindex="0" title="Click to edit">${descriptionHtml}</div>
-      <dl class="ticket-meta" id="ticketMetaGrid" data-ticket-id="${escapeHtml(ticket.id)}">
-        <div class="ticket-meta-row ticket-meta-row--stack">
-          <dt>Labels</dt>
-          <dd>
+    </div>
+
+    <div class="settings-stack detail-section-stack">
+      ${renderPanel({
+        title: "Labels",
+        body: `
+          <div class="settings-row">
             <div class="label-pills-row" data-other-labels>${labelPills}</div>
             <div class="label-add-row">
-              <input type="text" class="label-add-input meta-inline-input" data-label-input list="board-label-suggestions" placeholder="Add label…" aria-label="Add label" />
-              <datalist id="board-label-suggestions">${datalistOptions}</datalist>
+              <div class="label-add-input-wrap">
+                <input type="text" class="label-add-input meta-inline-input" data-label-input autocomplete="off" placeholder="Add label…" aria-label="Add label" />
+              </div>
               <button type="button" class="meta-add-btn detail-action-btn" data-variant="ghost" data-label-add>Add</button>
             </div>
-          </dd>
-        </div>
-      </dl>
-    </div>
+          </div>
+        `,
+      })}
 
-    ${renderHierarchySection(ticket, context)}
+      ${renderHierarchySection(ticket, context)}
 
-    ${features.attachments ? renderAttachmentSection(ticket, attachmentList.attachments || []) : ""}
+      ${features.attachments ? renderAttachmentSection(ticket, attachmentList.attachments || []) : ""}
 
-    ${renderParentEpicSection(ticket, context)}
+      ${renderParentEpicSection(ticket, context)}
 
-    <div class="section">
-      <h3>Related</h3>
-      ${renderRelated(context.relations, ticket)}
-    </div>
+      ${renderPanel({
+        title: "Related",
+        body: `<div class="settings-row">${renderRelated(context.relations, ticket)}</div>`,
+      })}
 
-    ${
-      currentBoard()?.ai_enabled !== 0
-        ? `
-    <details class="section ai-fields" data-ai-plan-toggle data-ticket-id="${escapeHtml(ticket.id)}"${aiPlanOpen(ticket.id) ? " open" : ""}>
-      <summary><h3>AI Plan / Implementation Record</h3></summary>
-      <div class="ai-fields-grid">
-        ${renderInlinePreservedTextField({
-          fieldName: "ai_plan",
-          label: "AI Plan",
-          value: ticket.ai_plan,
-          placeholder: "What to do: ",
-          ticketId: ticket.id,
-          artifactPath: ticket.plan_artifact_path,
-          artifactFieldName: "plan_artifact_path",
-          artifactLabel: "Open full handoff",
-        })}
-        ${renderInlinePreservedTextField({
-          fieldName: "implementation_summary",
-          label: "Work Summary",
-          value: ticket.implementation_summary,
-          placeholder: "What was done: ",
-          ticketId: ticket.id,
-          artifactPath: ticket.implementation_artifact_path,
-          artifactFieldName: "implementation_artifact_path",
-          artifactLabel: "Open full report",
-        })}
-        ${renderInlinePreservedTextField({
-          fieldName: "implementation_updates",
-          label: "Revisions",
-          value: ticket.implementation_updates,
-          placeholder: "Changes since initial implementation: ",
-        })}
-      </div>
-    </details>`
-        : ""
-    }
+      ${
+        currentBoard()?.ai_enabled !== 0
+          ? renderTogglePanel({
+              title: "AI Plan / Implementation Record",
+              open: aiPlanOpen(ticket.id),
+              attrs: `data-ai-plan-toggle data-ticket-id="${escapeHtml(ticket.id)}"`,
+              body: `
+        <div class="ai-fields-grid">
+          ${renderInlinePreservedTextField({
+            fieldName: "ai_plan",
+            label: "AI Plan",
+            value: ticket.ai_plan,
+            placeholder: "What to do: ",
+            ticketId: ticket.id,
+            artifactPath: ticket.plan_artifact_path,
+            artifactFieldName: "plan_artifact_path",
+            artifactLabel: "Open full handoff",
+          })}
+          ${renderInlinePreservedTextField({
+            fieldName: "implementation_summary",
+            label: "Work Summary",
+            value: ticket.implementation_summary,
+            placeholder: "What was done: ",
+            ticketId: ticket.id,
+            artifactPath: ticket.implementation_artifact_path,
+            artifactFieldName: "implementation_artifact_path",
+            artifactLabel: "Open full report",
+          })}
+          ${renderInlinePreservedTextField({
+            fieldName: "implementation_updates",
+            label: "Revisions",
+            value: ticket.implementation_updates,
+            placeholder: "Changes since initial implementation: ",
+          })}
+        </div>`,
+            })
+          : ""
+      }
 
-    <div class="section">
-      <h3>Status History</h3>
-      ${renderStatusHistory(statusHistory)}
-    </div>
+      ${renderPanel({
+        title: "Status History",
+        body: `<div class="settings-row">${renderStatusHistory(statusHistory)}</div>`,
+      })}
 
-    <div class="section">
-      <h3>Comments</h3>
-      ${comments.map(renderComment).join("") || `<p class="description">No comments yet.</p>`}
-      <form class="comment-form" id="detailCommentForm">
-        <textarea name="body" placeholder="Add a comment, decision, or instruction..." required></textarea>
-        <button type="submit" class="detail-action-btn" data-variant="ghost">Comment</button>
-      </form>
+      ${renderPanel({
+        title: "Comments",
+        body: `
+          <div class="settings-row">
+            ${comments.map(renderComment).join("") || `<p class="description">No comments yet.</p>`}
+            <form class="comment-form" id="detailCommentForm">
+              <textarea name="body" placeholder="Add a comment, decision, or instruction..." required></textarea>
+              <button type="submit" class="detail-action-btn" data-variant="ghost">Comment</button>
+            </form>
+          </div>
+        `,
+      })}
     </div>
   `,
   });
 
-  wireTicketDetailEditors(ticket);
+  wireTicketDetailEditors(ticket, context);
   if (features.attachments) wireAttachmentControls(ticket);
 
   const commentTextarea = $("#detailCommentForm textarea");
@@ -826,6 +834,7 @@ export async function renderDetail(options = {}) {
     const parentClear = parentEpicForm.querySelector(
       "[data-parent-epic-clear]",
     );
+    attachTicketTypeahead(parentInput, () => epicCandidates(ticket));
     const syncParentClear = () => {
       parentEpicForm.classList.toggle(
         "has-value",
@@ -873,6 +882,9 @@ export async function renderDetail(options = {}) {
   if (relatedAddForm) {
     const relatedInput = relatedAddForm.querySelector("[name=target]");
     const relatedClear = relatedAddForm.querySelector("[data-related-clear]");
+    attachTicketTypeahead(relatedInput, () =>
+      relatedTicketCandidates(context.relations, ticket),
+    );
     const syncRelatedClear = () => {
       relatedAddForm.classList.toggle(
         "has-value",
@@ -914,6 +926,53 @@ export async function renderDetail(options = {}) {
     });
   }
 
+  // Reverse of "Set parent epic": from an epic, pull a feature/task in as a
+  // child by patching that ticket's parent_ticket_id to this epic.
+  const epicChildForm = drawerInner.querySelector("#epicChildForm");
+  if (epicChildForm) {
+    const childInput = epicChildForm.querySelector("[name=target]");
+    const childClear = epicChildForm.querySelector("[data-epic-child-clear]");
+    const syncChildClear = () => {
+      epicChildForm.classList.toggle("has-value", childInput.value.length > 0);
+    };
+    childInput.addEventListener("input", syncChildClear);
+    syncChildClear();
+    childClear.addEventListener("click", () => {
+      childInput.value = "";
+      syncChildClear();
+      childInput.focus();
+    });
+    attachTicketTypeahead(childInput, () => childCandidates(ticket));
+    epicChildForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const targetLabel = String(
+        new FormData(event.currentTarget).get("target") || "",
+      ).trim();
+      if (!targetLabel) return;
+      const targetId = resolveTicketIdFromLabel(targetLabel, ticket.id);
+      if (!targetId) {
+        toast.warning("Pick a ticket from the suggestions");
+        return;
+      }
+      const target = ticketsForProject().find((t) => t.id === targetId);
+      if (!target || canonicalTicketType(target.type) === "epic") {
+        toast.warning("Epics can't be nested inside an epic");
+        return;
+      }
+      try {
+        await api(withBoardQuery(`/api/tickets/${targetId}`), {
+          method: "PATCH",
+          body: { parent_ticket_id: ticket.id },
+        });
+      } catch (err) {
+        toast.error(err.message || "Failed to add feature");
+        return;
+      }
+      await refreshTicketDetail(ticket.id, { renderBoardAfter: true });
+      toast.success("Feature added to epic");
+    });
+  }
+
   openDrawer();
 }
 
@@ -925,22 +984,24 @@ function renderAttachmentSection(ticket, attachments = []) {
   const cards = attachments.length
     ? `<div class="attachment-grid">${attachments.map((attachment) => renderAttachmentCard(ticket, attachment)).join("")}</div>`
     : `<p class="description attachment-empty-state">No images attached yet.</p>`;
-  return `
-    <div class="section attachments-section" data-attachment-section data-ticket-id="${escapeHtml(ticket.id)}">
-      <div class="attachment-heading-row">
-        <h3>Images</h3>
+  return renderPanel({
+    title: "Images",
+    className: "attachments-panel",
+    attrs: `data-attachment-section data-ticket-id="${escapeHtml(ticket.id)}"`,
+    body: `
+      <div class="settings-row">
+        <div class="attachment-dropzone" data-attachment-dropzone tabindex="0">
+          <strong>Paste, drag, or upload images</strong>
+          <span>PNG, JPG, GIF, WebP, SVG, BMP, or AVIF up to 10 MB each.</span>
+        </div>
+        ${cards}
+        <label class="attachment-upload-button detail-action-btn" role="button" data-variant="ghost" tabindex="0">
+          Upload
+          <input type="file" accept="image/*" multiple data-attachment-input />
+        </label>
       </div>
-      <div class="attachment-dropzone" data-attachment-dropzone tabindex="0">
-        <strong>Paste, drag, or upload images</strong>
-        <span>PNG, JPG, GIF, WebP, SVG, BMP, or AVIF up to 10 MB each.</span>
-      </div>
-      ${cards}
-      <label class="attachment-upload-button detail-action-btn" role="button" data-variant="ghost" tabindex="0">
-        Upload
-        <input type="file" accept="image/*" multiple data-attachment-input />
-      </label>
-    </div>
-  `;
+    `,
+  });
 }
 
 function renderAttachmentCard(ticket, attachment) {
@@ -1242,7 +1303,9 @@ export function renderInlinePreservedTextField({
   `;
 }
 
-function renderRelated(relations = [], ticket) {
+// Tickets eligible to be linked as "related": everything in the project except
+// the ticket itself, its existing relations, and its parent/child hierarchy.
+function relatedTicketCandidates(relations = [], ticket) {
   const relatedIds = new Set(relations.map((r) => r.other_ticket.id));
   const hierarchyIds = new Set();
   if (ticket?.parent_ticket_id) hierarchyIds.add(ticket.parent_ticket_id);
@@ -1251,16 +1314,13 @@ function renderRelated(relations = [], ticket) {
       if (t.parent_ticket_id === ticket.id) hierarchyIds.add(t.id);
     }
   }
-  const candidates = ticketsForProject().filter(
+  return ticketsForProject().filter(
     (t) =>
       t.id !== ticket?.id && !relatedIds.has(t.id) && !hierarchyIds.has(t.id),
   );
-  const datalistOptions = candidates
-    .map(
-      (t) => `<option value="#${t.number} — ${escapeHtml(t.title)}"></option>`,
-    )
-    .join("");
+}
 
+function renderRelated(relations = [], ticket) {
   const list = relations.length
     ? `<div class="detail-card-grid">${relations.map((r) => renderRelatedCard(r)).join("")}</div>`
     : "";
@@ -1268,9 +1328,8 @@ function renderRelated(relations = [], ticket) {
   const form = `
     <form id="relatedAddForm" class="related-add-row">
       <div class="related-add-input-wrap">
-        <input type="text" name="target" class="related-add-input meta-inline-input" list="related-ticket-suggestions" placeholder="Add related ticket…" aria-label="Add related ticket" autocomplete="off" />
+        <input type="text" name="target" class="related-add-input meta-inline-input" placeholder="Add related ticket…" aria-label="Add related ticket" autocomplete="off" />
         <button type="button" class="related-add-clear" data-related-clear aria-label="Clear" tabindex="-1">${closeIconSvg}</button>
-        <datalist id="related-ticket-suggestions">${datalistOptions}</datalist>
       </div>
       <select name="type" class="related-add-type meta-inline" aria-label="Relation type">
         <option value="relates_to">relates to</option>
@@ -1286,52 +1345,136 @@ function renderRelated(relations = [], ticket) {
 
 function renderHierarchySection(ticket, context) {
   const isEpic = canonicalTicketType(ticket.type) === "epic";
-  if (isEpic) {
-    const cards = context.child_tickets || [];
-    const body = cards.length
-      ? `<div class="detail-card-grid">${cards.map((c) => renderDetailCard(c, { detach: { mode: "child", id: c.id } })).join("")}</div>`
-      : `<p class="description">No child features yet. Create a feature / task card and set this epic as its parent.</p>`;
-    return `
-      <div class="section">
-        <h3>Features inside this Epic</h3>
-        ${body}
+  if (!isEpic) return "";
+
+  const cards = context.child_tickets || [];
+  const grid = cards.length
+    ? `<div class="detail-card-grid">${cards.map((c) => renderDetailCard(c, { detach: { mode: "child", id: c.id } })).join("")}</div>`
+    : "";
+
+  const form = `
+    <form id="epicChildForm" class="related-add-row epic-child-form">
+      <div class="related-add-input-wrap">
+        <input type="text" name="target" class="related-add-input meta-inline-input" placeholder="Add feature to epic…" aria-label="Add feature to epic" autocomplete="off" />
+        <button type="button" class="related-add-clear" data-epic-child-clear aria-label="Clear" tabindex="-1">${closeIconSvg}</button>
       </div>
-    `;
-  }
-  return "";
+      <button type="submit" class="meta-add-btn detail-action-btn" data-variant="ghost">Add</button>
+    </form>
+  `;
+
+  return renderPanel({
+    title: "Features inside this Epic",
+    body: `<div class="settings-row">${grid}${form}</div>`,
+  });
+}
+
+// Epics eligible to become this ticket's parent (any epic but itself).
+function epicCandidates(ticket) {
+  return ticketsForProject().filter(
+    (t) => t.type === "epic" && t.id !== ticket.id,
+  );
+}
+
+// Tickets eligible to be pulled into this epic as children: any non-epic ticket
+// not already parented to it. (A ticket with another parent is reparented.)
+function childCandidates(epic) {
+  return ticketsForProject().filter(
+    (t) =>
+      t.id !== epic.id &&
+      canonicalTicketType(t.type) !== "epic" &&
+      t.parent_ticket_id !== epic.id,
+  );
+}
+
+// Canonical "#12 — Title" label the resolve-on-submit logic expects.
+function ticketCanonicalLabel(t) {
+  return `#${t.number} — ${t.title}`;
+}
+
+// A typeahead row for a ticket: bold #number, title, then trailing type and
+// state badges — the same shape as the topbar search results.
+function renderTicketHitRow(t) {
+  const type = canonicalTicketType(t.type);
+  return `
+    <span class="search-hit-main">
+      <strong>${escapeHtml(ticketLabel(t))}</strong>
+      <span class="search-hit-title">${escapeHtml(t.title)}</span>
+    </span>
+    <span class="search-hit-type type-pill-${escapeHtml(type)}">${escapeHtml(typeLabel(t.type))}</span>
+    <span class="search-hit-state" data-variant="${escapeHtml(stateClassFor(t))}">${escapeHtml(t.state_name || "State")}</span>
+  `;
+}
+
+// Matches a ticket against a query by number ("12", "#12") or title substring.
+function ticketMatchesQuery(t, query) {
+  const q = query.replace(/^#/, "");
+  return (
+    String(t.number).startsWith(q) ||
+    t.title.toLowerCase().includes(query)
+  );
+}
+
+// Wire the styled typeahead onto a related-ticket / parent-epic input. Filling
+// the field with the canonical label keeps the existing submit/resolve flow.
+function attachTicketTypeahead(input, getCandidates) {
+  if (!input) return;
+  attachTypeahead(input, {
+    getItems: getCandidates,
+    match: ticketMatchesQuery,
+    renderItem: renderTicketHitRow,
+    valueOf: ticketCanonicalLabel,
+    emptyText: "No matching tickets",
+  });
+}
+
+// Board labels not yet applied to this ticket, as {name, color} items.
+function labelCandidates(ticket) {
+  const applied = new Set((ticket.labels || []).map((l) => l.name));
+  return boardLabelCatalog().filter((l) => !applied.has(l.name));
+}
+
+// A typeahead row for a label: colour swatch + bold name. Mirrors the topbar
+// hit layout (bold lead + trailing badge), adapted for a label's lack of a
+// number / state.
+function renderLabelHitRow(label) {
+  return `
+    <span class="search-hit-main">
+      <span class="typeahead-swatch" style="--label-color: ${escapeHtml(label.color || "var(--muted)")}"></span>
+      <strong>${escapeHtml(label.name)}</strong>
+    </span>
+  `;
+}
+
+function attachLabelTypeahead(input, ticket) {
+  if (!input) return;
+  attachTypeahead(input, {
+    getItems: () => labelCandidates(ticket),
+    match: (label, query) => label.name.toLowerCase().includes(query),
+    renderItem: renderLabelHitRow,
+    valueOf: (label) => label.name,
+    emptyText: "No matching labels",
+  });
 }
 
 function renderParentEpicSection(ticket, context) {
   if (canonicalTicketType(ticket.type) === "epic") return "";
-
-  const epics = ticketsForProject().filter(
-    (t) => t.type === "epic" && t.id !== ticket.id,
-  );
-  const datalistOptions = epics
-    .map(
-      (t) => `<option value="#${t.number} — ${escapeHtml(t.title)}"></option>`,
-    )
-    .join("");
 
   const body = context.parent_ticket
     ? `<div class="detail-card-grid detail-card-grid--single">${renderDetailCard(context.parent_ticket, { detach: { mode: "parent" } })}</div>`
     : `
       <form id="parentEpicForm" class="related-add-row parent-epic-form">
         <div class="related-add-input-wrap">
-          <input type="text" name="target" class="related-add-input meta-inline-input" list="parent-epic-suggestions" placeholder="Set parent epic…" aria-label="Set parent epic" autocomplete="off" />
+          <input type="text" name="target" class="related-add-input meta-inline-input" placeholder="Set parent epic…" aria-label="Set parent epic" autocomplete="off" />
           <button type="button" class="related-add-clear" data-parent-epic-clear aria-label="Clear" tabindex="-1">${closeIconSvg}</button>
-          <datalist id="parent-epic-suggestions">${datalistOptions}</datalist>
         </div>
         <button type="submit" class="meta-add-btn detail-action-btn" data-variant="ghost">Set</button>
       </form>
     `;
 
-  return `
-    <div class="section">
-      <h3>Epic</h3>
-      ${body}
-    </div>
-  `;
+  return renderPanel({
+    title: "Epic",
+    body: `<div class="settings-row">${body}</div>`,
+  });
 }
 
 export function renderDetailCard(ticket, options = {}) {

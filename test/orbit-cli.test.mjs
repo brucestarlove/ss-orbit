@@ -520,7 +520,7 @@ test("orbit init creates AGENTS.md with Orbit instructions when missing", () => 
   const skillContent = readFileSync(skillOrbit, "utf8");
   assert.match(content, /^# AGENTS\.md/m);
   assert.match(content, /SKILL-ORBIT\.md` is canonical for Orbit\/kanban\/ticket\/card workflow/);
-  assert.match(content, /When work mentions Orbit, kanban, board, lane, ticket, card/);
+  assert.match(content, /For Orbit, kanban, board, lane, ticket, card/);
   assert.match(content, /Use Orbit API\/MCP tools for tickets\/cards; do not edit \.orbit\/board\.db directly\./);
   assert.doesNotMatch(content, /## Orbit Project Context/);
   assert.match(skillContent, /Board Journal entries are durable project memory loaded for agents working this board, not general notes or persona guidance/);
@@ -578,7 +578,7 @@ test("orbit init appends Orbit instructions to existing AGENTS.md once", () => {
   assert.match(second, /AGENTS\.md already includes Orbit instructions/);
   assert.doesNotMatch(second, /refresh-agents-md/);
   assert.match(content, /Keep this repo-specific rule/);
-  assert.equal((content.match(/ORBIT:AGENTS-START/g) || []).length, 1);
+  assert.equal((content.match(/<!--ORBIT-->/g) || []).length, 1);
   assert.match(content, /SKILL-ORBIT\.md/);
   assert.match(content, /Use Orbit API\/MCP tools for tickets\/cards; do not edit \.orbit\/board\.db directly\./);
 });
@@ -701,7 +701,7 @@ test("orbit reset removes board artifacts after backing up the board", () => {
   assert.equal(existsSync(join(h.projectRoot, ".orbit")), false);
   assert.equal(existsSync(join(h.projectRoot, "SKILL-ORBIT.md")), false);
   const agents = readFileSync(join(h.projectRoot, "AGENTS.md"), "utf8");
-  assert.doesNotMatch(agents, /ORBIT:AGENTS-START/);
+  assert.doesNotMatch(agents, /<!--ORBIT-->/);
 
   const registry = new DatabaseSync(join(h.dataDir, "registry.db"));
   assert.equal(registry.prepare("SELECT COUNT(*) AS count FROM boards").get().count, 0);

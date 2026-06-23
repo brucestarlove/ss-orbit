@@ -1,8 +1,8 @@
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-export const ORBIT_AGENTS_START = "<!-- ORBIT:AGENTS-START -->";
-export const ORBIT_AGENTS_END = "<!-- ORBIT:AGENTS-END -->";
+export const ORBIT_AGENTS_START = "<!--ORBIT-->";
+export const ORBIT_AGENTS_END = "<!--/ORBIT-->";
 export const ORBIT_AGENTS_CANONICAL_LINE =
   "Git is canonical for code. `SKILL-ORBIT.md` is canonical for Orbit/kanban/ticket/card workflow.";
 
@@ -10,7 +10,7 @@ export function orbitAgentsSection() {
   return `${ORBIT_AGENTS_START}
 ${ORBIT_AGENTS_CANONICAL_LINE}
 
-When work mentions Orbit, kanban, board, lane, ticket, card, epic, blocker, claim, AI Ready, implementation fields, planning state, project memory, or handoff: read \`SKILL-ORBIT.md\` first and follow it.
+For Orbit, kanban, board, lane, ticket, card, epic, blocker, claim, AI Ready, implementation fields, planning state, project memory, or handoff work: read \`SKILL-ORBIT.md\` first.
 Use Orbit API/MCP tools for tickets/cards; do not edit .orbit/board.db directly.
 ${ORBIT_AGENTS_END}\n`;
 }

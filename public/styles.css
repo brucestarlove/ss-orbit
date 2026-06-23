@@ -1787,6 +1787,62 @@ button.create-flyout-close::after {
     -webkit-backdrop-filter: blur(20px);
 }
 
+/* Typeahead dropdown for the ticket-detail drawer inputs (Add label, Set
+   parent epic, Add related ticket). Reuses the .search-results / .search-hit
+   chrome from the topbar so the suggestions get the same bold-label + title +
+   badge treatment; these rules only cover the bits unique to the drawer. */
+.typeahead-results {
+    /* Fixed + body-mounted (see typeahead.js) so the .settings-card
+       overflow:hidden can't clip it. left/top/width are set inline from the
+       input's rect; override the absolute offsets inherited from
+       .search-results. */
+    position: fixed;
+    right: auto;
+    z-index: 1200;
+    max-height: 16rem;
+}
+
+[data-theme="dark"] .typeahead-results {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+/* Keyboard-highlighted row matches the hover state from the search component. */
+.typeahead-results .search-hit.is-active {
+    background: var(--accent-hover);
+}
+
+/* Last row carries no divider, so the rounded corners read cleanly. */
+.typeahead-results .search-hit:last-child {
+    border-bottom: 0;
+}
+
+/* Empty-state row is informational, not a target. */
+.typeahead-results .search-hit.typeahead-empty {
+    color: var(--muted);
+    cursor: default;
+}
+
+.typeahead-results .search-hit.typeahead-empty:hover {
+    background: transparent;
+}
+
+/* Colour chip standing in for the state badge on label suggestions. */
+.typeahead-swatch {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 999px;
+    background: var(--label-color, var(--muted));
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+/* Positioning context so the dropdown anchors to the label input. */
+.label-add-input-wrap {
+    position: relative;
+}
+
 /* Horizontal scroll: styled thumb/track (Firefox + WebKit). */
 .kanban {
     display: grid;
@@ -2907,25 +2963,44 @@ select.detail-meta-badge::-ms-expand {
     border-color: rgba(var(--accent-rgb), 0.28);
 }
 
-.detail-type-badge.type-pill-epic {
+/* Compact type badge in search-result rows, sharing the state-badge chrome and
+   the per-type colours below. */
+.search-hit-type {
+    flex: 0 0 auto;
+    padding: 0.1rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: calc((0.66rem) * var(--type-scale));
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.detail-type-badge.type-pill-epic,
+.search-hit-type.type-pill-epic {
     color: #8b5cf6;
     background-color: rgba(var(--purple-rgb), 0.12);
     border-color: rgba(var(--purple-rgb), 0.28);
 }
 
-.detail-type-badge.type-pill-feature {
+.detail-type-badge.type-pill-feature,
+.search-hit-type.type-pill-feature {
     color: #15803d;
     background-color: rgba(74, 222, 128, 0.12);
     border-color: rgba(74, 222, 128, 0.26);
 }
 
-.detail-type-badge.type-pill-task {
+.detail-type-badge.type-pill-task,
+.search-hit-type.type-pill-task {
     color: #2563eb;
     background-color: rgba(96, 165, 250, 0.12);
     border-color: rgba(96, 165, 250, 0.26);
 }
 
-.detail-type-badge.type-pill-bug {
+.detail-type-badge.type-pill-bug,
+.search-hit-type.type-pill-bug {
     color: #dc2626;
     background-color: rgba(var(--coral-rgb), 0.13);
     border-color: rgba(var(--coral-rgb), 0.3);
@@ -3017,15 +3092,18 @@ select.detail-meta-badge::-ms-expand {
     border-color: rgba(74, 222, 128, 0.32);
 }
 
-[data-theme="dark"] .detail-type-badge.type-pill-feature {
+[data-theme="dark"] .detail-type-badge.type-pill-feature,
+[data-theme="dark"] .search-hit-type.type-pill-feature {
     color: #4ade80;
 }
 
-[data-theme="dark"] .detail-type-badge.type-pill-task {
+[data-theme="dark"] .detail-type-badge.type-pill-task,
+[data-theme="dark"] .search-hit-type.type-pill-task {
     color: #60a5fa;
 }
 
-[data-theme="dark"] .detail-type-badge.type-pill-bug {
+[data-theme="dark"] .detail-type-badge.type-pill-bug,
+[data-theme="dark"] .search-hit-type.type-pill-bug {
     color: #f87171;
 }
 
@@ -3298,6 +3376,46 @@ button.drawer-archive::after {
     background-clip: padding-box;
 }
 
+/* Global default scrollbar — themed thumb/track on every overflow surface
+   (dropdowns, popovers, menus, the page itself) so nothing falls back to the
+   raw browser bars. Component rules like .kanban / .drawer-inner override via
+   their higher specificity; opt-outs like .drawer-tabs keep scrollbar-width:none. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--subtle-bg-2);
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        var(--scrollbar-thumb),
+        rgba(var(--blue-rgb), 0.45)
+    );
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+        180deg,
+        var(--scrollbar-thumb-hover),
+        rgba(var(--blue-rgb), 0.55)
+    );
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
 .empty-state {
     display: grid;
     min-height: 20rem;
@@ -3311,7 +3429,6 @@ button.drawer-archive::after {
     display: grid;
     gap: 0.55rem;
     padding-bottom: 0.7rem;
-    border-bottom: 1px solid var(--line);
 }
 
 .detail-head h2 {
@@ -3662,28 +3779,6 @@ p.description,
     border-bottom: none;
 }
 
-.ticket-meta-row--stack {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.4rem;
-    align-items: start;
-}
-
-/* Labels are their own small field group: label heading, existing badges on
-   the next line, then an add-control row that mirrors the Related input. */
-.ticket-meta-row--stack > dd {
-    display: grid;
-    gap: 0.45rem;
-    align-items: start;
-    min-width: 0;
-    padding-top: 0;
-}
-
-.ticket-meta-row--stack .label-pills-row,
-.ticket-meta-row--stack .label-add-row {
-    width: 100%;
-    min-width: 0;
-}
-
 .ticket-meta dt {
     padding-top: 0.15rem;
     white-space: nowrap;
@@ -3851,6 +3946,56 @@ input.meta-inline {
     border-color: rgba(var(--starlight-rgb), 0.22);
 }
 
+/* The detail-drawer "Add…" fields (label / parent epic / related ticket) wear
+   the same framed, softly-glowing box as the Description editor rather than the
+   bare transparent .meta-inline-input — see .detail-description-body. Placed
+   after the .meta-inline-input rules so these win on equal specificity. */
+.label-add-input,
+.related-add-input {
+    border: 1px solid rgba(var(--accent-rgb), 0.22);
+    border-radius: var(--radius-control);
+    background: linear-gradient(
+        165deg,
+        rgba(var(--accent-rgb), 0.07),
+        rgba(var(--paper-rgb), 0.72) 55%
+    );
+    box-shadow:
+        0 3px 16px rgba(var(--warmth-rgb), 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.label-add-input:hover,
+.label-add-input:focus,
+.related-add-input:hover,
+.related-add-input:focus {
+    background: var(--accent-hover);
+    border-color: var(--accent-border);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+    outline: none;
+}
+
+[data-theme="dark"] .label-add-input,
+[data-theme="dark"] .related-add-input {
+    border-color: rgba(var(--starlight-rgb), 0.2);
+    background: linear-gradient(
+        165deg,
+        rgba(var(--starlight-rgb), 0.08),
+        rgba(var(--cosmos-rgb), 0.55) 60%
+    );
+    box-shadow:
+        0 6px 28px rgba(var(--void-rgb), 0.45),
+        inset 0 1px 0 rgba(var(--starlight-rgb), 0.08);
+}
+
+[data-theme="dark"] .label-add-input:hover,
+[data-theme="dark"] .label-add-input:focus,
+[data-theme="dark"] .related-add-input:hover,
+[data-theme="dark"] .related-add-input:focus {
+    background: var(--accent-hover);
+    border-color: var(--accent-border);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
 .label-pill-remove,
 button.label-pill-remove {
     display: inline-grid;
@@ -3891,7 +4036,7 @@ button.label-pill-remove::after {
 .label-add-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.55rem;
+    gap: var(--add-control-stack-gap);
     align-items: start;
 }
 
@@ -4112,7 +4257,7 @@ details.section > summary {
 
 .comment-form {
     display: grid;
-    gap: 0.5rem;
+    gap: var(--add-control-stack-gap);
     margin-top: 0.8rem;
 }
 
@@ -4219,7 +4364,8 @@ details.section > summary {
 /* Notes For You — resting accent so the field reads as a personal scratch pad
    before hover; hover keeps the shared editable-field affordance. */
 .settings-notes-body.editable-field,
-.settings-agent-instructions-body.editable-field {
+.settings-agent-instructions-body.editable-field,
+.detail-description-body.editable-field {
     border: 1px solid rgba(var(--accent-rgb), 0.22);
     border-radius: var(--radius-control);
     background: linear-gradient(
@@ -4235,13 +4381,16 @@ details.section > summary {
 .settings-notes-body.editable-field:hover,
 .settings-notes-body.editable-field:focus-visible,
 .settings-agent-instructions-body.editable-field:hover,
-.settings-agent-instructions-body.editable-field:focus-visible {
+.settings-agent-instructions-body.editable-field:focus-visible,
+.detail-description-body.editable-field:hover,
+.detail-description-body.editable-field:focus-visible {
     background: var(--accent-hover);
     box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 
 [data-theme="dark"] .settings-notes-body.editable-field,
-[data-theme="dark"] .settings-agent-instructions-body.editable-field {
+[data-theme="dark"] .settings-agent-instructions-body.editable-field,
+[data-theme="dark"] .detail-description-body.editable-field {
     border-color: rgba(var(--starlight-rgb), 0.2);
     background: linear-gradient(
         165deg,
@@ -4256,9 +4405,20 @@ details.section > summary {
 [data-theme="dark"] .settings-notes-body.editable-field:hover,
 [data-theme="dark"] .settings-notes-body.editable-field:focus-visible,
 [data-theme="dark"] .settings-agent-instructions-body.editable-field:hover,
-[data-theme="dark"] .settings-agent-instructions-body.editable-field:focus-visible {
+[data-theme="dark"] .settings-agent-instructions-body.editable-field:focus-visible,
+[data-theme="dark"] .detail-description-body.editable-field:hover,
+[data-theme="dark"] .detail-description-body.editable-field:focus-visible {
     background: var(--accent-hover);
     box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
+/* Ticket detail description shares the Notes-tab editable box, but it isn't an
+   .inline-md-field-body, so it needs its own inset padding (overriding the bare
+   .editable-field negative margin) and a comfortable empty landing height. */
+.detail-description-body.editable-field {
+    margin-inline: 0;
+    padding: 0.6rem 0.75rem;
+    min-height: 4.5rem;
 }
 
 .repository-delete-actions {
@@ -4337,6 +4497,18 @@ details.section > summary {
     gap: 1rem;
     margin-top: 0.5rem;
     min-width: 0;
+}
+
+/* Ticket detail reuses the settings panel stack for its sections (Labels,
+   Related, AI Plan, etc.). Add breathing room below the description block that
+   sits above it, and zero the legacy upload-button margin since the panel's
+   .settings-row already spaces the dropzone / grid / button. */
+.detail-section-stack {
+    margin-top: 1.3rem;
+}
+
+.attachments-panel .attachment-upload-button {
+    margin-top: 0;
 }
 
 .settings-card {
@@ -4437,7 +4609,7 @@ details.section > summary {
 
 .settings-row {
     display: grid;
-    gap: 0.5rem;
+    gap: var(--add-control-stack-gap);
 }
 
 /* Control-in-its-own-column row: the toggle/button sits left, a stacked
@@ -5350,7 +5522,7 @@ button:disabled {
     /* name field (flex) + Add Lane button — two children, two columns. */
     grid-template-columns: minmax(6rem, 1fr) auto;
     gap: 0.45rem;
-    margin-top: 0.65rem;
+    margin-top: var(--add-control-stack-gap);
 }
 
 /* Cards inside the detail pane (epic children / parent epic). Reuses the
@@ -5538,14 +5710,31 @@ button.card-archive-btn::after {
 .related-add-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: var(--add-control-stack-gap);
     align-items: center;
-    margin-top: 0.55rem;
+    margin-top: var(--add-control-stack-gap);
 }
 
 .parent-epic-form {
     flex-direction: column;
     align-items: flex-start;
+}
+
+/* Stack the "Add feature to epic" field over its Add button, matching the
+   Labels / Related sections (input full width, button on the next line). */
+.epic-child-form {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 0;
+}
+
+.detail-card-grid + .epic-child-form {
+    margin-top: var(--add-control-stack-gap);
+}
+
+.epic-child-form .related-add-input-wrap {
+    width: 100%;
+    flex: 0 0 auto;
 }
 
 .parent-epic-form .related-add-input-wrap {
@@ -6628,12 +6817,12 @@ button.help-dialog-close::after {
 
 .attachment-upload-button {
     position: relative;
-    margin-top: 0.55rem;
+    margin-top: var(--add-control-stack-gap);
     margin-bottom: 0;
 }
 
 .attachments-section > .attachment-upload-button {
-    margin-top: 0.55rem;
+    margin-top: var(--add-control-stack-gap);
 }
 
 .attachment-upload-button input {

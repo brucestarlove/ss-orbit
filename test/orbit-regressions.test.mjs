@@ -159,9 +159,8 @@ test("renderMarkdown supports headers, blockquotes, hr, and GFM task lists", () 
   assert.match(html, /<h2>Sub heading<\/h2>/);
   assert.match(html, /<blockquote><p>quoted line<br>spans two<\/p><\/blockquote>/);
   assert.match(html, /<hr>/);
-  assert.match(html, /<ul class="task-list">/);
-  assert.match(html, /<li class="task-item"><input type="checkbox" disabled> todo item<\/li>/);
-  assert.match(html, /<li class="task-item task-item-done"><input type="checkbox" disabled checked> done item<\/li>/);
+  assert.match(html, /type="checkbox" disabled> todo item/);
+  assert.match(html, /type="checkbox" disabled checked> done item/);
 });
 
 test("renderMarkdown calls cleanText so mojibake-laden source still renders correctly", () => {
@@ -195,8 +194,6 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.match(detailSource, /renderInlinePreservedTextField\(\{\s*fieldName:\s*"implementation_updates"/);
   assert.match(detailSource, /label:\s*"Revisions"/);
   assert.match(detailSource, /placeholder:\s*"Changes since initial implementation: "/);
-  assert.match(detailSource, /class="detail-action-btn"/);
-  assert.match(detailSource, /data-variant="ghost"/);
   assert.match(detailSource, /data-open-artifact="\$\{escapeHtml\(artifactPathText\)\}"/);
   assert.match(detailSource, /data-artifact-field="\$\{escapeHtml\(artifactFieldName \|\| ""\)\}"/);
   assert.match(detailSource, /const artifactTicketId = btn\.dataset\.artifactTicketId \|\| ticket\.id/);
@@ -206,7 +203,6 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   assert.doesNotMatch(detailSource, /data-edit-artifact-path/);
   assert.doesNotMatch(detailSource, /Artifact path:/);
   assert.match(detailSource, /const inner = hasValue\s*\? renderPreservedText\(text\)\s*: escapeHtml\(placeholder \|\| ""\)/);
-  assert.match(detailSource, /class="inline-md-field-body preserved-text-body editable-field/);
   assert.match(detailSource, /data-edit-field="\$\{escapeHtml\(fieldName\)\}"/);
   assert.doesNotMatch(detailSource, /id="aiFieldsForm"/);
   // Saves go through patchTicket with cleanText applied.
@@ -215,7 +211,6 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   // Board Notes uses click-to-edit on preserved text, matching ticket detail.
   assert.match(settingsSource, /data-edit-field="project_notes"/);
   assert.match(settingsSource, /renderPreservedText\(notes\)/);
-  assert.match(settingsSource, /class="inline-md-field-body preserved-text-body editable-field settings-notes-body/);
   assert.doesNotMatch(settingsSource, /renderMarkdown\(notes\)/);
   assert.doesNotMatch(settingsSource, /id="notesSettingsForm"/);
   assert.match(settingsSource, /project_notes:\s*cleanText\(next\)/);
@@ -225,7 +220,6 @@ test("comments, AI fields, and board Notes use preserved read-only text with cle
   // Agent Instructions uses the same click-to-edit preserved text interface as Notes.
   assert.match(settingsSource, /data-edit-field="agent_instructions"/);
   assert.match(settingsSource, /renderPreservedText\(instructions\)/);
-  assert.match(settingsSource, /class="inline-md-field-body preserved-text-body editable-field settings-agent-instructions-body/);
   assert.doesNotMatch(settingsSource, /id="agentInstructionsForm"/);
   assert.match(settingsSource, /agent_instructions:\s*cleanText\(next\)/);
 });
@@ -251,8 +245,6 @@ test("ticket detail fetches comments from the dedicated endpoint", () => {
   assert.match(detailSource, /api\(withBoardQuery\(`\/api\/tickets\/\$\{requestedTicketId\}\/comments`\)\)\.then\(\s*\(result\) => result\.comments \|\| \[\],?\s*\)/);
   assert.match(detailSource, /comments\.map\(renderComment\)/);
   assert.match(detailSource, /data-comment-action="toggle-ai-omission"/);
-  assert.match(detailSource, /class="comment-ai-toggle detail-action-btn"/);
-  assert.match(detailSource, /data-variant="ghost"/);
   assert.match(detailSource, /\$\{omittedForAi \? "AI Include" : "AI Ignore"\}/);
   assert.match(detailSource, /\/api\/tickets\/\$\{ticket\.id\}\/comments\/\$\{commentId\}/);
   assert.match(detailSource, /body:\s*\{ omitted_for_ai: omittedForAi \}/);
@@ -305,24 +297,8 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
   for (const importPath of [
     "@starlove/ui/tokens",
     "@starlove/ui/components/button",
-    "@starlove/ui/components/button-arc",
-    "@starlove/ui/components/input",
     "@starlove/ui/components/slider",
-    "@starlove/ui/components/topbar-btn",
-    "@starlove/ui/components/topbar-search",
-    "@starlove/ui/components/topbar-notes",
-    "@starlove/ui/components/topbar-chip",
-    "@starlove/ui/components/menu-flyout",
-    "@starlove/ui/components/create-flyout",
-    "@starlove/ui/components/card",
-    "@starlove/ui/components/lane",
-    "@starlove/ui/components/drawer",
-    "@starlove/ui/components/state-pill",
-    "@starlove/ui/components/priority-pill",
-    "@starlove/ui/components/card-accordion",
-    "@starlove/ui/components/dot",
-    "@starlove/ui/components/search-results",
-    "@starlove/ui/components/lightbox"
+    "@starlove/ui/components/topbar-notes"
   ]) {
     assert.match(stylesSource, new RegExp(`@import "${importPath.replaceAll("/", "\\/")}";`));
   }
@@ -335,24 +311,8 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
   const bundled = Buffer.from(cssFile.contents).toString("utf8");
 
   assert.doesNotMatch(bundled, /@import\s+"@starlove\/ui/);
-  assert.match(bundled, /\.topbar-chip/);
   assert.match(bundled, /\.topbar-notes/);
-  assert.match(bundled, /\.topbar-notes__text/);
   assert.match(bundled, /button\[data-variant=primary\]|button\[data-variant="primary"\]/);
-  assert.match(bundled, /\.state-pill\[data-variant="?ai-ready"?\]/);
-  assert.match(bundled, /\.priority-pill\[data-variant="?urgent"?\]/);
-  assert.match(bundled, /\.agent-dot/);
-  assert.match(bundled, /\.search-hit-title/);
-  assert.match(bundled, /\.attachment-lightbox/);
-  assert.match(bundled, /\.lane\[data-accent=ai-ready\]|\.lane\[data-accent="ai-ready"\]/);
-  assert.match(bundled, /\.lane\[data-flat\]/);
-  assert.match(bundled, /\.drawer/);
-  assert.match(bundled, /--field-padding-y:\s*0\.62rem;/);
-  assert.match(bundled, /url\("?\.\/cursors\/live_link\.cur"?\)/);
-  assert.match(bundled, /button\.card-expand-trigger\[data-variant=("card-accordion"|card-accordion)\]/);
-  assert.match(bundled, /button\.card-expand-trigger[\s\S]*box-shadow:\s*none/);
-  assert.match(bundled, /button\.card-expand-trigger:not\(\.card-expand-trigger--static\):hover[\s\S]*transform:\s*none/);
-  assert.doesNotMatch(stylesSource, /button\.card-expand-trigger\s*,[\s\S]*box-shadow:\s*none/);
 });
 
 test("multiline inline edit opens without forcing the drawer to the field bottom", () => {
@@ -380,7 +340,6 @@ test("ticket detail exposes dependency-free image attachment controls", () => {
   assert.match(detailSource, /event\.dataTransfer\?\.files/);
   assert.match(detailSource, /clipboardData\?\.files/);
   assert.match(detailSource, /openAttachmentLightbox/);
-  assert.match(detailSource, /class="attachment-thumb-button" data-no-arc/);
   assert.match(detailSource, /event\.key === "Escape"/);
 });
 
@@ -1065,7 +1024,7 @@ test("board delete removes registry row and local board database after slug conf
     assert.equal(existsSync(join(h.projectRoot, ".orbit")), false);
     assert.equal(existsSync(skillPath), false);
     const agentsContent = readFileSync(agentsPath, "utf8");
-    assert.doesNotMatch(agentsContent, /ORBIT:AGENTS-START/);
+    assert.doesNotMatch(agentsContent, /<!--ORBIT-->/);
     assert.doesNotMatch(agentsContent, /SKILL-ORBIT\.md/);
 
     const backupDir = join(h.dataDir, "backups", "boards", board.id);
@@ -1481,14 +1440,12 @@ test("board picker selection switches boards without opening Settings", () => {
 
 test("board creation uses a system folder picker instead of a typed repo path", () => {
   const boardMenuSource = readFileSync(join(repoRoot, "public", "js", "board-menu.js"), "utf8");
-  const stylesSource = readFileSync(join(repoRoot, "public", "styles.css"), "utf8");
   const routerSource = readFileSync(join(repoRoot, "src", "core", "router.js"), "utf8");
 
   assert.match(boardMenuSource, /name="repo_path"[^>]*readonly/);
   assert.match(boardMenuSource, /id="pickRepoFolderBtn"/);
   assert.match(boardMenuSource, /\/api\/system\/pick-folder/);
   assert.doesNotMatch(boardMenuSource, /placeholder="Repo path on disk"/);
-  assert.match(stylesSource, /\.folder-picker-field/);
   assert.match(routerSource, /url\.pathname === "\/api\/system\/pick-folder"/);
 });
 

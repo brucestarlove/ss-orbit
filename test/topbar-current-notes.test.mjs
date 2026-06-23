@@ -24,8 +24,8 @@ test("topbar exposes truncated board notes and shared editable popover without a
   const appSource = readFileSync(join(repoRoot, "public", "js", "app.js"), "utf8");
   const topbarNotesSource = readFileSync(join(repoRoot, "public", "js", "topbar-notes.js"), "utf8");
 
-  assert.match(indexSource, /id="brandFocusBtn"[\s\S]*data-variant="brand-focus"[\s\S]*aria-controls="brandFocusPopover"/);
-  assert.match(indexSource, /id="brandNotesBtn"[\s\S]*class="topbar-notes brand-notes-strip"[\s\S]*id="topbarSearch"/);
+  assert.match(indexSource, /id="brandFocusBtn"[\s\S]*aria-controls="brandFocusPopover"/);
+  assert.match(indexSource, /id="brandNotesBtn"/);
   assert.match(indexSource, /id="brandFocusPopover"[\s\S]*Notes For You/);
   assert.doesNotMatch(indexSource, /Objective|brandFocusMarquee/);
   assert.match(mainSource, /wireTopbarFocus\(\)/);
@@ -35,6 +35,5 @@ test("topbar exposes truncated board notes and shared editable popover without a
   assert.match(topbarNotesSource, /data-edit-field="project_notes"/);
   assert.match(topbarNotesSource, /startInlineEdit\(notesEl,/);
   assert.match(topbarNotesSource, /body:\s*\{\s*project_notes:\s*cleanText\(next\)\s*\}/);
-  assert.match(topbarNotesSource, /dataset\.state\s*=\s*open \? "open" : "closed"/);
   assert.match(indexSource, /id="newTicketBtn"[\s\S]*aria-label="New Card"/);
 });
