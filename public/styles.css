@@ -570,7 +570,8 @@ button[data-variant="ghost"]:active,
    override, since var(--ink) remaps to near-white in dark mode. Scoped to
    button[type="submit"] so topbar chips, icon buttons, and CTAs are
    left alone. */
-[data-theme="dark"] button[type="submit"]:not([data-variant]) {
+[data-theme="dark"] button[type="submit"]:not([data-variant]),
+[data-theme="dark"] .menu-flyout-actions-row button {
     color: #e8efff;
     border: 1px solid rgba(var(--starlight-rgb), 0.32);
     background: linear-gradient(
@@ -586,7 +587,8 @@ button[data-variant="ghost"]:active,
     letter-spacing: 0.01em;
 }
 
-[data-theme="dark"] button[type="submit"]:not([data-variant]):hover {
+[data-theme="dark"] button[type="submit"]:not([data-variant]):hover,
+[data-theme="dark"] .menu-flyout-actions-row button:hover {
     filter: brightness(1.08);
     border-color: rgba(var(--starlight-rgb), 0.6);
     box-shadow:
@@ -1229,11 +1231,55 @@ h1 {
     color: var(--muted);
 }
 
+.menu-flyout-head--actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.menu-flyout-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.menu-flyout-actions button[data-variant="ghost"] {
+    min-height: 1.75rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: calc(var(--radius-control) - 4px);
+    font-size: calc((0.72rem) * var(--type-scale));
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
 .menu-flyout-list {
     display: flex;
     flex-direction: column;
     gap: var(--row-gap);
     padding: 0.55rem 0.55rem 0.65rem;
+}
+
+.menu-flyout-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.65rem;
+}
+
+.menu-flyout-section--export {
+    gap: 0.75rem;
+    padding: 0.85rem 0.75rem 0.75rem;
+}
+
+.menu-flyout-heading {
+    margin: 0;
+    color: var(--ink);
+    font-size: calc((0.82rem) * var(--type-scale));
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 /* Flyout menu items — chrome comes from the shared .topbar-chip/.menu-flyout-item rule above */
@@ -1262,6 +1308,21 @@ h1 {
     border-radius: calc(var(--radius-control) - 2px);
     font: inherit;
     font-size: calc((0.82rem) * var(--type-scale));
+}
+
+.menu-flyout-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.menu-flyout-form .folder-picker-field {
+    display: flex;
+    gap: 0.45rem;
+}
+
+.menu-flyout-form .folder-picker-field input {
+    min-width: 0;
 }
 
 .folder-picker-field input[readonly] {
@@ -1307,7 +1368,9 @@ h1 {
     cursor: pointer;
 }
 
-.menu-flyout-form button[type="submit"] {
+.menu-flyout-form button[type="submit"],
+.menu-flyout-actions-row button {
+    width: 100%;
     padding: 0.42rem 0.65rem;
     border-radius: calc(var(--radius-control) - 2px);
     border: 1px solid var(--btn-border);
@@ -1336,6 +1399,55 @@ h1 {
 .menu-flyout-hint--intro {
     margin: 0 0 0.35rem;
     opacity: 0.85;
+}
+
+.menu-flyout-copy {
+    margin: 0;
+    color: var(--muted);
+    font-size: calc((0.8rem) * var(--type-scale));
+    line-height: 1.4;
+}
+
+.menu-flyout-toggle.orbit-check {
+    align-self: flex-start;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0;
+    padding: 0.4rem 0.55rem;
+    border-color: rgba(var(--accent-rgb), 0.28);
+    border-radius: calc(var(--radius-control) - 2px);
+    background: rgba(var(--paper-rgb), 0.42);
+}
+
+.menu-flyout-toggle.orbit-check:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-hover);
+}
+
+[data-theme="dark"] .menu-flyout-toggle.orbit-check {
+    border-color: rgba(var(--starlight-rgb), 0.28);
+    background: rgba(var(--starlight-rgb), 0.06);
+}
+
+[data-theme="dark"] .menu-flyout-toggle.orbit-check:hover {
+    border-color: rgba(var(--starlight-rgb), 0.42);
+    background: rgba(var(--starlight-rgb), 0.1);
+}
+
+.menu-flyout-toggle-text {
+    min-width: 0;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.menu-flyout-actions-row {
+    display: flex;
+    width: 100%;
+}
+
+.menu-flyout-actions-row button:disabled {
+    cursor: wait;
+    opacity: 0.72;
 }
 
 /* Primary / secondary actions in the thin top bar */
