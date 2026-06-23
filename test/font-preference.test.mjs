@@ -36,7 +36,7 @@ const FONT_IDS = [
 
 const DEFAULT_TARGETS = {
   control: "inter",
-  heading: "inter",
+  heading: "orbitron",
   label: "inter",
   badge: "orbitron"
 };
@@ -86,7 +86,7 @@ function appliedFonts(doc) {
 function defaultFontStacks() {
   return {
     control: fontStackFor("inter"),
-    heading: fontStackFor("inter"),
+    heading: fontStackFor("orbitron"),
     label: fontStackFor("inter"),
     badge: fontStackFor("orbitron")
   };

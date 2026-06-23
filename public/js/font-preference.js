@@ -1,10 +1,11 @@
 export const FONT_STORAGE_KEY = "orbit_font_preferences";
 export const FONT_CHANGE_EVENT = "orbit:font-preference-change";
 
-// Inter is the default site font and for most categories; badges default to
-// Orbitron. The site font drives global font metrics such as size, spacing,
-// and line-height.
+// Inter is the default site font and for most categories; headings and badges
+// default to Orbitron. The site font drives global font metrics such as size,
+// spacing, and line-height.
 export const DEFAULT_SITE_FONT = "inter";
+export const DEFAULT_HEADING_FONT = "orbitron";
 export const DEFAULT_BADGE_FONT = "orbitron";
 export const DEFAULT_USER_SCALE = 1;
 export const USER_SCALE_MIN = 0.85;
@@ -97,7 +98,7 @@ export const LEGACY_FONT_TARGET_ALIASES = Object.freeze({
 
 export const DEFAULT_FONT_TARGET_PREFERENCES = Object.freeze({
   control: DEFAULT_SITE_FONT,
-  heading: DEFAULT_SITE_FONT,
+  heading: DEFAULT_HEADING_FONT,
   label: DEFAULT_SITE_FONT,
   badge: DEFAULT_BADGE_FONT
 });

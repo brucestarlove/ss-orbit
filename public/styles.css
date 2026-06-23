@@ -358,8 +358,8 @@ input[type="file"] {
     --orbit-font-system:
         "Aptos Display", "Bahnschrift", "Segoe UI Variable", "Segoe UI",
         sans-serif;
-    /* Inter is the default font across every category. Appearance can override
-     common text categories independently. */
+    /* Inter is the default site/body font; headings and badges default to
+     Orbitron via font-preference.js / the inline script in index.html. */
     --orbit-font-default:
         "Orbit Inter", "Inter", "Segoe UI Variable", "Segoe UI", Arial,
         sans-serif;
