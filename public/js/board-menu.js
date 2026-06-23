@@ -158,6 +158,75 @@ function downloadBlob(filename, blob) {
   URL.revokeObjectURL(url);
 }
 
+async function inflateZipEntry(bytes) {
+  if (typeof DecompressionStream === "undefined") {
+    throw new Error("Compressed ZIP entries are not supported in this browser.");
+  }
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+function parseImportSnapshotText(text, filename = "snapshot") {
+  const trimmed = String(text || "").trimStart();
+  if (trimmed.startsWith("<")) throw new Error(`${filename} looks like HTML instead of JSON.`);
+  try {
+    const snapshot = JSON.parse(text);
+    if (!snapshot?.board) throw new Error("snapshot_missing_board");
+    return snapshot;
+  } catch (error) {
+    throw new Error(`${filename}: ${error?.message || "invalid JSON"}`);
+  }
+}
+
+async function readZipSnapshots(file) {
+  const buffer = await file.arrayBuffer();
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  const decoder = new TextDecoder();
+  const snapshots = [];
+  let offset = 0;
+
+  while (offset + 30 <= bytes.length) {
+    const signature = view.getUint32(offset, true);
+    if (signature === 0x02014b50 || signature === 0x06054b50) break;
+    if (signature !== 0x04034b50) throw new Error("Invalid ZIP archive.");
+
+    const flags = view.getUint16(offset + 6, true);
+    const method = view.getUint16(offset + 8, true);
+    const compressedSize = view.getUint32(offset + 18, true);
+    const filenameLength = view.getUint16(offset + 26, true);
+    const extraLength = view.getUint16(offset + 28, true);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + filenameLength + extraLength;
+    const dataEnd = dataStart + compressedSize;
+    if (flags & 0x0008) throw new Error("ZIP entries with data descriptors are not supported.");
+    if (dataEnd > bytes.length) throw new Error("Invalid ZIP archive.");
+
+    const name = decoder.decode(bytes.slice(nameStart, nameStart + filenameLength));
+    if (!name.endsWith("/")) {
+      if (!name.toLowerCase().endsWith(".orbit.json")) {
+        throw new Error("ZIP imports may contain only .orbit.json files.");
+      }
+      const compressed = bytes.slice(dataStart, dataEnd);
+      const data = method === 0 ? compressed : method === 8 ? await inflateZipEntry(compressed) : null;
+      if (!data) throw new Error("Unsupported ZIP compression method.");
+      snapshots.push(parseImportSnapshotText(decoder.decode(data), name));
+    }
+
+    offset = dataEnd;
+  }
+
+  if (!snapshots.length) throw new Error("ZIP archive did not contain any .orbit.json snapshots.");
+  return snapshots;
+}
+
+async function readImportSnapshots(file) {
+  const name = String(file?.name || "").toLowerCase();
+  if (name.endsWith(".zip")) return readZipSnapshots(file);
+  if (name.endsWith(".orbit.json")) return [parseImportSnapshotText(await file.text(), file.name)];
+  throw new Error("Choose a .zip archive or a single .orbit.json snapshot.");
+}
+
 function safeExportName(board, usedNames) {
   const base = String(board?.slug || board?.name || board?.id || "board")
     .trim()
@@ -237,6 +306,15 @@ function renderBoardFlyoutInner() {
       <div class="menu-flyout-actions-row">
         <button type="button" id="exportAllBoards">Export All</button>
       </div>
+      <div class="menu-flyout-divider" aria-hidden="true"></div>
+      <section class="menu-flyout-danger-section" aria-label="Import All">
+        <h3 class="menu-flyout-danger-heading">Import All</h3>
+        <p class="menu-flyout-danger-copy">Imports fully overwrite each matching board. Snapshots without a matching board create new boards.</p>
+        <div class="menu-flyout-actions-row">
+          <input type="file" id="importAllBoardsFile" class="import-file-input" accept=".zip,.orbit.json,application/zip" />
+          <button type="button" data-arc="danger" id="importAllBoards">Import All</button>
+        </div>
+      </section>
     </div>`;
   const body = boardFlyoutView === "export" ? exportBlock : boardFlyoutView === "new" && features.multiBoard ? createBlock : listBlock;
   return `
@@ -358,6 +436,72 @@ function wireBoardFlyout() {
     } finally {
       button.disabled = false;
       button.textContent = originalText;
+    }
+  });
+
+  const importAllBoardsFile = boardFlyout.querySelector("#importAllBoardsFile");
+  boardFlyout.querySelector("#importAllBoards")?.addEventListener("click", () => {
+    importAllBoardsFile?.click();
+  });
+
+  importAllBoardsFile?.addEventListener("change", async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    const importButton = boardFlyout.querySelector("#importAllBoards");
+    const originalText = importButton?.textContent;
+    if (importButton) {
+      importButton.disabled = true;
+      importButton.textContent = "Importing...";
+    }
+    try {
+      const snapshots = await readImportSnapshots(file);
+      const boardsById = new Map((state.data.boards || []).map((board) => [board.id, board]));
+      const boardsBySlug = new Map((state.data.boards || []).map((board) => [board.slug, board]));
+      let replaced = 0;
+      let created = 0;
+
+      for (const snapshot of snapshots) {
+        const incomingBoard = snapshot.board || {};
+        const match = boardsBySlug.get(incomingBoard.slug) || boardsById.get(incomingBoard.id);
+        if (match) {
+          await api("/api/admin/import", {
+            method: "POST",
+            body: {
+              board_id: match.id,
+              replace_existing: true,
+              snapshot
+            }
+          });
+          replaced += 1;
+          continue;
+        }
+
+        const result = await api("/api/admin/import", {
+          method: "POST",
+          body: {
+            ...(state.boardId ? { board_id: state.boardId } : {}),
+            create_new: true,
+            snapshot
+          }
+        });
+        created += 1;
+        if (result.imported_board_id) boardsById.set(result.imported_board_id, { id: result.imported_board_id, slug: result.imported_board_slug });
+        if (result.imported_board_slug) boardsBySlug.set(result.imported_board_slug, { id: result.imported_board_id, slug: result.imported_board_slug });
+      }
+
+      await load();
+      toast.success(`Imported ${snapshots.length} board${snapshots.length === 1 ? "" : "s"} (${replaced} replaced, ${created} created)`);
+      closeBoardFlyout();
+      await navigate({ boardId: state.boardId, view: "board" }, { replace: true });
+    } catch (error) {
+      toast.error(`Import failed: ${error?.message || "invalid import file"}`);
+    } finally {
+      input.value = "";
+      if (importButton) {
+        importButton.disabled = false;
+        importButton.textContent = originalText;
+      }
     }
   });
 }

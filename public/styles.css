@@ -1445,6 +1445,52 @@ h1 {
     width: 100%;
 }
 
+.menu-flyout-divider {
+    width: 100%;
+    height: 1px;
+    margin: 0.15rem 0 0;
+    background: var(--line);
+}
+
+.menu-flyout-danger-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.65rem;
+    border: 1px solid rgba(var(--red-rgb), 0.32);
+    border-radius: calc(var(--radius-surface) - 4px);
+    background: rgba(var(--red-rgb), 0.07);
+}
+
+.menu-flyout-danger-heading {
+    margin: 0;
+    color: var(--danger);
+    font-size: calc((0.78rem) * var(--type-scale));
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.menu-flyout-danger-copy {
+    margin: 0;
+    color: var(--ink);
+    font-size: calc((0.78rem) * var(--type-scale));
+    line-height: 1.35;
+}
+
+.menu-flyout-danger-section .menu-flyout-actions-row {
+    margin-top: 0.1rem;
+}
+
+.menu-flyout-danger-section button[data-arc="danger"] {
+    border-color: rgba(var(--red-rgb), 0.5);
+    background: linear-gradient(135deg, rgba(var(--red-rgb), 0.98), rgba(124, 36, 30, 0.98));
+}
+
+.menu-flyout-danger-section button[data-arc="danger"]:hover {
+    filter: brightness(1.04);
+}
+
 .menu-flyout-actions-row button:disabled {
     cursor: wait;
     opacity: 0.72;
