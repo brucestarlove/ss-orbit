@@ -16,6 +16,7 @@ import { closeDrawer } from "./drawer.js";
 import { closeMenuFlyouts } from "./board-menu.js";
 import { load } from "./app.js";
 import { closeIconSvg } from "./icons.js";
+import { attachTicketTypeahead, ticketCanonicalLabel } from "./ticket-typeahead.js";
 
 /** Clears any pending hide timeout when reopening the create flyout quickly. */
 let createFlyoutHideTimer = 0;
@@ -68,13 +69,6 @@ function renderCreateForm(preselectedLaneId) {
         `<option value="${escapeHtml(item.id)}" ${item.id === effectiveStateId ? "selected" : ""}>${escapeHtml(item.name)}</option>`
     )
     .join("");
-  const parentOptions = ticketsForProject()
-    .filter((ticket) => ticket.type === "epic")
-    .map((ticket) => {
-      const label = `#${ticket.number} — ${ticket.title || ""}`.trim();
-      return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(label)}</option>`;
-    })
-    .join("");
   return `
     <div class="create-flyout-head">
       <h2>New card</h2>
@@ -110,10 +104,8 @@ function renderCreateForm(preselectedLaneId) {
       </div>
       <label class="control-field" id="createTicketParentField">
         <span class="control-field-label">Parent epic</span>
-        <select id="createTicketParent" name="parent_ticket_id" class="select-chevron-field" aria-label="Parent epic">
-          <option value="">None</option>
-          ${parentOptions}
-        </select>
+        <input id="createTicketParent" name="parent_target" type="text" placeholder="Search epic… (optional)" autocomplete="off" aria-label="Parent epic" />
+        <input type="hidden" name="parent_ticket_id" id="createTicketParentId" value="" />
       </label>
       <input id="createTicketLabels" name="labels" type="text" placeholder="Labels (comma-separated)" />
       <button type="submit">Create card</button>
@@ -129,15 +121,37 @@ function wireCreateForm() {
     handleTextareaIndentationKeydown(event, description);
   });
 
+  // Parent epic is chosen via the shared styled typeahead. The visible field
+  // holds the "#12 — Title" label; the resolved epic id lives in a hidden input
+  // that the submit reads. Typing (or clearing) drops a stale id so only an
+  // explicit pick is submitted.
+  const parentInput = form.querySelector("#createTicketParent");
+  const parentId = form.querySelector("#createTicketParentId");
+  parentInput.addEventListener("input", () => {
+    parentId.value = "";
+  });
+  attachTicketTypeahead(
+    parentInput,
+    () => ticketsForProject().filter((ticket) => ticket.type === "epic"),
+    {
+      onSelect: (ticket) => {
+        parentId.value = ticket.id;
+        parentInput.value = ticketCanonicalLabel(ticket);
+      },
+    },
+  );
+
   // Epics cannot have a parent (server rejects with `epic_cannot_have_parent`),
   // so hide the Parent epic field whenever Type is Epic.
   const typeSelect = form.querySelector("#createTicketType");
   const parentField = form.querySelector("#createTicketParentField");
-  const parentSelect = form.querySelector("#createTicketParent");
   const syncParentVisibility = () => {
     const isEpic = typeSelect.value === "epic";
     parentField.hidden = isEpic;
-    if (isEpic) parentSelect.value = "";
+    if (isEpic) {
+      parentInput.value = "";
+      parentId.value = "";
+    }
   };
   typeSelect.addEventListener("change", syncParentVisibility);
   syncParentVisibility();

@@ -7214,8 +7214,12 @@ button.attachment-lightbox-close::after {
    for a future @starlove/ui extraction. */
 
 /* Headings = drawer & section headings: the uppercase "SETTINGS" drawer label,
-   the section titles (THEME, TYPOGRAPHY, …), and kanban lane titles (AI READY, …). */
+   flyout eyebrows (BOARD, NEW BOARD), settings card titles (THEME, TYPOGRAPHY, …),
+   and kanban lane titles (AI READY, …). */
 .drawer-eyebrow,
+.menu-flyout-head,
+.menu-flyout-heading,
+.help-dialog-heading,
 .settings-card-title,
 .section > h3,
 details.section > summary h3,

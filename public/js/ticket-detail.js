@@ -44,6 +44,7 @@ import { closeIconSvg } from "./icons.js";
 import { handleTextareaIndentationKeydown } from "./text-editing.js";
 import { renderPanel, renderTogglePanel } from "./panel.js";
 import { attachTypeahead } from "./typeahead.js";
+import { attachTicketTypeahead } from "./ticket-typeahead.js";
 
 /**
  * Refresh the open drawer from the focused ticket context endpoint. When the
@@ -1221,11 +1222,12 @@ function renderStatusHistory(history) {
 }
 
 function renderComment(comment) {
+  const aiEnabled = currentBoard()?.ai_enabled !== 0;
   const omittedForAi = Boolean(comment.omitted_for_ai);
   const kindLabel =
     comment.kind === "human_comment" ? "" : escapeHtml(comment.kind.replace(/_/g, " "));
   return `
-    <div class="comment ${comment.kind === "checkpoint" ? "checkpoint" : ""} ${omittedForAi ? "is-ai-omitted" : ""}">
+    <div class="comment ${comment.kind === "checkpoint" ? "checkpoint" : ""} ${aiEnabled && omittedForAi ? "is-ai-omitted" : ""}">
       <div class="comment-head">
         <div class="comment-head-main">
           <div class="comment-head-title">
@@ -1237,14 +1239,18 @@ function renderComment(comment) {
       <div class="comment-body preserved-text-body">${renderPreservedText(comment.body)}</div>
       <div class="comment-footer">
         <span class="comment-footer-meta">${formatDate(comment.created_at)}</span>
-        <button
+        ${
+          aiEnabled
+            ? `<button
           type="button"
           class="comment-ai-toggle detail-action-btn"
           data-variant="ghost"
           data-comment-action="toggle-ai-omission"
           data-comment-id="${escapeHtml(comment.id)}"
           data-omitted-for-ai="${omittedForAi ? "true" : "false"}"
-        >${omittedForAi ? "AI Include" : "AI Ignore"}</button>
+        >${omittedForAi ? "AI Include" : "AI Ignore"}</button>`
+            : ""
+        }
       </div>
     </div>
   `;
@@ -1386,46 +1392,6 @@ function childCandidates(epic) {
   );
 }
 
-// Canonical "#12 — Title" label the resolve-on-submit logic expects.
-function ticketCanonicalLabel(t) {
-  return `#${t.number} — ${t.title}`;
-}
-
-// A typeahead row for a ticket: bold #number, title, then trailing type and
-// state badges — the same shape as the topbar search results.
-function renderTicketHitRow(t) {
-  const type = canonicalTicketType(t.type);
-  return `
-    <span class="search-hit-main">
-      <strong>${escapeHtml(ticketLabel(t))}</strong>
-      <span class="search-hit-title">${escapeHtml(t.title)}</span>
-    </span>
-    <span class="search-hit-type type-pill-${escapeHtml(type)}">${escapeHtml(typeLabel(t.type))}</span>
-    <span class="search-hit-state" data-variant="${escapeHtml(stateClassFor(t))}">${escapeHtml(t.state_name || "State")}</span>
-  `;
-}
-
-// Matches a ticket against a query by number ("12", "#12") or title substring.
-function ticketMatchesQuery(t, query) {
-  const q = query.replace(/^#/, "");
-  return (
-    String(t.number).startsWith(q) ||
-    t.title.toLowerCase().includes(query)
-  );
-}
-
-// Wire the styled typeahead onto a related-ticket / parent-epic input. Filling
-// the field with the canonical label keeps the existing submit/resolve flow.
-function attachTicketTypeahead(input, getCandidates) {
-  if (!input) return;
-  attachTypeahead(input, {
-    getItems: getCandidates,
-    match: ticketMatchesQuery,
-    renderItem: renderTicketHitRow,
-    valueOf: ticketCanonicalLabel,
-    emptyText: "No matching tickets",
-  });
-}
 
 // Board labels not yet applied to this ticket, as {name, color} items.
 function labelCandidates(ticket) {

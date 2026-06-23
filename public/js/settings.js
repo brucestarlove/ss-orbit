@@ -806,7 +806,7 @@ function renderProjectJournalTab(context) {
   return `
     ${aiEnabled ? `<p class="description">Agent-facing project memory: decisions to follow and lessons to apply. Struck entries stay visible here but are excluded from agent context.</p>` : ""}
     <div class="section">
-      ${renderProjectEntries(context.entries)}
+      ${renderProjectEntries(context.entries, aiEnabled)}
       <form id="projectEntryForm" class="comment-form project-entry-form">
         <select name="type" class="select-chevron-field" aria-label="Entry type">
           <option value="decision">Decision</option>
@@ -1321,27 +1321,30 @@ async function copyText(value) {
   textArea.remove();
 }
 
-function renderProjectEntries(entries = []) {
+function renderProjectEntries(entries = [], aiEnabled = false) {
   if (!entries.length) return `<p class="description">No project entries yet.</p>`;
   return entries
     .map(
       (entry) => {
         const isStruck = Boolean(entry.struck_at);
+        const showStruckState = aiEnabled && isStruck;
         return `
-        <div class="comment project-entry ${escapeHtml(entry.type)} ${isStruck ? "is-struck" : ""}">
+        <div class="comment project-entry ${escapeHtml(entry.type)} ${showStruckState ? "is-struck" : ""}">
           <div class="comment-head">
             <div class="comment-head-main">
               <div class="comment-head-title">
                 <span class="entry-type-pill ${escapeHtml(entry.type)}">${escapeHtml(entry.type)}</span>
                 <strong class="entry-title">${escapeHtml(entry.title)}</strong>
               </div>
-              ${isStruck ? `<span class="project-entry-status">Excluded from agent context</span>` : ""}
+              ${showStruckState ? `<span class="project-entry-status">Excluded from agent context</span>` : ""}
             </div>
           </div>
           <div class="comment-body">${escapeHtml(entry.body)}</div>
           <div class="comment-footer">
             <span class="comment-footer-meta">${escapeHtml(entry.created_by)} · ${formatDate(entry.created_at)}</span>
-            <button
+            ${
+              aiEnabled
+                ? `<button
               type="button"
               data-variant="ghost"
               class="project-entry-strike detail-action-btn"
@@ -1349,7 +1352,9 @@ function renderProjectEntries(entries = []) {
               data-entry-id="${escapeHtml(entry.id)}"
               data-struck="${isStruck ? "true" : "false"}"
               aria-pressed="${isStruck ? "true" : "false"}"
-            >${isStruck ? "Restore" : "Strike"}</button>
+            >${isStruck ? "Restore" : "Strike"}</button>`
+                : ""
+            }
           </div>
         </div>
       `;
