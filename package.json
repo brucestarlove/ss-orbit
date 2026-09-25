@@ -55,7 +55,7 @@
     "claude-code"
   ],
   "dependencies": {
-    "@starlove/ui": "^3.3.2",
+    "@starlove/ui": "^3.3.3",
     "esbuild": "^0.25.0"
   }
 }

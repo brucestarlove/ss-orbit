@@ -297,6 +297,8 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
   for (const importPath of [
     "@starlove/ui/tokens",
     "@starlove/ui/components/button",
+    "@starlove/ui/components/menu-flyout",
+    "@starlove/ui/components/search-results",
     "@starlove/ui/components/slider",
     "@starlove/ui/components/topbar-notes"
   ]) {
@@ -312,6 +314,12 @@ test("Orbit CSS imports published Starscape UI chrome through the bundling seam"
 
   assert.doesNotMatch(bundled, /@import\s+"@starlove\/ui/);
   assert.match(bundled, /\.topbar-notes/);
+  assert.match(bundled, /\.menu-flyout-head--actions/);
+  assert.match(bundled, /\.menu-flyout-actions-row button/);
+  assert.match(bundled, /\.typeahead-results \.search-hit\.is-active/);
+  assert.doesNotMatch(stylesSource, /\.menu-flyout-head--actions\s*\{/);
+  assert.doesNotMatch(stylesSource, /\.typeahead-results\s*\{/);
+  assert.match(stylesSource, /\.search-results:not\(\.typeahead-results\)\s*\{/);
   assert.match(bundled, /button\[data-variant=primary\]|button\[data-variant="primary"\]/);
 });
 
